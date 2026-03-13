@@ -82,14 +82,15 @@
           "description": "Simulation end time"
         },
         "resolution": { 
-          "type": "string",
-          "default": "60",
-          "description": "Time resolution value"
+          "type": "integer",
+          "minimum": 1,
+          "default": 60,
+          "description": "Time resolution value (informational default only; runtime must enforce this value)"
         },
         "resolution_unit": { 
           "type": "string",
           "default": "minutes",
-          "description": "Time resolution unit"
+          "description": "Time resolution unit (informational default only; runtime must enforce this value)"
         },
         "buem": { "$ref": "#/$defs/buem" }
       }
@@ -103,32 +104,20 @@
         "child_components": {
           "type": "array",
           "items": { "$ref": "#/$defs/child_component" },
-          "description": "Alternative flat component format (converted to nested)"
+          "description": "Flat component format — deprecated in favour of nested `components` inside `building_attributes`; retained for external compatibility only"
         },
         "use_milp": {
           "type": "boolean",
           "default": false,
-          "description": "Use Mixed Integer Linear Programming solver"
+          "description": "Use Mixed Integer Linear Programming solver (informational default only; runtime must enforce this value)"
         }
       }
     },
 
     "building_attributes": {
       "type": "object",
-      "required": ["latitude", "longitude"],
+      "description": "Structured building input attributes. Spatial location is derived exclusively from the enclosing GeoJSON geometry coordinates.",
       "properties": {
-        "latitude": { 
-          "type": "number", 
-          "minimum": -90, 
-          "maximum": 90,
-          "description": "Geographic latitude in degrees"
-        },
-        "longitude": { 
-          "type": "number", 
-          "minimum": -180, 
-          "maximum": 180,
-          "description": "Geographic longitude in degrees"
-        },
         "A_ref": { 
           "type": "number", 
           "minimum": 0,
@@ -142,13 +131,17 @@
         "components": { "$ref": "#/$defs/components" },
         
         "_external_format_fields": {
-          "description": "Fields from external schemas for compatibility",
-          "country": { "type": "string" },
-          "building_type": { "type": "string" },
-          "construction_period": { "type": "string" },
-          "heated_area_m2": { "type": "number", "minimum": 0 },
-          "volume_m3": { "type": "number", "minimum": 0 },
-          "height_m": { "type": "number", "minimum": 0 }
+          "type": "object",
+          "description": "Fields from external schemas retained for compatibility only; not used in modelling",
+          "properties": {
+            "country": { "type": "string" },
+            "building_type": { "type": "string" },
+            "construction_period": { "type": "string" },
+            "heated_area_m2": { "type": "number", "minimum": 0 },
+            "volume_m3": { "type": "number", "minimum": 0 },
+            "height_m": { "type": "number", "minimum": 0 }
+          },
+          "additionalProperties": false
         }
       }
     },
@@ -164,7 +157,7 @@
         "Doors": { "$ref": "#/$defs/component" },
         "Ventilation": { "$ref": "#/$defs/ventilation_component" }
       },
-      "additionalProperties": { "$ref": "#/$defs/component" }
+      "additionalProperties": false
     },
 
     "component": {
@@ -180,7 +173,7 @@
           "type": "number", 
           "minimum": 0,
           "default": 1.0,
-          "description": "Transmission correction factor"
+          "description": "Transmission correction factor (informational default only; runtime must enforce this value)"
         },
         "elements": {
           "type": "array",
@@ -205,7 +198,7 @@
           "minimum": 0, 
           "maximum": 1,
           "default": 0.5,
-          "description": "Solar heat gain coefficient"
+          "description": "Solar heat gain coefficient (informational default only; runtime must enforce this value)"
         },
         "elements": {
           "type": "array",

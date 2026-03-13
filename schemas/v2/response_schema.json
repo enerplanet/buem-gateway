@@ -96,7 +96,8 @@
           "description": "Simulation end time" 
         },
         "resolution": { 
-          "type": "string",
+          "type": "integer",
+          "minimum": 1,
           "description": "Time resolution value"
         },
         "resolution_unit": { 
@@ -116,7 +117,7 @@
       "properties": {
         "building_attributes": {
           "type": "object",
-          "description": "Original building attributes from request (echoed back)"
+          "description": "Building attributes echoed verbatim from the request; the response must contain exactly the same object as submitted in the request without modification"
         },
         "child_components": {
           "type": "array", 
@@ -149,7 +150,8 @@
           "description": "Profile end time"
         },
         "resolution": { 
-          "type": "string",
+          "type": "integer",
+          "minimum": 1,
           "description": "Time resolution"
         },
         "resolution_unit": { 
