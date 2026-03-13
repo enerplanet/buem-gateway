@@ -98,11 +98,12 @@
         "resolution": { 
           "type": "integer",
           "minimum": 1,
-          "description": "Time resolution value"
+          "description": "Simulation time resolution echoed from the request; all generated load profiles are sampled at this interval. Unit is always minutes."
         },
         "resolution_unit": { 
           "type": "string",
-          "description": "Time resolution unit"
+          "const": "minutes",
+          "description": "Time resolution unit; always minutes"
         },
         "buem": { "$ref": "#/$defs/buem" }
       }
@@ -152,11 +153,12 @@
         "resolution": { 
           "type": "integer",
           "minimum": 1,
-          "description": "Time resolution"
+          "description": "Temporal resolution of the load profiles; must equal the simulation resolution requested in the input payload. Unit is always minutes."
         },
         "resolution_unit": { 
-          "type": "string", 
-          "description": "Resolution unit"
+          "type": "string",
+          "const": "minutes",
+          "description": "Resolution unit; always minutes"
         },
         "summary": { "$ref": "#/$defs/load_summary" },
         "timeseries": { "$ref": "#/$defs/load_timeseries" },
