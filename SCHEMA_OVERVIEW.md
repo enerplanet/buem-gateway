@@ -258,8 +258,6 @@ flowchart TD
     SUM --> ES
 ```
 
-> `electricity` in `summary` is generated from a stochastic occupancy profile — it is not computed by the 5R1C thermal model.
-
 ---
 
 ## Measurement Type Library
