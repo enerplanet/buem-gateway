@@ -28,27 +28,51 @@ between EnerPlanET (client) and the BUEM microservice (server).
 
 A new version is required if:
 
-- Required fields are added.
-- Existing required fields are removed.
+- Required fields are added or removed.
 - Field types change.
-- Field location changes (e.g., moved into nested structure).
+- Field location changes (e.g., moved into a nested structure).
 - Validation constraints become stricter.
 - Semantic meaning of fields changes.
+- Quantity representation changes (e.g., bare number → measurement object).
 
-Examples from v1 → v2:
+Examples from v2 → v3:
 
-- Introduction of structured `building_attributes`.
-- Migration of latitude/longitude into nested object.
-- Introduction of nested component model.
-- Addition of stricter validation constraints.
+- `building_attributes` replaced by four separate nodes: `building`,
+  `envelope`, `thermal`, `solver`.
+- `latitude`/`longitude` removed from `buem` — location is now read
+  from `feature.geometry.coordinates` only.
+- All measurable quantities changed from bare numbers to
+  `{ "value": number, "unit": string }` objects.
+- `components` nested object replaced by flat `envelope.elements[]`
+  list discriminated by a `type` field.
+- `child_components` legacy format removed.
+- Energy summary fields renamed: `total_kwh` → `total`, `max_kw` → `max`, etc.
 
 ------------------------------------------------------------------------
 
 ## Current Versions
 
+### v3 (2026-03)
+
+Status: In development\
+Migration from v2: Breaking changes introduced
+
+Key changes:
+
+- Separation of concerns: `building`, `envelope`, `thermal`, `solver` nodes.
+- Location sourced from GeoJSON geometry — no duplication in `buem`.
+- Unit-aware measurement types for all measurable quantities.
+- Flat `envelope.elements[]` with user-defined ids, unlimited per type.
+- Thermal properties decoupled from geometry via `thermal.element_properties[]`.
+- TABULA-aligned thermal parameters exposed as optional schema fields.
+- `metadata` formalised as a required top-level response field.
+- Timeseries unit declared once at array level.
+
+See CHANGELOG.md for the full list of changes.
+
 ### v2 (2026-02)
 
-Status: Current version\
+Status: Deprecated\
 Migration from v1: Breaking changes introduced
 
 Key changes:
@@ -68,8 +92,7 @@ Status: Deprecated
 
 Characteristics:
 
-- Minimal schema.
-- Loose typing.
+- Minimal schema with loose typing.
 - Flat child component model only.
 - Strictly 2D geometry.
 - No schema identification metadata.
@@ -82,8 +105,8 @@ Characteristics:
 - Older versions are marked as Deprecated.
 - Deprecated versions remain available for reference but should not be
     used for new integrations.
-- Future versions (v3+) must document all breaking and non-breaking
-    changes in CHANGELOG.md.
+- Every version must document all breaking and non-breaking changes
+    in CHANGELOG.md.
 
 ------------------------------------------------------------------------
 
