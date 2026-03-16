@@ -8,105 +8,121 @@ between EnerPlanET (client) and the BUEM microservice (server).
 
 ------------------------------------------------------------------------
 
-## Versioning Principles
+## Versioning Approach
 
-1. Each schema version is stored in its own folder: schemas/v1/
-    schemas/v2/ schemas/v3/
+Schemas use **semantic versioning** (MAJOR.MINOR.PATCH) via Git releases.
 
-2. Version folders are immutable once released.
-
-3. Breaking changes require a new version folder.
-
-4. Minor clarifications that do not affect validation rules may be
-    updated within the same version but must be documented.
-
-5. The CHANGELOG.md file must be updated for every version release.
+- `schemas/` — always contains the current released version
+- `schemas/v1/`, `schemas/v2/`, `schemas/v3/` — archived snapshots
+- Git releases (`v1.0.0`, `v2.0.0`, etc.) are the authoritative version tags
+- Any historical version is accessible via `git checkout <tag> -- schemas/`
 
 ------------------------------------------------------------------------
 
-## What Counts as a Breaking Change
+## Semantic Versioning Rules
 
-A new version is required if:
+### MAJOR — breaking change, client must update
 
-- Required fields are added or removed.
-- Field types change.
-- Field location changes (e.g., moved into a nested structure).
-- Validation constraints become stricter.
-- Semantic meaning of fields changes.
-- Quantity representation changes (e.g., bare number → measurement object).
+- Required fields added or removed
+- Field renamed or relocated
+- Field type changes (including bare number to measurement object)
+- Validation constraints become stricter
+- Semantic meaning of a field changes
 
-Examples from v2 → v3:
+### MINOR — backwards compatible addition
 
-- `building_attributes` replaced by four separate nodes: `building`,
-  `envelope`, `thermal`, `solver`.
-- `latitude`/`longitude` removed from `buem` — location is now read
-  from `feature.geometry.coordinates` only.
+- New optional field added
+- New allowed unit added to an existing quantity type
+- New optional node added (e.g. new section under `buem`)
+
+### PATCH — no validation change
+
+- Description or documentation text corrected
+- Example values updated
+- Whitespace or formatting only
+
+------------------------------------------------------------------------
+
+## Release Process
+
+1. Make changes to `schemas/` (flat directory)
+2. Validate both schemas against their example files
+3. Update `CHANGELOG.md`
+4. Commit and create a Git release with the new version tag
+
+```bash
+# Validate before releasing
+python -c "
+import json
+from jsonschema import Draft202012Validator
+for name in ['request', 'response']:
+    schema  = json.load(open(f'schemas/{name}_schema.json'))
+    example = json.load(open(f'schemas/example_{name}.json'))
+    errs = list(Draft202012Validator(schema).iter_errors(example))
+    print(f'{name}: OK' if not errs else [e.message for e in errs])
+"
+
+# Create release
+gh release create v3.1.0 --title "v3.1.0" --notes "..." \
+  schemas/request_schema.json \
+  schemas/response_schema.json \
+  schemas/example_request.json \
+  schemas/example_response.json
+```
+
+------------------------------------------------------------------------
+
+## What Counts as a Breaking Change -- v2 to v3 Examples
+
+- `building_attributes` replaced by four nodes: `building`, `envelope`,
+  `thermal`, `solver`
+- `latitude`/`longitude` removed from `buem` -- now read from
+  `feature.geometry.coordinates` only
 - All measurable quantities changed from bare numbers to
-  `{ "value": number, "unit": string }` objects.
+  `{ "value": number, "unit": string }` objects
 - `components` nested object replaced by flat `envelope.elements[]`
-  list discriminated by a `type` field.
-- `child_components` legacy format removed.
-- Energy summary fields renamed: `total_kwh` → `total`, `max_kw` → `max`, etc.
+- `child_components` legacy format removed
+- Energy summary fields renamed (`total_kwh` to `total`, `max_kw` to `max`, etc.)
 
 ------------------------------------------------------------------------
 
-## Current Versions
+## Released Versions
 
-### v3 (2026-03)
+### v3.0.0 (2026-03) -- Current
 
-Status: In development\
-Migration from v2: Breaking changes introduced
-
-Key changes:
-
-- Separation of concerns: `building`, `envelope`, `thermal`, `solver` nodes.
-- Location sourced from GeoJSON geometry — no duplication in `buem`.
-- Unit-aware measurement types for all measurable quantities.
-- Flat `envelope.elements[]` with user-defined ids, unlimited per type.
-- Thermal properties decoupled from geometry via `thermal.element_properties[]`.
-- TABULA-aligned thermal parameters exposed as optional schema fields.
-- `metadata` formalised as a required top-level response field.
-- Timeseries unit declared once at array level.
-
-See CHANGELOG.md for the full list of changes.
-
-### v2 (2026-02)
-
-Status: Deprecated\
-Migration from v1: Breaking changes introduced
+Migration from v2: Breaking changes. See CHANGELOG.md for full details.
 
 Key changes:
+- Separation of concerns: `building`, `envelope`, `thermal`, `solver` nodes
+- Location sourced exclusively from GeoJSON geometry
+- Unit-aware `{ value, unit }` measurement types throughout
+- Flat `envelope.elements[]` with user-defined ids, unlimited per type
+- Thermal properties decoupled from geometry via `thermal.element_properties[]`
+- TABULA-aligned thermal parameters exposed as optional fields
+- `metadata` formalised as required top-level response field
 
-- Added `$id`, `title`, and `description`.
-- Introduced structured `$defs`.
-- Updated geometry to allow optional elevation (3D).
-- Replaced loose `building_attributes` with structured schema.
-- Added nested building components model.
-- Added detailed component element definitions.
-- Introduced `use_milp` control flag.
-- Enforced stricter validation rules.
+Archived snapshot: `schemas/v3/`
 
-### v1 (2025-11)
+### v2.0.0 (2026-02) -- Deprecated
 
-Status: Deprecated
+Migration from v1: Breaking changes.
 
-Characteristics:
+Key changes:
+- Introduced structured `$defs`
+- Optional elevation in geometry (3D coordinates)
+- Replaced loose `building_attributes` with structured nested schema
+- Added nested component model (Walls/Roof/Floor/Windows/Doors/Ventilation)
+- Introduced `use_milp` control flag
+- Stricter validation rules
 
-- Minimal schema with loose typing.
-- Flat child component model only.
-- Strictly 2D geometry.
-- No schema identification metadata.
+Archived snapshot: `schemas/v2/`
 
-------------------------------------------------------------------------
+### v1.0.0 (2025-11) -- Deprecated
 
-## Version Lifecycle
+Initial schema version. Minimal structure, loose typing, flat child
+component model, strictly 2D geometry.
 
-- Only one version is marked as Current.
-- Older versions are marked as Deprecated.
-- Deprecated versions remain available for reference but should not be
-    used for new integrations.
-- Every version must document all breaking and non-breaking changes
-    in CHANGELOG.md.
+Archived snapshot: `schemas/v1/`
 
 ------------------------------------------------------------------------
 
@@ -119,7 +135,8 @@ Any proposed schema change must:
 1. Be documented in CHANGELOG.md
 2. Be reviewed before merging
 3. Be validated using JSON Schema validation tools
-4. Increment the version if breaking changes are introduced
+4. Follow semver -- increment MAJOR for breaking, MINOR for additions,
+   PATCH for documentation only
 
 ------------------------------------------------------------------------
 
