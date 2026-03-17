@@ -1,74 +1,136 @@
 # BUEM–EnerPlanET API Schema Changelog
 
-## v3 (2026-03)
+------------------------------------------------------------------------
 
-Status: In development
-Migration from v2: Breaking changes introduced
+## v3.0.0 (2026-03) — Current
 
-### 1. Separation of Concerns in Request Schema
+**Status:** Current version
+**Compatible with v2:** No — requests must be updated before sending to a v3 server.
 
-`building_attributes` replaced by four dedicated nodes under `buem`:
+------------------------------------------------------------------------
 
-- `building` — thematic and classification parameters (type, construction period, country, storeys, room height, floor area, attic/cellar/neighbour conditions)
-- `envelope` — geometric description of building elements as a flat list (area, azimuth, tilt, surface reference)
-- `thermal` — thermal performance parameters aligned with IEE TABULA definitions (U-values, ventilation rates, thermal mass, comfort setpoints, shading factors)
-- `solver` — execution control flags (use_milp, parallel_thermal, use_chunked_processing)
+### What changed and why
 
-### 2. Location Removed from buem
+#### 1. Building description has a clear two-level structure
 
-`building_attributes.latitude` and `building_attributes.longitude` removed. The GeoJSON `feature.geometry.coordinates [lon, lat]` is now the authoritative location source, used for weather station lookup. No duplication.
+In v2 all building parameters lived together in a single block called
+`building_attributes`. In v3, `buem` contains two clearly separated concerns:
 
-### 3. Flat Envelope Elements
+| Section | What it contains |
+|---|---|
+| `building` | The complete physical description of the building: classification fields (type, period, country, etc.), surface geometry and thermal properties (`envelope`), and building-wide thermal parameters (`thermal`) |
+| `solver` | Computation options: which solver to use, whether to run in parallel |
 
-`components` nested object (Walls/Roof/Floor/Windows/Doors/Ventilation) replaced by `envelope.elements[]` — a single flat list of elements each with an `id` and `type` enum. Geometry (area, azimuth, tilt) and parent surface reference live here.
+`envelope` and `thermal` are nested inside `building` because they describe the
+building — they are not independent concerns at the same level as `solver`.
 
-### 4. Thermal Properties Decoupled from Geometry
+**Why:** The old flat structure mixed building physics with computation settings.
+The new structure makes it clear what belongs to the building description and what
+belongs to how the model runs.
 
-U-values, `b_transmission`, `g_gl`, and `air_changes` moved out of the envelope and into `thermal.element_properties[]`, linked to envelope elements by `id`. This separates what a surface is from how it performs thermally.
+#### 2. Building location is taken from the map coordinates only
 
-### 5. TABULA-Aligned Thermal Parameters Exposed
+In v2, latitude and longitude were repeated inside `building_attributes`. In v3,
+location comes exclusively from `feature.geometry.coordinates [longitude, latitude]`
+— the standard GeoJSON location field. The duplicate fields are removed.
 
-Previously hardcoded implementation defaults are now first-class optional schema fields in the `thermal` node:
+**Why:** Having location in two places risks them being inconsistent. The GeoJSON
+geometry is the authoritative location, so the model uses that directly.
 
-- `n_air_infiltration`, `n_air_use` (air change rates)
-- `c_m`, `thermal_class` (thermal mass)
-- `comfortT_lb`, `comfortT_ub` (comfort setpoints)
-- `design_T_min` (outdoor design temperature)
-- `F_sh_hor`, `F_sh_vert`, `F_f`, `F_w` (shading and window correction factors)
+#### 3. Building surfaces listed as a flat list
 
-### 6. Legacy Formats Removed
+In v2, surfaces were grouped into a nested structure by type (a `Walls` object
+containing an `elements` list, a `Roof` object, and so on). In v3, all surfaces
+— regardless of type — are in a single flat list called `building.envelope.elements`.
+Each surface has an `id` that you assign and a `type` field (wall, roof, floor,
+window, door, or ventilation).
 
-- `child_components[]` flat array removed — no longer supported
-- `building_attributes` object removed — replaced by `building`, `envelope`, `thermal`
+There is no longer a limit on how many surfaces of each type you can include.
 
-### 7. Solver Flags Formalised
+**Why:** The nested structure made it awkward to add more than one roof section or
+an unusual wall configuration. A flat list with explicit types is simpler to build
+and read.
 
-`use_milp`, `parallel_thermal`, and `use_chunked_processing` moved to a dedicated `solver` node. Previously `parallel_thermal` and `use_chunked_processing` were accepted by the implementation but absent from the schema.
+#### 4. Thermal properties defined on each surface directly
 
-### 8. Unit-Aware Measurement Types
+Each surface element carries both its geometry (area, orientation, tilt) and its
+own thermal properties (U-value, solar gain coefficient, transmission correction
+factor) in a single entry. There is no separate list of thermal properties that
+cross-references surfaces by id.
 
-All measurable quantities use `{ "value": number, "unit": string }` instead of bare numbers. A reusable `$defs` measurement library defines allowed units and SI defaults per quantity type:
+```json
+{
+  "id": "Wall_1", "type": "wall",
+  "area": { "value": 30.0, "unit": "m2" },
+  "azimuth": { "value": 0.0, "unit": "deg" },
+  "tilt": { "value": 90.0, "unit": "deg" },
+  "U": { "value": 1.6, "unit": "W/(m2K)" },
+  "b_transmission": { "value": 1.0, "unit": "-" }
+}
+```
 
-- Geometric: `area_qty` (m2/ft2), `length_qty` (m/ft), `angle_qty` (deg/rad)
-- Thermal: `u_value_qty` (W/(m2K)/BTU), `air_change_qty` (1/h), `heat_capacity_qty` (kJ/(m2K)), `temperature_qty` (degC/degF)
-- Dimensionless: `dimensionless_qty` with `unit: "-"` as placeholder
+**Why:** Keeping geometry and thermal performance together in one entry avoids
+having to match two separate lists by id. Each surface is self-contained and
+readable on its own.
 
-The `unit` field defaults to SI when omitted. This enables frontend unit conversion and makes every field self-describing.
+#### 5. Windows and doors reference their parent surface by id
 
-### 9. Response Measurement Types
+Windows and doors have a `parent_id` field that holds the `id` of the wall (or
+roof, for a skylight) they are embedded in. This replaces the previous `surface`
+field whose name did not clearly describe its purpose.
 
-Output quantities in `thermal_load_profile` also use `{ value, unit }`:
+#### 6. Building-wide thermal parameters available as inputs
 
-- `energy_qty` (kWh/MWh/Wh) — for `total` in energy summaries
-- `power_qty` (kW/W/MW) — for `max`, `min`, `mean`, `median`, `std`
-- `energy_intensity_qty` (kWh/m2) — for `energy_intensity`
-- `duration_qty` (s/ms/min) — for `model_metadata.processing_time`
+Several thermal parameters that the model used internally with fixed default values
+can now be set explicitly in the `building.thermal` section. They are all optional
+— if omitted, the same defaults as before are used.
 
-### 10. Response Energy Summary Field Names
+| Parameter | Physical meaning |
+|---|---|
+| `n_air_infiltration` | Uncontrolled air infiltration rate (how much cold air leaks in) |
+| `n_air_use` | Ventilation air change rate during occupancy |
+| `c_m` | Thermal mass of the building (how much heat the structure can store) |
+| `thermal_class` | Thermal mass category (light / medium / heavy) |
+| `comfortT_lb` | Minimum acceptable indoor temperature (heating setpoint) |
+| `comfortT_ub` | Maximum acceptable indoor temperature (cooling setpoint) |
+| `design_T_min` | Outdoor design temperature for peak load calculation |
+| `F_sh_hor` / `F_sh_vert` | Shading reduction factors for horizontal and vertical surfaces |
+| `F_f` | Window frame fraction (fraction of window area that is frame, not glass) |
+| `F_w` | Window correction factor |
 
-Statistical fields renamed to drop the unit suffix (unit now carried in the measurement object):
+**Why:** These parameters significantly affect results. Exposing them allows
+calibration against measured data and makes the model's assumptions explicit.
 
-| v2 field | v3 field |
+#### 7. Old input formats removed
+
+Two input structures from v2 are no longer accepted:
+- The `child_components` flat array (an early format from v1).
+- The `building_attributes` block (replaced by the structure above).
+
+#### 8. Every physical quantity now carries its unit
+
+In v2, quantities were plain numbers (e.g. `"area": 85.0`). In v3, every
+measurable quantity is an object with a value and a unit:
+
+```json
+"area": { "value": 85.0, "unit": "m2" }
+```
+
+The unit field uses standard SI notation. If omitted, SI is assumed. Imperial units
+(ft², BTU, °F, etc.) are accepted where noted.
+
+**Why:** A bare number is ambiguous — is area in m² or ft²? Is temperature in °C
+or °F? Carrying the unit alongside the value eliminates this ambiguity and allows
+the frontend to display values in the user's preferred unit.
+
+#### 9. Output quantities also carry their unit
+
+The same pattern applies to the response. All summary quantities in
+`thermal_load_profile.summary` are `{value, unit}` objects.
+
+The unit suffix is removed from field names now that the unit is carried explicitly:
+
+| v2 field name | v3 field name |
 |---|---|
 | `total_kwh` | `total` |
 | `max_kw` | `max` |
@@ -77,79 +139,47 @@ Statistical fields renamed to drop the unit suffix (unit now carried in the meas
 | `median_kw` | `median` |
 | `std_kw` | `std` |
 
-### 11. Timeseries Unit Declaration
+#### 10. Hourly result arrays have a single shared unit label
 
-`timeseries` arrays (`heating`, `cooling`, `electricity`) remain plain number arrays. A single `unit` field at the timeseries level declares the unit for all three arrays, avoiding per-value wrapping for 8760-entry arrays.
+The hourly arrays (`heating`, `cooling`, `electricity`) remain plain number lists.
+A single `unit` field at the top level of `timeseries` declares the unit for all
+three arrays (avoiding the overhead of wrapping 8760 values individually).
 
-### 12. Response Metadata Formalised
+#### 11. Response now always includes a processing summary
 
-`metadata` (top-level collection statistics) is now a required response field with required sub-fields `total_features`, `successful_features`, `failed_features`.
+The response now always contains a `metadata` block at the top level:
 
----
+```json
+"metadata": {
+  "total_features": 5,
+  "successful_features": 4,
+  "failed_features": 1
+}
+```
 
-## v2 (2026-02)
+------------------------------------------------------------------------
 
-Status: Current version
-Migration from v1: Breaking changes introduced
+## v2.0.0 (2026-02) — Deprecated
 
-### 1. Schema Structure Improvements
+**Status:** Deprecated
+**Compatible with v1:** No — requests must be updated.
 
-- Added `$id`, `title`, and `description` for schema identification and tracking.
-- Introduced structured `$defs` replacing generic v1 definitions.
-- Improved inline documentation.
+### What changed
 
-### 2. Geometry Definition Updated
+- Building parameters were organised into a structured `building_attributes` block,
+  replacing the loosely typed object from v1.
+- Building surfaces were introduced as a nested structure (Walls, Roof, Floor,
+  Windows, Doors, Ventilation), each with geometry and thermal attributes.
+- Elevation was added as an optional third coordinate in the geometry.
+- The `use_milp` solver flag was introduced.
+- Validation rules were tightened throughout.
 
-- v1 restricted geometry to 2D coordinates.
-- v2 allows optional elevation (`maxItems: 3`).
+------------------------------------------------------------------------
 
-### 3. Introduction of `building_attributes`
+## v1.0.0 (2025-11) — Deprecated
 
-- v1 used an untyped object.
-- v2 provides explicit structured fields:
-  - latitude, longitude
-  - A_ref, h_room
-  - nested components
-  - external compatibility fields
+**Status:** Deprecated
 
-### 4. Structured Building Components Model
-
-- v1 supported only flat `child_components`.
-- v2 adds a nested component model:
-  - Walls, Roof, Floor, Windows, Doors, Ventilation
-  - each with detailed thermal/geometry attributes.
-
-### 5. Redefined Component Elements
-
-- Added area, tilt, azimuth, U-value override.
-- Specialised element types introduced:
-  - window_element
-  - ventilation_element
-
-### 6. New Model Control Field
-
-- Added `use_milp` boolean with default `false`.
-
-### 7. Improved Validation Requirements
-
-- `minItems: 1` for features.
-- Stricter typing for all attribute groups.
-
-### 8. Deprecated or Changed Field Interpretations
-
-- Lat/lon moved into `building_attributes`.
-- Replaced generic `building_attributes` with structured schema.
-
----
-
-## v1 (2025-11)
-
-Status: Deprecated
-
-### Notes
-
-- Minimal schema with loose typing.
-- Only flat child component model.
-- No detailed modelling attributes.
-- No explicit schema identification.
-- Strictly 2D geometry.
+Initial release. Minimal structure with loose typing. Supported only a flat list of
+child components. No detailed thermal or geometric parameters. Location was
+specified as bare latitude/longitude fields. Strictly 2D geometry.
