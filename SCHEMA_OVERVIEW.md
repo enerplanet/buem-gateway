@@ -6,6 +6,7 @@ Visual reference for the v3 request and response schemas.
 - `*` = required field
 - `-` = optional field
 - `{ v, u }` = measurement quantity: `{ "value": number, "unit": string }`
+- `+` = field added by the server (response only)
 
 ---
 
@@ -49,8 +50,6 @@ flowchart TD
     BUEM["buem
     ───────────────
     * building
-    * envelope
-    - thermal
     - solver"]:::obj
 
     BUILD["building
@@ -63,7 +62,9 @@ flowchart TD
     - country (ISO 3166-1)
     - attic_condition
     - cellar_condition
-    - neighbour_status"]:::sep
+    - neighbour_status
+    * envelope
+    - thermal"]:::sep
 
     ENV["envelope
     ───────────────
@@ -77,7 +78,11 @@ flowchart TD
     * area { v, unit: m2 }  [not ventilation]
     * azimuth { v, unit: deg }  [not ventilation]
     * tilt { v, unit: deg }  [not ventilation]
-    - surface  (parent wall id)"]:::leaf
+    - parent_id  (id of parent wall/roof)
+    - U { v, unit: W/(m2K) }
+    - b_transmission { v, unit: - }
+    - g_gl { v, unit: - }  (windows)
+    - air_changes { v, unit: 1/h }  (ventilation)"]:::leaf
 
     THERM["thermal
     ───────────────
@@ -91,16 +96,7 @@ flowchart TD
     - F_sh_hor { v, unit: - }
     - F_sh_vert { v, unit: - }
     - F_f { v, unit: - }
-    - F_w { v, unit: - }
-    - element_properties[ ]"]:::sep
-
-    TEL["thermal_element
-    ───────────────
-    * id  (ref to envelope element)
-    - U { v, unit: W/(m2K) }
-    - b_transmission { v, unit: - }
-    - g_gl { v, unit: - }  (windows)
-    - air_changes { v, unit: 1/h }  (ventilation)"]:::leaf
+    - F_w { v, unit: - }"]:::sep
 
     SOLV["solver
     ───────────────
@@ -113,60 +109,60 @@ flowchart TD
     FEAT --> PROPS
     PROPS --> BUEM
     BUEM --> BUILD
-    BUEM --> ENV
-    BUEM --> THERM
     BUEM --> SOLV
+    BUILD --> ENV
+    BUILD --> THERM
     ENV --> EL
-    THERM --> TEL
 ```
 
-> `geometry.coordinates` is the single source of truth for location — used for weather station lookup. Latitude and longitude are not duplicated inside `buem`.
+> `geometry.coordinates` is the single source of truth for location — latitude and longitude are not duplicated inside `buem`.
+
+> `envelope` and `thermal` are nested inside `building` because they describe the building. `solver` sits at the `buem` level because it controls how the model runs, not what it simulates.
 
 ---
 
-## Envelope / Thermal Split
+## Surface Element — Geometry and Thermal Together
 
-Geometry and thermal performance are separated and linked by element `id`. Any number of elements per type is allowed.
+Each element in `envelope.elements` carries both its geometry and its own thermal
+properties in a single entry. Windows and doors reference their parent wall via
+`parent_id`.
 
 ```mermaid
 flowchart LR
     classDef geo fill:#dbeafe,stroke:#3b82f6,color:#1e3a8a
-    classDef thm fill:#fef9c3,stroke:#f59e0b,color:#78350f
+    classDef win fill:#fef9c3,stroke:#f59e0b,color:#78350f
+    classDef ven fill:#f0fdf4,stroke:#22c55e,color:#14532d
 
-    subgraph env["envelope.elements"]
-        E1["id: Wall_3
-        type: wall
-        area: { value: 30.0, unit: m2 }
-        azimuth: { value: 180.0, unit: deg }
-        tilt: { value: 90.0, unit: deg }"]:::geo
+    W["id: Wall_3
+    type: wall
+    area: { value: 30.0, unit: m2 }
+    azimuth: { value: 180.0, unit: deg }
+    tilt: { value: 90.0, unit: deg }
+    U: { value: 1.6, unit: W/(m2K) }
+    b_transmission: { value: 1.0, unit: - }"]:::geo
 
-        E2["id: Win_2
-        type: window
-        area: { value: 8.0, unit: m2 }
-        azimuth: { value: 180.0, unit: deg }
-        tilt: { value: 90.0, unit: deg }
-        surface: Wall_3"]:::geo
-    end
+    WN["id: Win_2
+    type: window
+    area: { value: 8.0, unit: m2 }
+    azimuth: { value: 180.0, unit: deg }
+    tilt: { value: 90.0, unit: deg }
+    parent_id: Wall_3
+    U: { value: 2.8, unit: W/(m2K) }
+    g_gl: { value: 0.6, unit: - }"]:::win
 
-    subgraph thm["thermal.element_properties"]
-        T1["id: Wall_3
-        U: { value: 1.6, unit: W/(m2K) }
-        b_transmission: { value: 1.0, unit: - }"]:::thm
+    VN["id: Vent_1
+    type: ventilation
+    air_changes: { value: 0.5, unit: 1/h }"]:::ven
 
-        T2["id: Win_2
-        U: { value: 2.8, unit: W/(m2K) }
-        g_gl: { value: 0.6, unit: - }"]:::thm
-    end
-
-    E1 -. "same id" .-> T1
-    E2 -. "same id" .-> T2
+    WN -- "embedded in" --> W
 ```
 
 ---
 
 ## Response Schema
 
-The response echoes all four `buem` request nodes and appends `thermal_load_profile` and `model_metadata`.
+The response echoes `building` and `solver` from the request and appends
+`thermal_load_profile` and `model_metadata`.
 
 ```mermaid
 flowchart TD
@@ -194,8 +190,6 @@ flowchart TD
     BUEM["buem
     ───────────────
     * building  (echoed)
-    * envelope  (echoed)
-    - thermal   (echoed)
     - solver    (echoed)
     + * thermal_load_profile
     + - model_metadata"]:::added
@@ -290,7 +284,7 @@ All measurable quantities use `{ "value": number, "unit": string }`. The `unit` 
 
 ## TABULA Parameter Alignment
 
-Fields in `thermal` map directly to IEE TABULA database parameters:
+Fields in `building.thermal` map directly to IEE TABULA database parameters:
 
 | v3 schema field | TABULA field | Unit | Default |
 |---|---|---|---|
