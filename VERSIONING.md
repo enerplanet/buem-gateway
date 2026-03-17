@@ -1,57 +1,82 @@
-# BUEM--EnerPlanET API Schema Versioning Policy
+# BUEM–EnerPlanET Schema Versioning
 
-This document defines how schema versions are managed for the
-BUEM--EnerPlanET integration.
-
-The JSON schemas in this repository represent the authoritative contract
-between EnerPlanET (client) and the BUEM microservice (server).
+This file explains how the data format between EnerPlanET and BUEM is versioned and
+how to release a new version.
 
 ------------------------------------------------------------------------
 
-## Versioning Approach
+## What is the schema?
 
-Schemas use **semantic versioning** (MAJOR.MINOR.PATCH) via Git releases.
+The schema is a formal description of what the model accepts as input and what it
+returns as output. It defines which fields are required, what units to use, and how
+results are structured.
 
-- `schemas/` — always contains the current released version
-- `schemas/v1/`, `schemas/v2/`, `schemas/v3/` — archived snapshots
-- Git releases (`v1.0.0`, `v2.0.0`, etc.) are the authoritative version tags
-- Any historical version is accessible via `git checkout <tag> -- schemas/`
-
-------------------------------------------------------------------------
-
-## Semantic Versioning Rules
-
-### MAJOR — breaking change, client must update
-
-- Required fields added or removed
-- Field renamed or relocated
-- Field type changes (including bare number to measurement object)
-- Validation constraints become stricter
-- Semantic meaning of a field changes
-
-### MINOR — backwards compatible addition
-
-- New optional field added
-- New allowed unit added to an existing quantity type
-- New optional node added (e.g. new section under `buem`)
-
-### PATCH — no validation change
-
-- Description or documentation text corrected
-- Example values updated
-- Whitespace or formatting only
+Both sides of the integration depend on this description:
+- EnerPlanET (the client) uses it to build requests.
+- BUEM (the model server) uses it to read and validate incoming data.
 
 ------------------------------------------------------------------------
 
-## Release Process
+## Why versioning?
 
-1. Make changes to `schemas/` (flat directory)
-2. Validate both schemas against their example files
-3. Update `CHANGELOG.md`
-4. Commit and create a Git release with the new version tag
+The model evolves over time — new parameters are added, field names may change, or
+the structure may be reorganised. Versioning gives every change a clear label so
+that both sides always know which format they are working with.
+
+A version number looks like this: **3.1.0**
+
+The three numbers mean:
+
+```
+  3   .   1   .   0
+  |       |       |
+  |       |       +-- Documentation fix only (no data format change)
+  |       +---------- New optional field added (old requests still work)
+  +------------------ Breaking change (old requests no longer work)
+```
+
+------------------------------------------------------------------------
+
+## Three types of change
+
+### Breaking change (first number increases — e.g. 2.0.0 → 3.0.0)
+
+The new format is not compatible with the old one. Any system sending requests in
+the old format must update before it will work again.
+
+This applies when:
+- A required field is renamed or removed
+- A field that accepted a plain number now requires a value with a unit (e.g. `150`
+  becomes `{"value": 150, "unit": "kJ/(m2K)"}`)
+- A section of the payload is reorganised or split
+
+### New optional field (middle number increases — e.g. 3.0.0 → 3.1.0)
+
+Something new is available, but nothing existing is removed or changed. Requests
+that worked before still work. The new field is simply ignored if not provided.
+
+This applies when:
+- A new optional parameter is added (e.g. a new shading correction factor)
+- A new unit option is allowed for an existing quantity
+
+### Documentation fix only (last number increases — e.g. 3.1.0 → 3.1.1)
+
+The data format is unchanged. Only text descriptions, example values, or formatting
+are corrected.
+
+------------------------------------------------------------------------
+
+## How to release a new version
+
+1. Edit the schema files directly in `schemas/` — this folder always holds the
+   current version.
+2. Run the validation check below to confirm the schema and its example files are
+   consistent.
+3. Update `CHANGELOG.md` with a plain-language description of what changed and why.
+4. Commit and create a Git release with the appropriate version tag.
 
 ```bash
-# Validate before releasing
+# Validation check — run this before every release
 python -c "
 import json
 from jsonschema import Draft202012Validator
@@ -62,8 +87,8 @@ for name in ['request', 'response']:
     print(f'{name}: OK' if not errs else [e.message for e in errs])
 "
 
-# Create release
-gh release create v3.1.0 --title "v3.1.0" --notes "..." \
+# Create the release (adjust tag and notes)
+gh release create v3.1.0 --title "v3.1.0" --notes "Short description of change" \
   schemas/request_schema.json \
   schemas/response_schema.json \
   schemas/example_request.json \
@@ -72,73 +97,33 @@ gh release create v3.1.0 --title "v3.1.0" --notes "..." \
 
 ------------------------------------------------------------------------
 
-## What Counts as a Breaking Change -- v2 to v3 Examples
+## Where are old versions stored?
 
-- `building_attributes` replaced by four nodes: `building`, `envelope`,
-  `thermal`, `solver`
-- `latitude`/`longitude` removed from `buem` -- now read from
-  `feature.geometry.coordinates` only
-- All measurable quantities changed from bare numbers to
-  `{ "value": number, "unit": string }` objects
-- `components` nested object replaced by flat `envelope.elements[]`
-- `child_components` legacy format removed
-- Energy summary fields renamed (`total_kwh` to `total`, `max_kw` to `max`, etc.)
+| Location | Contents |
+|---|---|
+| `schemas/` | Current version — edit here |
+| `schemas/v1/`, `schemas/v2/`, `schemas/v3/` | Read-only snapshots of past versions |
+
+Any past version can also be retrieved from Git using the release tags
+(`v1.0.0`, `v2.0.0`, etc.).
 
 ------------------------------------------------------------------------
 
-## Released Versions
+## Released versions
 
-### v3.0.0 (2026-03) -- Current
+| Version | Date | Status | What changed |
+|---|---|---|---|
+| v3.0.0 | 2026-03 | Current | `buem` split into `building` (full physical description: classification, envelope, thermal) and `solver`; thermal properties on each surface element directly; every physical quantity carries its unit |
+| v2.0.0 | 2026-02 | Deprecated | Structured building attributes; nested component model introduced |
+| v1.0.0 | 2025-11 | Deprecated | Initial format — minimal structure |
 
-Migration from v2: Breaking changes. See CHANGELOG.md for full details.
-
-Key changes:
-- Separation of concerns: `building`, `envelope`, `thermal`, `solver` nodes
-- Location sourced exclusively from GeoJSON geometry
-- Unit-aware `{ value, unit }` measurement types throughout
-- Flat `envelope.elements[]` with user-defined ids, unlimited per type
-- Thermal properties decoupled from geometry via `thermal.element_properties[]`
-- TABULA-aligned thermal parameters exposed as optional fields
-- `metadata` formalised as required top-level response field
-
-Archived snapshot: `schemas/v3/`
-
-### v2.0.0 (2026-02) -- Deprecated
-
-Migration from v1: Breaking changes.
-
-Key changes:
-- Introduced structured `$defs`
-- Optional elevation in geometry (3D coordinates)
-- Replaced loose `building_attributes` with structured nested schema
-- Added nested component model (Walls/Roof/Floor/Windows/Doors/Ventilation)
-- Introduced `use_milp` control flag
-- Stricter validation rules
-
-Archived snapshot: `schemas/v2/`
-
-### v1.0.0 (2025-11) -- Deprecated
-
-Initial schema version. Minimal structure, loose typing, flat child
-component model, strictly 2D geometry.
-
-Archived snapshot: `schemas/v1/`
+See `CHANGELOG.md` for full detail on each version.
 
 ------------------------------------------------------------------------
 
-## Governance
+## What must happen before a change is merged?
 
-EnerPlanET maintains this contract repository.
-
-Any proposed schema change must:
-
-1. Be documented in CHANGELOG.md
-2. Be reviewed before merging
-3. Be validated using JSON Schema validation tools
-4. Follow semver -- increment MAJOR for breaking, MINOR for additions,
-   PATCH for documentation only
-
-------------------------------------------------------------------------
-
-This policy ensures stable integration and controlled evolution of the
-BUEM--EnerPlanET API contract.
+1. `CHANGELOG.md` is updated with a description of the change.
+2. The validation check above passes without errors.
+3. The change has been reviewed.
+4. The version number follows the rules above.
