@@ -58,8 +58,15 @@
           },
           "solver": {
             "use_milp":               false,
+            "compute_cooling":        true,
             "parallel_thermal":       true,
             "use_chunked_processing": true
+          },
+          "inputs": {
+            "electricity_load_profile": {
+              "unit": "kWh",
+              "values": [0.42, 0.38, 0.35, 0.33, 0.32, 0.35, 0.48, 0.61, 0.55, 0.50, 0.48, 0.46, 0.45, 0.44, 0.46, 0.50, 0.58, 0.72, 0.68, 0.62, 0.55, 0.51, 0.47, 0.43]
+            }
           },
           "thermal_load_profile": {
             "start_time":      "2018-01-01T00:00:00Z",
@@ -102,6 +109,8 @@
             "solver_used":            "scipy-sparse",
             "processing_time":        { "value": 3.12, "unit": "s" },
             "weather_year":           2018,
+            "simulations_run":        ["heating", "cooling", "electricity"],
+            "electricity_source":     "client_provided",
             "parallel_thermal":       true,
             "use_chunked_processing": true,
             "validation_warnings":    []

@@ -2,9 +2,79 @@
 
 ------------------------------------------------------------------------
 
-## v3.0.0 (2026-03) — Current
+## v4.0.0 (2026-03) — Current
 
 **Status:** Current version
+**Compatible with v3:** No — response clients must handle optional `cooling` field.
+
+------------------------------------------------------------------------
+
+### What changed and why
+
+#### 1. Cooling simulation is now opt-in (`solver.compute_cooling`)
+
+A new boolean flag `compute_cooling` (default: `false`) has been added to the
+`solver` section of the request.
+
+When `false` (the default), the upper comfort temperature bound is not enforced in
+the LP solver. The indoor temperature can rise freely, no cooling demand is
+generated, and `cooling` is absent from the response summary and timeseries.
+
+When `true`, the upper comfort bound (`building.thermal.comfortT_ub`) is enforced
+and a cooling load profile is returned alongside heating.
+
+**Why:** Most residential buildings in northern Europe have no active cooling. Running
+the cooling simulation for every building wastes computation and produces a result
+that has no physical meaning for that building. Making cooling opt-in aligns the
+model output with the actual building configuration.
+
+#### 2. User-provided electricity load profile (`buem.inputs`)
+
+A new optional `inputs` section has been added to the `buem` node in the request.
+Currently it holds one field:
+
+```json
+"inputs": {
+  "electricity_load_profile": {
+    "unit": "kWh",
+    "values": [0.42, 0.38, ...]
+  }
+}
+```
+
+When `electricity_load_profile` is provided, it is used directly as the internal
+heat gain input (`elecLoad`) in the ISO 13790 energy balance. When absent, the
+model generates a profile from its occupancy simulation.
+
+**Why:** Electricity consumption by appliances heats the building interior and
+therefore affects both heating demand (less heating needed in winter) and cooling
+demand (more cooling needed in summer). If EnerPlanET already has a measured or
+forecast electricity profile for a building, using it produces a more accurate
+thermal result than a synthetic occupancy-based estimate.
+
+#### 3. `cooling` is no longer required in the response (breaking)
+
+`thermal_load_profile.summary.cooling` and `timeseries.cooling` are now optional.
+They are present only when `solver.compute_cooling` was `true` in the corresponding
+request.
+
+Clients that always expect `cooling` in the response must be updated to check for
+its presence before reading it.
+
+#### 4. `model_metadata` reports what was computed
+
+Two new fields added to `model_metadata` in the response:
+
+| Field | Type | Meaning |
+|---|---|---|
+| `simulations_run` | `string[]` | Which load types were computed (`heating`, `cooling`, `electricity`) |
+| `electricity_source` | `string` | Whether electricity came from `model_generated` or `client_provided` |
+
+------------------------------------------------------------------------
+
+## v3.0.0 (2026-03) — Deprecated
+
+**Status:** Deprecated
 **Compatible with v2:** No — requests must be updated before sending to a v3 server.
 
 ------------------------------------------------------------------------

@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://buem.energy/schemas/v3/request",
-  "title": "BUEM GeoJSON Request Schema v3",
+  "$id": "https://buem.energy/schemas/v4/request",
+  "title": "BUEM GeoJSON Request Schema v4",
   "description": "Request schema for the BUEM building energy model. Each feature represents one building. The buem object contains two concerns: building (complete physical description — classification, geometry, and thermal performance) and solver (execution settings). All measurable quantities carry an explicit unit field. SI units are assumed when unit is omitted. Dimensionless ratios use unit: '-'.",
   "type": "object",
   "required": ["type", "features"],
@@ -66,10 +66,11 @@
     "buem": {
       "type": "object",
       "required": ["building"],
-      "description": "BUEM model input. building contains the complete physical description of the building. solver contains execution settings.",
+      "description": "BUEM model input. building contains the complete physical description of the building. solver contains execution settings. inputs contains optional user-provided timeseries that override model-generated values.",
       "properties": {
         "building": { "$ref": "#/$defs/building" },
-        "solver":   { "$ref": "#/$defs/solver" }
+        "solver":   { "$ref": "#/$defs/solver" },
+        "inputs":   { "$ref": "#/$defs/inputs" }
       }
     },
 
@@ -271,12 +272,17 @@
 
     "solver": {
       "type": "object",
-      "description": "Execution settings for the BUEM thermal solver. These control how the model runs, not what it simulates.",
+      "description": "Execution settings for the BUEM thermal solver. These control how the model runs and what it simulates.",
       "properties": {
         "use_milp": {
           "type": "boolean",
           "default": false,
           "description": "Use Mixed Integer Linear Programming solver (CVXPY + CBC) instead of the default scipy sparse solver. Slower but handles inequality constraints exactly."
+        },
+        "compute_cooling": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enforce the upper comfort temperature bound in the LP solver. When false (default), the cooling constraint is omitted — appropriate for buildings without active cooling, common in northern European residential buildings. When true, building.thermal.comfortT_ub is required and a cooling load profile is returned in the response."
         },
         "parallel_thermal": {
           "type": "boolean",
@@ -287,6 +293,32 @@
           "type": "boolean",
           "default": true,
           "description": "Process the 8760-hour timeseries in chunks to limit memory usage"
+        }
+      }
+    },
+
+    "inputs": {
+      "type": "object",
+      "description": "Optional user-provided timeseries inputs. When a field is present, it overrides the model-generated equivalent. When absent, the model generates the value from occupancy simulation.",
+      "properties": {
+        "electricity_load_profile": {
+          "type": "object",
+          "required": ["unit", "values"],
+          "description": "Hourly electricity consumption profile for the building. When provided, used directly as the internal heat gain input instead of the model-generated occupancy-based profile. Electricity consumption heats the building interior and therefore affects heating and cooling demand. The number of values must equal the number of timesteps implied by start_time, end_time, and resolution.",
+          "properties": {
+            "unit": {
+              "type": "string",
+              "enum": ["kWh", "Wh", "kW"],
+              "default": "kWh",
+              "description": "Unit for all values in the array"
+            },
+            "values": {
+              "type": "array",
+              "items": { "type": "number", "minimum": 0 },
+              "minItems": 1,
+              "description": "Electricity consumption at each timestep, ordered from start_time to end_time"
+            }
+          }
         }
       }
     },
