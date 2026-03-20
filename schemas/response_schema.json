@@ -157,7 +157,7 @@
         "timeseries":     { "$ref": "#/$defs/load_timeseries" },
         "timeseries_file": {
           "type": "string",
-          "description": "Download path for the full gzip timeseries file — present when the file was saved server-side"
+          "description": "Path to the output timeseries file on the shared Docker volume ($DATA_DIR/results/). Named after the building centroid coordinates: {profile_type}_{lat}_{lon}_{year}.json.gz — e.g. heating_48.833911_12.957720_2018.json.gz. See NAMING.md for the full convention."
         }
       }
     },

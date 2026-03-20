@@ -303,20 +303,18 @@
       "properties": {
         "electricity_load_profile": {
           "type": "object",
-          "required": ["unit", "values"],
-          "description": "Hourly electricity consumption profile for the building. When provided, used directly as the internal heat gain input instead of the model-generated occupancy-based profile. Electricity consumption heats the building interior and therefore affects heating and cooling demand. The number of values must equal the number of timesteps implied by start_time, end_time, and resolution.",
+          "required": ["path"],
+          "description": "Hourly electricity consumption profile for the building, referenced by file path. The file must be accessible inside the model container — use the shared Docker volume (BUEM_DATA_DIR) to make client files available. When provided, the profile is used directly as the internal heat gain input instead of the model-generated occupancy-based profile. Electricity consumption heats the building interior and therefore affects heating and cooling demand. Supported formats: CSV (single column of values), JSON array, or gzipped JSON (.gz).",
           "properties": {
+            "path": {
+              "type": "string",
+              "description": "Absolute path to the profile file inside the container (e.g. /data/profiles/5.3453464_52.4353446_electricity_2018.csv)"
+            },
             "unit": {
               "type": "string",
               "enum": ["kWh", "Wh", "kW"],
               "default": "kWh",
-              "description": "Unit for all values in the array"
-            },
-            "values": {
-              "type": "array",
-              "items": { "type": "number", "minimum": 0 },
-              "minItems": 1,
-              "description": "Electricity consumption at each timestep, ordered from start_time to end_time"
+              "description": "Unit of the values in the file. Defaults to kWh when omitted."
             }
           }
         }

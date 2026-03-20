@@ -64,8 +64,8 @@
           },
           "inputs": {
             "electricity_load_profile": {
-              "unit": "kWh",
-              "values": [0.42, 0.38, 0.35, 0.33, 0.32, 0.35, 0.48, 0.61, 0.55, 0.50, 0.48, 0.46, 0.45, 0.44, 0.46, 0.50, 0.58, 0.72, 0.68, 0.62, 0.55, 0.51, 0.47, 0.43]
+              "path": "/data/profiles/electricity_52.4353446_5.3453464_2018.csv",
+              "unit": "kWh"
             }
           },
           "thermal_load_profile": {
@@ -73,6 +73,7 @@
             "end_time":        "2018-12-31T23:00:00Z",
             "resolution":      "60",
             "resolution_unit": "minutes",
+            "timeseries_file": "/data/results/heating_52.4353446_5.3453464_2018.json.gz",
             "summary": {
               "heating": {
                 "total":  { "value": 4823.5, "unit": "kWh" },

@@ -36,21 +36,25 @@ Currently it holds one field:
 ```json
 "inputs": {
   "electricity_load_profile": {
-    "unit": "kWh",
-    "values": [0.42, 0.38, ...]
+    "path": "/data/profiles/building_001_elec.csv",
+    "unit": "kWh"
   }
 }
 ```
+
+The profile is referenced by **file path**, not inlined as an array. The file must
+be accessible inside the model container via the shared Docker volume (`BUEM_DATA_DIR`).
+Supported formats: CSV (single column of values), JSON array, or gzipped JSON (`.gz`).
 
 When `electricity_load_profile` is provided, it is used directly as the internal
 heat gain input (`elecLoad`) in the ISO 13790 energy balance. When absent, the
 model generates a profile from its occupancy simulation.
 
-**Why:** Electricity consumption by appliances heats the building interior and
-therefore affects both heating demand (less heating needed in winter) and cooling
-demand (more cooling needed in summer). If EnerPlanET already has a measured or
-forecast electricity profile for a building, using it produces a more accurate
-thermal result than a synthetic occupancy-based estimate.
+**Why:** An 8760-value array inlined in the JSON payload is large and makes the
+request unwieldy. File path referencing keeps the JSON slim and is consistent with
+how the model already returns output timeseries — written to a shared volume and
+referenced by path. Electricity consumption by appliances heats the building
+interior and therefore affects both heating demand and cooling demand.
 
 #### 3. `cooling` is no longer required in the response (breaking)
 
