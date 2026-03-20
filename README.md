@@ -96,3 +96,10 @@ print("Valid.")
 ```
 
 Validation must pass before schema versions are released.
+
+## Schema Visualization
+
+Helpful for understanding complex nested structures and relationships between fields it's recommended to use [jsoncrack](https://jsoncrack.com) to visualize the schema structure.
+
+> [!TIP]
+> If you are using VS Code, the [JSON Schema extension](https://marketplace.visualstudio.com/items?itemName=AykutSarac.jsoncrack-vscode) can provide inline validation and visualization.
