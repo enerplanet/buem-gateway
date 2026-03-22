@@ -1,0 +1,27 @@
+---
+config:
+  layout: elk
+---
+flowchart TD
+    subgraph VOL["sim_shared_data  (mounted at /webservice/data)"]
+        direction TB
+
+        subgraph EXISTING["Existing — renewable supply profiles (flat root)"]
+            PV["pv_{lat}_{lon}.csv\ncol: capacity_factor"]
+            WIND["wind_{lat}_{lon}.csv\ncol: capacity_factor"]
+            BIO["biomass_{lat}_{lon}.csv\ncol: capacity_factor"]
+            GEO["geothermal_{lat}_{lon}.csv\ncol: capacity_factor"]
+        end
+
+        subgraph NEW["New — building demand profiles (results/)"]
+            HT["heating_{lat}_{lon}_{year}.csv\ncol: demand"]
+            CL["cooling_{lat}_{lon}_{year}.csv\ncol: demand"]
+        end
+    end
+
+    GW["Go Gateway\n(buem.go)"] -->|"writes"| HT
+    GW -->|"writes"| CL
+    CAL["Calliope"] -->|"reads"| HT
+    CAL -->|"reads"| CL
+    PYPSA["PyPSA"] -->|"reads"| HT
+    PYPSA -->|"reads"| CL

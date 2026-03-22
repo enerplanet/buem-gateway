@@ -1,0 +1,28 @@
+graph TD
+    USER["Researcher / Planner\n(EnerPlanET frontend)"]
+
+    subgraph ENERPLANET["EnerPlanET Platform"]
+        BE["Backend\n(Go / Gin)"]
+        WS["Simulation Webservice\n(Go · port 8081)"]
+    end
+
+    subgraph HEATING["Heating Module"]
+        BUEM["BUEM\n(Python / Flask · port 5000)"]
+    end
+
+    subgraph ENERGY_OPT["Energy Optimisation"]
+        CAL["Calliope\n(Python CLI)"]
+        PYPSA["PyPSA\n(Python CLI)"]
+    end
+
+    VOL[("Shared Docker Volume\nsim_shared_data")]
+
+    USER -->|"Start simulation\n(POST /api/simulate)"| BE
+    BE -->|"POST /buem/start\n(config.json with buem blocks)"| WS
+    WS -->|"POST /api/process\n(GeoJSON Feature per building)"| BUEM
+    BUEM -->|"thermal load results\n(JSON response)"| WS
+    WS -->|"write heating/cooling CSVs"| VOL
+    CAL -->|"read demand CSVs"| VOL
+    PYPSA -->|"read demand CSVs"| VOL
+    WS -->|"enriched config.json\n(buem results merged back)"| BE
+    BE -->|"results"| USER

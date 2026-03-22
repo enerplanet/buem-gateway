@@ -1,0 +1,55 @@
+---
+config:
+  layout: dagre
+---
+flowchart LR
+    subgraph IN["① Input — config.json topology node"]
+        N1["geometry.coordinates: [lon, lat]
+properties.feature_type: BasePOI
+properties.area: 363.4
+properties.buem:
+  building.type: MFH
+  building.A_ref: 363.4 m²
+  solver.use_milp: false"]
+    end
+
+    subgraph SENT["② Sent to BUEM — API spec Feature"]
+        N2["type: Feature
+geometry: Point [lon, lat]
+properties:
+  start_time: 2025-12-01T00:00:00Z
+  end_time:   2025-12-03T00:00:00Z
+  resolution: 60  (minutes)
+  buem: { building, solver }"]
+    end
+
+    subgraph RESP["③ BUEM Response — API spec Feature"]
+        N3["type: Feature
+geometry: Point [lon, lat]
+properties:
+  buem:
+    building: { ... }          ← echoed
+    thermal_load_profile:
+      summary: { heating, cooling, electricity }
+      timeseries:
+        heating:     [1.2, 0.8, ...]   ← 8760 values
+        cooling:     [0.0, 0.3, ...]
+        electricity: [0.4, 0.4, ...]"]
+    end
+
+    subgraph OUT["④ Output — enriched topology node"]
+        N4["geometry.coordinates: [lon, lat]
+properties.area: 363.4                  ← unchanged
+properties.buem:
+  building: { ... }                     ← echoed
+  thermal_load_profile:
+    summary: { heating, cooling }       ← kept
+    heating_file: heating_48.833_12.957_2025.csv
+    cooling_file: cooling_48.833_12.957_2025.csv
+    (timeseries arrays removed — written to CSV instead)"]
+    end
+
+    IN   -->|"nodeToTask()\nextract buem block\ninject start/end time"| SENT
+    SENT -->|"POST /api/process\n?include_timeseries=true"| RESP
+    RESP -->|"extractWriteAndAnnotate()\nwrite CSVs to volume\nstrip arrays · inject file paths"| OUT
+    OUT  -->|"mergeIntoTopology()\nreplace node's properties.buem"| IN

@@ -1,0 +1,26 @@
+---
+config:
+  layout: dagre
+---
+flowchart TD
+    START["N buildings in config.json"]
+
+    S1["goroutine 1"]
+    S2["goroutine 2"]
+    S3["goroutine 3"]
+    S4["goroutine 4"]
+    SN["goroutine N\n(waits for semaphore slot)"]
+
+    SEM["Semaphore\n(capacity = 4)"]
+
+    BUEM["BUEM Flask\n--workers 2 --threads 2\n(4 concurrent capacity)"]
+
+    WAIT["Wait for all goroutines"]
+    MERGE["Merge results into config.json"]
+
+    START --> S1 & S2 & S3 & S4 & SN
+    S1 & S2 & S3 & S4 --> SEM
+    SN -.->|"blocks until slot free"| SEM
+    SEM --> BUEM
+    BUEM --> WAIT
+    WAIT --> MERGE

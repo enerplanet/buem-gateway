@@ -1,0 +1,20 @@
+sequenceDiagram
+    participant EP  as EnerPlanET Backend
+    participant GW  as Go Gateway (/buem/start)
+    participant BM  as BUEM Flask (:5000)
+    participant VOL as Shared Volume
+
+    EP->>GW: POST /buem/start<br/>config.json (topology with buem blocks)
+
+    Note over GW: Parse topology<br/>Find BasePOI nodes where<br/>properties.buem ≠ null<br/>Deduplicate by node ID
+
+    par goroutine per building (max 4 concurrent)
+        GW->>BM: POST /api/process?include_timeseries=true<br/>GeoJSON FeatureCollection (1 feature)
+        BM-->>GW: GeoJSON response<br/>properties.buem.thermal_load_profile<br/>+ embedded hourly arrays
+        GW->>VOL: write heating_{lat}_{lon}_{year}.csv
+        GW->>VOL: write cooling_{lat}_{lon}_{year}.csv
+    end
+
+    Note over GW: Merge enriched buem blocks<br/>back into original topology nodes<br/>Replace arrays with CSV filenames
+
+    GW-->>EP: enriched config.json<br/>(same structure, buem results added)
