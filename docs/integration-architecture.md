@@ -25,7 +25,7 @@ Step-by-step data flow from the EnerPlanET backend through to written CSV files.
 
 How the EnerPlanET topology format maps to the BUEM API spec and back.
 
-![data transformation diagram](assets/diagrams/data-transformation/data-transfomation.svg)
+![data transformation diagram](assets/diagrams/data-transformation/data-transformation.svg)
 
 ---
 

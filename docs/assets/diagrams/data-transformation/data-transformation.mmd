@@ -3,7 +3,7 @@ config:
   layout: dagre
 ---
 flowchart LR
-    subgraph IN["① Input — config.json topology node"]
+    subgraph IN["1 Input — config.json topology node"]
         N1["geometry.coordinates: [lon, lat]
 properties.feature_type: BasePOI
 properties.area: 363.4
@@ -13,7 +13,7 @@ properties.buem:
   solver.use_milp: false"]
     end
 
-    subgraph SENT["② Sent to BUEM — API spec Feature"]
+    subgraph SENT["2 Sent to BUEM — API spec Feature"]
         N2["type: Feature
 geometry: Point [lon, lat]
 properties:
@@ -23,7 +23,7 @@ properties:
   buem: { building, solver }"]
     end
 
-    subgraph RESP["③ BUEM Response — API spec Feature"]
+    subgraph RESP["3 BUEM Response — API spec Feature"]
         N3["type: Feature
 geometry: Point [lon, lat]
 properties:
@@ -37,7 +37,7 @@ properties:
         electricity: [0.4, 0.4, ...]"]
     end
 
-    subgraph OUT["④ Output — enriched topology node"]
+    subgraph OUT["4 Output — enriched topology node"]
         N4["geometry.coordinates: [lon, lat]
 properties.area: 363.4                  ← unchanged
 properties.buem:

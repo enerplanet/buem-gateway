@@ -1,20 +1,34 @@
 sequenceDiagram
-    participant EP  as EnerPlanET Backend
-    participant GW  as Go Gateway (/buem/start)
-    participant BM  as BUEM Flask (:5000)
-    participant VOL as Shared Volume
+    participant EP   as EnerPlanET Backend
+    participant GW_B as BUEM Gateway (/buem/start)
+    participant BM   as BUEM Flask (:5000)
+    participant VOL  as Shared Volume
+    participant GW_C as Calliope Gateway (/calliope/start)
+    participant CAL  as Calliope CLI
 
-    EP->>GW: POST /buem/start<br/>config.json (topology with buem blocks)
+    rect rgb(176, 186, 207)
+        Note over EP,VOL: Phase 1 — Thermal demand  (BUEM must complete before grid simulation)
+        EP->>GW_B: POST /buem/start  —  config.json (topology with buem blocks)
 
-    Note over GW: Parse topology<br/>Find BasePOI nodes where<br/>properties.buem ≠ null<br/>Deduplicate by node ID
+        Note over GW_B: Parse topology<br/>Find BasePOI nodes where<br/>properties.buem ≠ null<br/>Deduplicate by node ID
 
-    par goroutine per building (max 4 concurrent)
-        GW->>BM: POST /api/process?include_timeseries=true<br/>GeoJSON FeatureCollection (1 feature)
-        BM-->>GW: GeoJSON response<br/>properties.buem.thermal_load_profile<br/>+ embedded hourly arrays
-        GW->>VOL: write heating_{lat}_{lon}_{year}.csv
-        GW->>VOL: write cooling_{lat}_{lon}_{year}.csv
+        par goroutine per building (max 4 concurrent)
+            GW_B->>BM: POST /api/process?include_timeseries=true<br/>GeoJSON FeatureCollection (1 feature)
+            BM-->>GW_B: GeoJSON response<br/>properties.buem.thermal_load_profile<br/>+ embedded hourly arrays
+            GW_B->>VOL: write heating_{lat}_{lon}_{year}.csv
+            GW_B->>VOL: write cooling_{lat}_{lon}_{year}.csv
+        end
+
+        Note over GW_B: Merge enriched buem blocks back<br/>Replace timeseries arrays with CSV filenames
+        GW_B-->>EP: enriched config.json  (buem.thermal_load_profile added)
     end
 
-    Note over GW: Merge enriched buem blocks<br/>back into original topology nodes<br/>Replace arrays with CSV filenames
-
-    GW-->>EP: enriched config.json<br/>(same structure, buem results added)
+    rect rgb(245, 246, 247)
+        Note over EP,CAL: Phase 2 — Grid optimisation  (consumes BUEM output from shared volume)
+        EP->>GW_C: POST /calliope/start  —  enriched config.json
+        Note over GW_C: Generate locations.yaml<br/>Demand CSV paths from buem.thermal_load_profile<br/>link directly to files written in Phase 1
+        GW_C->>CAL: bash calliope.sh
+        CAL->>VOL: reads heating / cooling CSVs
+        CAL-->>GW_C: optimisation results
+        GW_C-->>EP: grid simulation results
+    end

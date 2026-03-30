@@ -25,3 +25,17 @@ flowchart TD
     CAL -->|"reads"| CL
     PYPSA["PyPSA"] -->|"reads"| HT
     PYPSA -->|"reads"| CL
+
+    classDef gateway  fill:#2f5d8a,stroke:#1f2933,color:#ffffff
+    classDef consumer fill:#6b7280,stroke:#1f2933,color:#ffffff
+    classDef existing fill:#f5f6f7,stroke:#6b7280,color:#1f2933
+    classDef newfile  fill:#b0bacf,stroke:#2f5d8a,color:#1f2933
+
+    class GW gateway
+    class CAL,PYPSA consumer
+    class PV,WIND,BIO,GEO existing
+    class HT,CL newfile
+
+    style VOL      fill:#f5f6f7,stroke:#1f2933
+    style EXISTING fill:#f5f6f7,stroke:#6b7280
+    style NEW      fill:#eaeff5,stroke:#2f5d8a

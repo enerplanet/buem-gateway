@@ -24,3 +24,14 @@ flowchart TD
     SEM --> BUEM
     BUEM --> WAIT
     WAIT --> MERGE
+
+    classDef active  fill:#2f5d8a,stroke:#1f2933,color:#ffffff
+    classDef waiting fill:#6b7280,stroke:#1f2933,color:#ffffff
+    classDef control fill:#b0bacf,stroke:#2f5d8a,color:#1f2933
+    classDef dark    fill:#1f2933,stroke:#1f2933,color:#ffffff
+
+    class S1,S2,S3,S4 active
+    class SN waiting
+    class SEM,WAIT control
+    class START,MERGE dark
+    class BUEM waiting
