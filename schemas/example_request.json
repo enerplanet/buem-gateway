@@ -288,10 +288,14 @@
                 "unit": "1/h"
               },
               "n_air_use": {
-                "value": 0.5,
+                "value": 0.4,
                 "unit": "1/h"
               },
               "thermal_class": "medium",
+              "c_m": {
+                "value": 110.0,
+                "unit": "kJ/(m2K)"
+              },
               "comfortT_lb": {
                 "value": 21,
                 "unit": "degC"
@@ -299,6 +303,30 @@
               "comfortT_ub": {
                 "value": 24,
                 "unit": "degC"
+              },
+              "F_sh_hor": {
+                "value": 0.7,
+                "unit": "-"
+              },
+              "F_sh_vert": {
+                "value": 0.75,
+                "unit": "-"
+              },
+              "F_f": {
+                "value": 0.2,
+                "unit": "-"
+              },
+              "F_w": {
+                "value": 0.9,
+                "unit": "-"
+              },
+              "phi_int": {
+                "value": 3.0,
+                "unit": "W/m2"
+              },
+              "q_w_nd": {
+                "value": 12.5,
+                "unit": "kWh/(m2.a)"
               }
             }
           },
