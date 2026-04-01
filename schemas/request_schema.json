@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://buem.energy/schemas/v3/request",
-  "title": "BUEM GeoJSON Request Schema v3",
+  "$id": "https://buem.energy/schemas/v4/request",
+  "title": "BUEM GeoJSON Request Schema v4",
   "description": "Request schema for the BUEM building energy model. Each feature represents one building. The buem object contains two concerns: building (complete physical description — classification, geometry, and thermal performance) and solver (execution settings). All measurable quantities carry an explicit unit field. SI units are assumed when unit is omitted. Dimensionless ratios use unit: '-'.",
   "type": "object",
   "required": ["type", "features"],
@@ -66,10 +66,11 @@
     "buem": {
       "type": "object",
       "required": ["building"],
-      "description": "BUEM model input. building contains the complete physical description of the building. solver contains execution settings.",
+      "description": "BUEM model input. building contains the complete physical description of the building. solver contains execution settings. inputs contains optional user-provided timeseries that override model-generated values.",
       "properties": {
         "building": { "$ref": "#/$defs/building" },
-        "solver":   { "$ref": "#/$defs/solver" }
+        "solver":   { "$ref": "#/$defs/solver" },
+        "inputs":   { "$ref": "#/$defs/inputs" }
       }
     },
 
@@ -265,18 +266,33 @@
           "allOf": [{ "$ref": "#/$defs/dimensionless_qty" }],
           "description": "Window non-perpendicularity correction factor — TABULA: F_w",
           "default": { "value": 1.0, "unit": "-" }
+        },
+        "phi_int": {
+          "allOf": [{ "$ref": "#/$defs/measurement" }],
+          "description": "Internal heat gains from occupants, appliances, and lighting per unit floor area. Used in the ISO 13790 energy balance as a heat source that reduces heating demand and increases cooling demand. TABULA: phi_int. Typical residential: 3–5 W/m².",
+          "default": { "value": 3.0, "unit": "W/m2" }
+        },
+        "q_w_nd": {
+          "allOf": [{ "$ref": "#/$defs/measurement" }],
+          "description": "Net energy need for domestic hot water per unit floor area per year. Added to the heating energy need in the final energy balance. TABULA: q_w_nd. Typical residential: ~12.5 kWh/(m²·a).",
+          "default": { "value": 12.5, "unit": "kWh/(m2.a)" }
         }
       }
     },
 
     "solver": {
       "type": "object",
-      "description": "Execution settings for the BUEM thermal solver. These control how the model runs, not what it simulates.",
+      "description": "Execution settings for the BUEM thermal solver. These control how the model runs and what it simulates.",
       "properties": {
         "use_milp": {
           "type": "boolean",
           "default": false,
           "description": "Use Mixed Integer Linear Programming solver (CVXPY + CBC) instead of the default scipy sparse solver. Slower but handles inequality constraints exactly."
+        },
+        "compute_cooling": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enforce the upper comfort temperature bound in the LP solver. When false (default), the cooling constraint is omitted — appropriate for buildings without active cooling, common in northern European residential buildings. When true, building.thermal.comfortT_ub is required and a cooling load profile is returned in the response."
         },
         "parallel_thermal": {
           "type": "boolean",
@@ -287,6 +303,30 @@
           "type": "boolean",
           "default": true,
           "description": "Process the 8760-hour timeseries in chunks to limit memory usage"
+        }
+      }
+    },
+
+    "inputs": {
+      "type": "object",
+      "description": "Optional user-provided timeseries inputs. When a field is present, it overrides the model-generated equivalent. When absent, the model generates the value from occupancy simulation.",
+      "properties": {
+        "electricity_load_profile": {
+          "type": "object",
+          "required": ["path"],
+          "description": "Hourly electricity consumption profile for the building, referenced by file path. The file must be accessible inside the model container — use the shared Docker volume (BUEM_DATA_DIR) to make client files available. When provided, the profile is used directly as the internal heat gain input instead of the model-generated occupancy-based profile. Electricity consumption heats the building interior and therefore affects heating and cooling demand. Supported formats: CSV (single column of values), JSON array, or gzipped JSON (.gz).",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Absolute path to the profile file inside the container (e.g. /data/profiles/5.3453464_52.4353446_electricity_2018.csv)"
+            },
+            "unit": {
+              "type": "string",
+              "enum": ["kWh", "Wh", "kW"],
+              "default": "kWh",
+              "description": "Unit of the values in the file. Defaults to kWh when omitted."
+            }
+          }
         }
       }
     },

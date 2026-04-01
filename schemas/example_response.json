@@ -49,23 +49,38 @@
               ]
             },
             "thermal": {
-              "n_air_infiltration": { "value": 0.5,  "unit": "1/h"  },
-              "n_air_use":          { "value": 0.5,  "unit": "1/h"  },
+              "n_air_infiltration": { "value": 0.5,   "unit": "1/h"        },
+              "n_air_use":          { "value": 0.4,   "unit": "1/h"        },
               "thermal_class":      "medium",
-              "comfortT_lb":        { "value": 21.0, "unit": "degC" },
-              "comfortT_ub":        { "value": 24.0, "unit": "degC" }
+              "c_m":                { "value": 110.0, "unit": "kJ/(m2K)"  },
+              "comfortT_lb":        { "value": 21.0,  "unit": "degC"       },
+              "comfortT_ub":        { "value": 24.0,  "unit": "degC"       },
+              "F_sh_hor":           { "value": 0.7,   "unit": "-"          },
+              "F_sh_vert":          { "value": 0.75,  "unit": "-"          },
+              "F_f":                { "value": 0.2,   "unit": "-"          },
+              "F_w":                { "value": 0.9,   "unit": "-"          },
+              "phi_int":            { "value": 3.0,   "unit": "W/m2"       },
+              "q_w_nd":             { "value": 12.5,  "unit": "kWh/(m2.a)" }
             }
           },
           "solver": {
             "use_milp":               false,
+            "compute_cooling":        true,
             "parallel_thermal":       true,
             "use_chunked_processing": true
+          },
+          "inputs": {
+            "electricity_load_profile": {
+              "path": "/data/profiles/electricity_52.4353446_5.3453464_2018.csv",
+              "unit": "kWh"
+            }
           },
           "thermal_load_profile": {
             "start_time":      "2018-01-01T00:00:00Z",
             "end_time":        "2018-12-31T23:00:00Z",
             "resolution":      "60",
             "resolution_unit": "minutes",
+            "timeseries_file": "/data/results/heating_52.4353446_5.3453464_2018.json.gz",
             "summary": {
               "heating": {
                 "total":  { "value": 4823.5, "unit": "kWh" },
@@ -98,10 +113,12 @@
             }
           },
           "model_metadata": {
-            "model_version":          "BUEM-v3.0",
+            "model_version":          "BUEM-v4.0",
             "solver_used":            "scipy-sparse",
             "processing_time":        { "value": 3.12, "unit": "s" },
             "weather_year":           2018,
+            "simulations_run":        ["heating", "cooling", "electricity"],
+            "electricity_source":     "client_provided",
             "parallel_thermal":       true,
             "use_chunked_processing": true,
             "validation_warnings":    []

@@ -2,9 +2,102 @@
 
 ------------------------------------------------------------------------
 
-## v3.0.0 (2026-03) — Current
+## v4.0.0 (2026-03) — Current
 
-**Status:** Current version
+**Status:** Current version (unreleased)
+**Compatible with v3:** No — response clients must handle optional `cooling` field.
+
+------------------------------------------------------------------------
+
+### What changed and why
+
+#### 1. Cooling simulation is now opt-in (`solver.compute_cooling`)
+
+A new boolean flag `compute_cooling` (default: `false`) has been added to the
+`solver` section of the request.
+
+When `false` (the default), the upper comfort temperature bound is not enforced in
+the LP solver. The indoor temperature can rise freely, no cooling demand is
+generated, and `cooling` is absent from the response summary and timeseries.
+
+When `true`, the upper comfort bound (`building.thermal.comfortT_ub`) is enforced
+and a cooling load profile is returned alongside heating.
+
+**Why:** Most residential buildings in northern Europe have no active cooling. Running
+the cooling simulation for every building wastes computation and produces a result
+that has no physical meaning for that building. Making cooling opt-in aligns the
+model output with the actual building configuration.
+
+#### 2. User-provided electricity load profile (`buem.inputs`)
+
+A new optional `inputs` section has been added to the `buem` node in the request.
+Currently it holds one field:
+
+```json
+"inputs": {
+  "electricity_load_profile": {
+    "path": "/data/profiles/building_001_elec.csv",
+    "unit": "kWh"
+  }
+}
+```
+
+The profile is referenced by **file path**, not inlined as an array. The file must
+be accessible inside the model container via the shared Docker volume (`BUEM_DATA_DIR`).
+Supported formats: CSV (single column of values), JSON array, or gzipped JSON (`.gz`).
+
+When `electricity_load_profile` is provided, it is used directly as the internal
+heat gain input (`elecLoad`) in the ISO 13790 energy balance. When absent, the
+model generates a profile from its occupancy simulation.
+
+**Why:** An 8760-value array inlined in the JSON payload is large and makes the
+request unwieldy. File path referencing keeps the JSON slim and is consistent with
+how the model already returns output timeseries — written to a shared volume and
+referenced by path. Electricity consumption by appliances heats the building
+interior and therefore affects both heating demand and cooling demand.
+
+#### 3. `cooling` is no longer required in the response (breaking)
+
+`thermal_load_profile.summary.cooling` and `timeseries.cooling` are now optional.
+They are present only when `solver.compute_cooling` was `true` in the corresponding
+request.
+
+Clients that always expect `cooling` in the response must be updated to check for
+its presence before reading it.
+
+#### 4. `model_metadata` reports what was computed
+
+Two new fields added to `model_metadata` in the response:
+
+| Field | Type | Meaning |
+|---|---|---|
+| `simulations_run` | `string[]` | Which load types were computed (`heating`, `cooling`, `electricity`) |
+| `electricity_source` | `string` | Whether electricity came from `model_generated` or `client_provided` |
+
+#### 5. `envelope` is now optional (`building`)
+
+The `envelope` object is no longer required under `building`. When omitted, the model derives surface areas and thermal properties from the TABULA variant identified by `building_type`, `construction_period`, and `country`.
+
+**Why:** For national-scale workflows, supplying per-surface geometry for every building is not feasible. Omitting `envelope` lets the model run from classification data alone; geometry can be supplied when available (e.g. from 3D-BAG or City2TABULA).
+
+#### 6. Internal heat gains and DHW demand configurable (`building.thermal`)
+
+Two optional fields added to `building.thermal`:
+
+| Field | Unit | Default | TABULA name | Physical meaning |
+|---|---|---|---|---|
+| `phi_int` | W/m² | 3.0 | `phi_int` | Internal heat gains — occupants, appliances, lighting |
+| `q_w_nd` | kWh/(m²·a) | 12.5 | `q_w_nd` | Net energy need for domestic hot water per unit floor area |
+
+When omitted, the model uses the defaults above (TABULA residential reference values). `phi_int` enters the ISO 13790 heat balance as a heat source; `q_w_nd` is added to the heating energy need in the final balance.
+
+**Why:** Both parameters are defined in the TABULA attribute specification and are used internally by the model. Exposing them allows calibration against measured data and makes the model's assumptions explicit.
+
+------------------------------------------------------------------------
+
+## v3.0.0 (2026-03) — Deprecated
+
+**Status:** Deprecated
 **Compatible with v2:** No — requests must be updated before sending to a v3 server.
 
 ------------------------------------------------------------------------
