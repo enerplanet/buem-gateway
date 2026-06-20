@@ -19,6 +19,7 @@
         "resolution_unit": "minutes",
         "buem": {
           "building": {
+            "name": "Building 001 · Single-family House",
             "building_type": "SFH",
             "construction_period": "1965-1974",
             "country": "NL",
@@ -38,6 +39,7 @@
               "elements": [
                 {
                   "id": "Wall_1",
+                  "name": "North Wall",
                   "type": "wall",
                   "area": {
                     "value": 30,

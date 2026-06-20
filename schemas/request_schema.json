@@ -78,6 +78,10 @@
       "type": "object",
       "description": "Complete physical description of the building. Classification fields (type, country, etc.) sit at this level. Geometry and per-element thermal properties are in envelope. Building-wide thermal parameters are in thermal. When envelope is omitted, the model derives surface areas and U-values from the TABULA variant identified by building_type + construction_period + country.",
       "properties": {
+        "name": {
+          "type": "string",
+          "description": "Human-readable building label (e.g. '3434 · Single-family House'). Display only — no effect on simulation."
+        },
         "A_ref": {
           "allOf": [{ "$ref": "#/$defs/area_qty" }],
           "description": "Reference floor area. Derived from floor element areas if omitted.",
@@ -148,6 +152,10 @@
           "type": "string",
           "minLength": 1,
           "description": "User-defined unique identifier for this surface element"
+        },
+        "name": {
+          "type": "string",
+          "description": "Human-readable label for this surface (e.g. 'South Facade', 'Main Roof'). Display only — no effect on simulation."
         },
         "type": {
           "type": "string",

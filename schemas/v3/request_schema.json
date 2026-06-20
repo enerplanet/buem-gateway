@@ -15,6 +15,10 @@
       "format": "date-time",
       "description": "Request timestamp"
     },
+    "model_id": {
+      "type": "string",
+      "description": "Caller-supplied model identifier. Forwarded as-is — the BuEM solver does not use this value. The EnerPlanET gateway uses it to store load profile CSVs under a model-specific directory so profiles from different models do not collide."
+    },
     "features": {
       "type": "array",
       "minItems": 1,
