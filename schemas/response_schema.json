@@ -122,7 +122,7 @@
       "required": ["building", "thermal_load_profile"],
       "description": "Echoes the request buem node (building, solver, inputs) and appends thermal_load_profile and model_metadata",
       "properties": {
-        "building":             { "type": "object", "description": "Echoed from request — contains envelope and thermal as nested objects" },
+        "building":             { "type": "object", "description": "Echoed from request — contains name (optional display label), envelope, thermal, and all classification fields" },
         "solver":               { "type": "object", "description": "Echoed from request" },
         "inputs":               { "type": "object", "description": "Echoed from request — user-provided timeseries inputs, if any were supplied" },
         "thermal_load_profile": { "$ref": "#/$defs/thermal_load_profile" },

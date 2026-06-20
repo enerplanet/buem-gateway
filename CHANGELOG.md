@@ -2,7 +2,48 @@
 
 ------------------------------------------------------------------------
 
-## v4.0.0 (2026-03) — Current
+## v4.2.0 (2026-06) — Current
+
+**Status:** Current version
+**Compatible with v4.1.0:** Yes — new optional field only.
+
+### What changed and why
+
+#### 1. `model_id` field on the request `FeatureCollection`
+
+Added an optional `model_id: string` field at the top level of the request FeatureCollection.
+
+| Location | Field | Type | Required |
+|---|---|---|---|
+| `FeatureCollection` | `model_id` | `string` | No |
+
+The BuEM solver does not use this value — it is forwarded as-is and ignored by the simulation engine. The EnerPlanET gateway reads it to isolate load profile CSV files per model: profiles are written to `{BUEM_DATA_DIR}/{model_id}/` rather than a shared flat directory. This prevents filename collisions between models and ties profile lifecycle to the model lifecycle (profiles are deleted when the model is deleted).
+
+------------------------------------------------------------------------
+
+## v4.1.0 (2026-04)
+
+**Status:** Current version
+**Compatible with v4.0.0:** Yes — new optional fields only.
+
+### What changed and why
+
+#### 1. `name` field on `building` and `envelope_element`
+
+Added an optional `name: string` field to both `building` and each
+`envelope_element`. The field is display-only and has no effect on the
+simulation. It allows clients (e.g. EnerPlanET) to round-trip a
+human-readable label alongside the technical `id`, making surfaces and
+buildings easier to identify in UI and export files.
+
+| Location | Field | Type | Required |
+|---|---|---|---|
+| `building` | `name` | `string` | No |
+| `envelope_element` | `name` | `string` | No |
+
+------------------------------------------------------------------------
+
+## v4.0.0 (2026-03)
 
 **Status:** Current version (unreleased)
 **Compatible with v3:** No — response clients must handle optional `cooling` field.

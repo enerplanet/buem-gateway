@@ -1,0 +1,87 @@
+---
+config:
+  layout: dagre
+---
+flowchart LR
+    subgraph A["① config.json topology node\n(gateway input)"]
+        A1["geometry.coordinates: [lon, lat]
+─────────────────────────
+properties.feature_type: BasePOI
+properties.area: 363.4
+─────────────────────────
+properties.buem:
+  building.building_type: MFH
+  building.A_ref: 363.4 m²
+  building.envelope.elements[ ]
+  solver.use_milp: false"]
+    end
+
+    FN1(["nodeToTask()"])
+
+    subgraph B["② GeoJSON Feature\n(sent to BUEM)"]
+        B1["type: Feature
+geometry:
+  type: Point
+  coordinates: [lon, lat]   ← lifted from node
+─────────────────────────
+properties:
+  start_time: 2025-12-01T00:00:00Z   ← injected
+  end_time:   2025-12-03T00:00:00Z   ← injected
+  resolution: 60 (minutes)           ← injected
+  buem:
+    building: { ... }   ← carried over
+    solver: { ... }     ← carried over"]
+    end
+
+    FN2(["POST /api/process\n?include_timeseries=true"])
+
+    subgraph C["③ GeoJSON Feature\n(BUEM response)"]
+        C1["... all request fields ...
+─────────────────────────
++ buem.thermal_load_profile:
+    summary:
+      heating   { total, max, min, mean }
+      cooling   { total, max, min, mean }
+      electricity { total, max, min, mean }
+      energy_intensity { value, unit }
+    timeseries:             ← present (arrays)
+      heating:     [1.2, 0.8, ...]  8760 values
+      cooling:     [0.0, 0.3, ...]  8760 values
+      electricity: [0.4, 0.4, ...]  8760 values
++ buem.model_metadata:
+    solver_used / weather_year / warnings"]
+    end
+
+    FN3(["extractWriteAndAnnotate()"])
+
+    subgraph D["④ Enriched topology node\n(merged back into config.json)"]
+        D1["geometry.coordinates: [lon, lat]   ← unchanged
+properties.area: 363.4               ← unchanged
+─────────────────────────
+properties.buem:
+  building: { ... }    ← echoed
+  thermal_load_profile:
+    summary: { ... }   ← kept
+    heating_file:  heating_48.833_12.957_2025.csv   ← new
+    cooling_file:  cooling_48.833_12.957_2025.csv   ← new
+    timeseries:    ✗ REMOVED (written to CSV)
+  model_metadata: { ... }  ← kept"]
+    end
+
+    A  --> FN1
+    FN1 --> B
+    B  --> FN2
+    FN2 --> C
+    C  --> FN3
+    FN3 --> D
+
+    classDef data   fill:#f8fafc,stroke:#94a3b8,color:#1e293b
+    classDef action fill:#2f5d8a,stroke:#1f2933,color:#ffffff,font-weight:bold
+
+    class A,B,C,D data
+    class FN1,FN2,FN3 action
+
+    style A fill:#f1f5f9,stroke:#94a3b8
+    style B fill:#eaeff5,stroke:#2f5d8a
+    style C fill:#eaeff5,stroke:#2f5d8a
+    style D fill:#f0fdf4,stroke:#0f766e

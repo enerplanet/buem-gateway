@@ -1,0 +1,9 @@
+{
+  "theme": "default",
+  "fontFamily": "Arial, Helvetica, sans-serif",
+  "fontSize": 14,
+  "flowchart": {
+    "htmlLabels": false,
+    "useMaxWidth": false
+  }
+}
