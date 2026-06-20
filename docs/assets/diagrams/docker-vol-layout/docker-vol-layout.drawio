@@ -1,0 +1,87 @@
+<mxfile host="65bd71144e">
+    <diagram id="8ab52db2f5df" name="docker-vol-layout">
+        <mxGraphModel dx="890" dy="709" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="1200" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="cell_2" value="sim_shared_data  (mounted at /webservice/data)" style="swimlane;fontStyle=1;html=1;whiteSpace=wrap;rounded=0;fillColor=#f5f6f7;strokeColor=#1f2933;startSize=28;" parent="1" vertex="1">
+                    <mxGeometry x="460" y="30" width="376" height="710" as="geometry"/>
+                </mxCell>
+                <mxCell id="cell_3" value="Existing: renewable supply profiles (flat root)" style="swimlane;fontStyle=1;html=1;whiteSpace=wrap;rounded=0;fillColor=#f5f6f7;strokeColor=#6b7280;startSize=28;" parent="cell_2" vertex="1">
+                    <mxGeometry x="24" y="50" width="328" height="382" as="geometry"/>
+                </mxCell>
+                <mxCell id="cell_5" value="pv_{lat}_{lon}.csv\ncol: capacity_factor" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f6f7;strokeColor=#6b7280;fontColor=#1f2933;align=center;verticalAlign=middle;" parent="cell_3" vertex="1">
+                    <mxGeometry x="24" y="50" width="280" height="54" as="geometry"/>
+                </mxCell>
+                <mxCell id="cell_6" value="wind_{lat}_{lon}.csv\ncol: capacity_factor" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f6f7;strokeColor=#6b7280;fontColor=#1f2933;align=center;verticalAlign=middle;" parent="cell_3" vertex="1">
+                    <mxGeometry x="24" y="132" width="280" height="54" as="geometry"/>
+                </mxCell>
+                <mxCell id="cell_7" value="biomass_{lat}_{lon}.csv\ncol: capacity_factor" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f6f7;strokeColor=#6b7280;fontColor=#1f2933;align=center;verticalAlign=middle;" parent="cell_3" vertex="1">
+                    <mxGeometry x="24" y="214" width="280" height="54" as="geometry"/>
+                </mxCell>
+                <mxCell id="cell_8" value="geothermal_{lat}_{lon}.csv\ncol: capacity_factor" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f6f7;strokeColor=#6b7280;fontColor=#1f2933;align=center;verticalAlign=middle;" parent="cell_3" vertex="1">
+                    <mxGeometry x="24" y="296" width="280" height="54" as="geometry"/>
+                </mxCell>
+                <mxCell id="cell_4" value="New : building demand profiles (results/)" style="swimlane;fontStyle=1;html=1;whiteSpace=wrap;rounded=0;fillColor=#eaeff5;strokeColor=#2f5d8a;startSize=28;" parent="cell_2" vertex="1">
+                    <mxGeometry x="24" y="470" width="328" height="218" as="geometry"/>
+                </mxCell>
+                <mxCell id="cell_9" value="heating_{lat}_{lon}_{year}.csv\ncol: demand" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#b0bacf;strokeColor=#2f5d8a;fontColor=#1f2933;align=center;verticalAlign=middle;" parent="cell_4" vertex="1">
+                    <mxGeometry x="24" y="56" width="280" height="54" as="geometry"/>
+                </mxCell>
+                <mxCell id="cell_11" value="Go Gateway\n(buem.go)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#2f5d8a;strokeColor=#1f2933;fontColor=#ffffff;align=center;verticalAlign=middle;" parent="1" vertex="1">
+                    <mxGeometry x="990" y="610" width="183" height="54" as="geometry"/>
+                </mxCell>
+                <mxCell id="cell_12" value="Calliope" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#6b7280;strokeColor=#1f2933;fontColor=#ffffff;align=center;verticalAlign=middle;" parent="1" vertex="1">
+                    <mxGeometry x="160" y="600" width="120" height="54" as="geometry"/>
+                </mxCell>
+                <mxCell id="cell_14" value="writes" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=0;endArrow=blockThin;startArrow=none;strokeColor=#6b7280;entryX=1;entryY=0.5;entryDx=0;entryDy=0;flowAnimation=1;" parent="1" source="cell_11" target="cell_9" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="cell_15" value="writes" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=0;endArrow=blockThin;startArrow=none;strokeColor=#6b7280;entryX=1;entryY=0.5;entryDx=0;entryDy=0;flowAnimation=1;" parent="1" source="cell_11" target="cell_10" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="8" style="edgeStyle=none;html=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;flowAnimation=1;" edge="1" parent="1" source="cell_10" target="cell_12">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="18" value="Reads" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="8">
+                    <mxGeometry x="0.1909" y="-2" relative="1" as="geometry">
+                        <mxPoint y="1" as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="cell_10" value="cooling_{lat}_{lon}_{year}.csv\ncol: demand" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#b0bacf;strokeColor=#2f5d8a;fontColor=#1f2933;align=center;verticalAlign=middle;" parent="1" vertex="1">
+                    <mxGeometry x="508" y="652" width="280" height="54" as="geometry"/>
+                </mxCell>
+                <mxCell id="7" style="edgeStyle=none;html=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.25;entryDx=0;entryDy=0;flowAnimation=1;" edge="1" parent="1" source="cell_9" target="cell_12">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="400" y="600"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="17" value="Reads" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="7">
+                    <mxGeometry x="-0.1315" y="1" relative="1" as="geometry">
+                        <mxPoint x="-35" y="2" as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="11" value="results_uid.nc" style="swimlane;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+                    <mxGeometry x="930" y="30" width="200" height="500" as="geometry"/>
+                </mxCell>
+                <mxCell id="13" value="pv_version_uid" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="11">
+                    <mxGeometry x="30" y="50" width="140" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="14" value="heating_version_uid" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="11">
+                    <mxGeometry x="30" y="140" width="140" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="15" value="cooling_version_uid" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="11">
+                    <mxGeometry x="30" y="230" width="140" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="16" value="electricity_version_uid" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="11">
+                    <mxGeometry x="30" y="320" width="140" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="19" value="xyz_version_uid" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="11">
+                    <mxGeometry x="30" y="410" width="140" height="60" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>

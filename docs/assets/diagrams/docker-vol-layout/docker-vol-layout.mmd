@@ -7,24 +7,26 @@ flowchart TD
         direction TB
 
         subgraph EXISTING["Existing — renewable supply profiles (flat root)"]
-            PV["pv_{lat}_{lon}.csv\ncol: capacity_factor"]
-            WIND["wind_{lat}_{lon}.csv\ncol: capacity_factor"]
-            BIO["biomass_{lat}_{lon}.csv\ncol: capacity_factor"]
-            GEO["geothermal_{lat}_{lon}.csv\ncol: capacity_factor"]
+            PV["pv_{lat}_{lon}.csv<br>col: capacity_factor"]
+            WIND["wind_{lat}_{lon}.csv<br>col: capacity_factor"]
+            BIO["biomass_{lat}_{lon}.csv<br>col: capacity_factor"]
+            GEO["geothermal_{lat}_{lon}.csv<br>col: capacity_factor"]
         end
 
-        subgraph NEW["New — building demand profiles (results/)"]
-            HT["heating_{lat}_{lon}_{year}.csv\ncol: demand"]
-            CL["cooling_{lat}_{lon}_{year}.csv\ncol: demand"]
+        subgraph NEW["New — building demand profiles ({BUEM_DATA_DIR}/{model_id}/)"]
+            HT["heating_{lat}_{lon}_{year}.csv<br>col: demand"]
+            CL["cooling_{lat}_{lon}_{year}.csv<br>col: demand"]
+            EL["electricity_{lat}_{lon}_{year}.csv<br>col: demand"]
         end
     end
 
-    GW["Go Gateway\n(buem.go)"] -->|"writes"| HT
+    GW["Go Gateway<br>(buem.go)"] -->|"writes"| HT
     GW -->|"writes"| CL
-    CAL["Calliope"] -->|"reads"| HT
-    CAL -->|"reads"| CL
-    PYPSA["PyPSA"] -->|"reads"| HT
-    PYPSA -->|"reads"| CL
+    GW -->|"writes"| EL
+    CAL["Calliope"] -->|"reads heating + electricity"| HT
+    CAL -->|"reads"| EL
+    PYPSA["PyPSA"] -->|"reads heating + electricity"| HT
+    PYPSA -->|"reads"| EL
 
     classDef gateway  fill:#2f5d8a,stroke:#1f2933,color:#ffffff
     classDef consumer fill:#6b7280,stroke:#1f2933,color:#ffffff
@@ -34,7 +36,7 @@ flowchart TD
     class GW gateway
     class CAL,PYPSA consumer
     class PV,WIND,BIO,GEO existing
-    class HT,CL newfile
+    class HT,CL,EL newfile
 
     style VOL      fill:#f5f6f7,stroke:#1f2933
     style EXISTING fill:#f5f6f7,stroke:#6b7280

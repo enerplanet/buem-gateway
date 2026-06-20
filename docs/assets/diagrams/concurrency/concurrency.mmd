@@ -8,18 +8,17 @@ flowchart TD
     S1["goroutine 1"]
     S2["goroutine 2"]
     S3["goroutine 3"]
-    S4["goroutine 4"]
-    SN["goroutine N\n(waits for semaphore slot)"]
+    SN["goroutine N<br>(waits for semaphore slot)"]
 
-    SEM["Semaphore\n(capacity = 4)"]
+    SEM["Semaphore<br>(capacity = BUEM_WORKERS)<br>default: 11 on 22-core machine"]
 
-    BUEM["BUEM Flask\n--workers 2 --threads 2\n(4 concurrent capacity)"]
+    BUEM["BUEM Flask<br>--workers \${GUNICORN_WORKERS} --threads 1<br>CPU-bound: workers bypass GIL"]
 
     WAIT["Wait for all goroutines"]
     MERGE["Merge results into config.json"]
 
-    START --> S1 & S2 & S3 & S4 & SN
-    S1 & S2 & S3 & S4 --> SEM
+    START --> S1 & S2 & S3 & SN
+    S1 & S2 & S3 --> SEM
     SN -.->|"blocks until slot free"| SEM
     SEM --> BUEM
     BUEM --> WAIT
@@ -30,7 +29,7 @@ flowchart TD
     classDef control fill:#b0bacf,stroke:#2f5d8a,color:#1f2933
     classDef dark    fill:#1f2933,stroke:#1f2933,color:#ffffff
 
-    class S1,S2,S3,S4 active
+    class S1,S2,S3 active
     class SN waiting
     class SEM,WAIT control
     class START,MERGE dark

@@ -2,54 +2,33 @@
 config:
   layout: dagre
 ---
-flowchart LR
-    subgraph IN["1 Input — config.json topology node"]
-        N1["geometry.coordinates: [lon, lat]
-properties.feature_type: BasePOI
-properties.area: 363.4
-properties.buem:
-  building.type: MFH
-  building.A_ref: 363.4 m²
-  solver.use_milp: false"]
-    end
+flowchart TD
+    START(["EnerPlanET backend\nPOST /buem/start\nconfig.json"]):::start
 
-    subgraph SENT["2 Sent to BUEM — API spec Feature"]
-        N2["type: Feature
-geometry: Point [lon, lat]
-properties:
-  start_time: 2025-12-01T00:00:00Z
-  end_time:   2025-12-03T00:00:00Z
-  resolution: 60  (minutes)
-  buem: { building, solver }"]
-    end
+    T1["① nodeToTask()\n─────────────────\nFor each BasePOI node\nwhere properties.buem ≠ null\n─────────────────\nTopology node → GeoJSON Feature\nCoordinates lifted to geometry\nstart_time / end_time injected"]
 
-    subgraph RESP["3 BUEM Response — API spec Feature"]
-        N3["type: Feature
-geometry: Point [lon, lat]
-properties:
-  buem:
-    building: { ... }          ← echoed
-    thermal_load_profile:
-      summary: { heating, cooling, electricity }
-      timeseries:
-        heating:     [1.2, 0.8, ...]   ← 8760 values
-        cooling:     [0.0, 0.3, ...]
-        electricity: [0.4, 0.4, ...]"]
-    end
+    T2["② POST /api/process\n─────────────────\nGeoJSON Feature\n→ buem-service:5000\n?include_timeseries=true\n─────────────────\n5R1C thermal solver runs\n8 760-step simulation"]
 
-    subgraph OUT["4 Output — enriched topology node"]
-        N4["geometry.coordinates: [lon, lat]
-properties.area: 363.4                  ← unchanged
-properties.buem:
-  building: { ... }                     ← echoed
-  thermal_load_profile:
-    summary: { heating, cooling }       ← kept
-    heating_file: heating_48.833_12.957_2025.csv
-    cooling_file: cooling_48.833_12.957_2025.csv
-    (timeseries arrays removed — written to CSV instead)"]
-    end
+    T3["③ extractWriteAndAnnotate()\n─────────────────\nTimeseries arrays → CSV files\nArrays stripped from response\nCSV file paths injected"]
 
-    IN   -->|"nodeToTask()\nextract buem block\ninject start/end time"| SENT
-    SENT -->|"POST /api/process\n?include_timeseries=true"| RESP
-    RESP -->|"extractWriteAndAnnotate()\nwrite CSVs to volume\nstrip arrays · inject file paths"| OUT
-    OUT  -->|"mergeIntoTopology()\nreplace node's properties.buem"| IN
+    VOL[("sim_shared_data\nDocker volume\nheating_{lat}_{lon}_{year}.csv\ncooling_{lat}_{lon}_{year}.csv")]
+
+    T4["④ mergeIntoTopology()\n─────────────────\nEnriched buem block\nreplaces original node's\nproperties.buem in config.json"]
+
+    END_(["Enriched config.json\nreturned to EnerPlanET backend"]):::stop
+
+    START  --> T1
+    T1     -->|"GeoJSON Feature"| T2
+    T2     -->|"GeoJSON Feature + timeseries"| T3
+    T3     -->|"writes"| VOL
+    T3     -->|"annotated node"| T4
+    T4     --> END_
+
+    classDef start fill:#0f766e,stroke:#134e4a,color:#ffffff,font-weight:bold
+    classDef stop  fill:#1f2933,stroke:#0f172a,color:#ffffff,font-weight:bold
+
+    style T1  fill:#eaeff5,stroke:#2f5d8a,color:#1f2933
+    style T2  fill:#eaeff5,stroke:#2f5d8a,color:#1f2933
+    style T3  fill:#eaeff5,stroke:#2f5d8a,color:#1f2933
+    style T4  fill:#eaeff5,stroke:#2f5d8a,color:#1f2933
+    style VOL fill:#b0bacf,stroke:#2f5d8a,color:#1f2933

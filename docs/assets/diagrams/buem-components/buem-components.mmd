@@ -1,0 +1,74 @@
+---
+config:
+  layout: dagre
+---
+flowchart TB
+ subgraph HTTP["HTTP Layer  (Flask · Gunicorn  :5000)"]
+    direction LR
+        FACTORY["api_server.py\ncreate_app()\nregisters blueprints\nconfigures logging"]
+        MAPI["model_api.py\nPOST /api/process\nPOST /api/run"]
+        FAPI["files_api.py\nGET /api/files/{filename}"]
+        HEALTH["health_api.py\nGET /api/health\nGET /api/docs"]
+  end
+ subgraph CONFIG["Configuration Layer"]
+    direction LR
+        CFGBLD["cfg_building.py\nParses raw request dict\ninto typed BuildingConfig"]
+        VAL["validator.py\nChecks completeness\nLogs validation warnings"]
+  end
+ subgraph DOMAIN["Domain Layer"]
+    direction TB
+        PIPE["buildings/pipeline.py\nOrchestrates per-building\ndata assembly"]
+        COMP["buildings/components/\nwall · roof · floor\nwindow · door · ventilation\nEach element: geometry + U-value"]
+        WEATHER["weather/\nfrom_merra.py  —  MERRA-2 CSV reader\nfrom_csv.py   —  generic CSV reader\nReturns 8760-row Pandas DataFrame"]
+  end
+ subgraph SOLVER["Thermal Solver"]
+    direction LR
+        THERMAL["thermal/model_buem.py\nISO 52016-1 5R1C network\nSeparate heating and cooling passes"]
+        SCIPY["scipy.sparse\nDefault — fast linear solve"]
+        CVXPY["CVXPY + OSQP / CBC\nuse_milp=true\nInequality constraints"]
+  end
+ subgraph OUT["Output Layer"]
+    direction LR
+        RES["results/\nFormatting helpers\ntimeseries → JSON"]
+        FILES["Compressed timeseries\n.json.gz written to\nBUEM_RESULTS_DIR"]
+  end
+    MAPI -- raw dict --> CFGBLD
+    CFGBLD -- BuildingConfig --> VAL
+    VAL -- validated config --> PIPE
+    PIPE -- assembles --> COMP
+    PIPE -- lat, lon --> WEATHER
+    PIPE L_PIPE_THERMAL_0@-- BuildingConfig + weather DataFrame --> THERMAL
+    THERMAL -- default --> SCIPY
+    THERMAL -- "use_milp=true" --> CVXPY
+    THERMAL -- heating/cooling arrays --> RES
+    RES -- "?include_timeseries=true" --> FILES
+    RES -- thermal_load_profile JSON --> MAPI
+    FAPI -- serves --> FILES
+    FACTORY --- MAPI & FAPI & HEALTH
+
+     FACTORY:::http
+     MAPI:::http
+     FAPI:::http
+     HEALTH:::http
+     CFGBLD:::cfg
+     VAL:::cfg
+     PIPE:::domain
+     COMP:::domain
+     WEATHER:::domain
+     THERMAL:::solver
+     SCIPY:::solver
+     CVXPY:::solver
+     RES:::output
+     FILES:::output
+    classDef http    fill:#2f5d8a,stroke:#1f2933,color:#ffffff
+    classDef cfg     fill:#6b7280,stroke:#374151,color:#ffffff
+    classDef domain  fill:#0f766e,stroke:#134e4a,color:#ffffff
+    classDef solver  fill:#7c3aed,stroke:#4c1d95,color:#ffffff
+    classDef output  fill:#b0bacf,stroke:#2f5d8a,color:#1f2933
+    style HTTP    fill:#eaeff5,stroke:#2f5d8a
+    style CONFIG  fill:#f8fafc,stroke:#6b7280
+    style DOMAIN  fill:#f0fdf4,stroke:#134e4a
+    style SOLVER  fill:#f5f3ff,stroke:#7c3aed
+    style OUT     fill:#f1f5f9,stroke:#94a3b8
+
+    L_PIPE_THERMAL_0@{ animation: slow }
