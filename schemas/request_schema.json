@@ -273,6 +273,16 @@
           "allOf": [{ "$ref": "#/$defs/dimensionless_qty" }],
           "description": "Window non-perpendicularity correction factor — TABULA: F_w",
           "default": { "value": 1.0, "unit": "-" }
+        },
+        "phi_int": {
+          "allOf": [{ "$ref": "#/$defs/measurement" }],
+          "description": "Internal heat gains from occupants, appliances, and lighting per unit floor area. Used in the ISO 13790 energy balance as a heat source that reduces heating demand and increases cooling demand. TABULA: phi_int. Typical residential: 3–5 W/m².",
+          "default": { "value": 3.0, "unit": "W/m2" }
+        },
+        "q_w_nd": {
+          "allOf": [{ "$ref": "#/$defs/measurement" }],
+          "description": "Net energy need for domestic hot water per unit floor area per year. Added to the heating energy need in the final energy balance. TABULA: q_w_nd. Typical residential: ~12.5 kWh/(m²·a).",
+          "default": { "value": 12.5, "unit": "kWh/(m2.a)" }
         }
       }
     },

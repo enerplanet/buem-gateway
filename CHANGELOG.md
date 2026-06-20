@@ -45,7 +45,7 @@ buildings easier to identify in UI and export files.
 
 ## v4.0.0 (2026-03)
 
-**Status:** Current version
+**Status:** Current version (unreleased)
 **Compatible with v3:** No — response clients must handle optional `cooling` field.
 
 ------------------------------------------------------------------------
@@ -114,6 +114,25 @@ Two new fields added to `model_metadata` in the response:
 |---|---|---|
 | `simulations_run` | `string[]` | Which load types were computed (`heating`, `cooling`, `electricity`) |
 | `electricity_source` | `string` | Whether electricity came from `model_generated` or `client_provided` |
+
+#### 5. `envelope` is now optional (`building`)
+
+The `envelope` object is no longer required under `building`. When omitted, the model derives surface areas and thermal properties from the TABULA variant identified by `building_type`, `construction_period`, and `country`.
+
+**Why:** For national-scale workflows, supplying per-surface geometry for every building is not feasible. Omitting `envelope` lets the model run from classification data alone; geometry can be supplied when available (e.g. from 3D-BAG or City2TABULA).
+
+#### 6. Internal heat gains and DHW demand configurable (`building.thermal`)
+
+Two optional fields added to `building.thermal`:
+
+| Field | Unit | Default | TABULA name | Physical meaning |
+|---|---|---|---|---|
+| `phi_int` | W/m² | 3.0 | `phi_int` | Internal heat gains — occupants, appliances, lighting |
+| `q_w_nd` | kWh/(m²·a) | 12.5 | `q_w_nd` | Net energy need for domestic hot water per unit floor area |
+
+When omitted, the model uses the defaults above (TABULA residential reference values). `phi_int` enters the ISO 13790 heat balance as a heat source; `q_w_nd` is added to the heating energy need in the final balance.
+
+**Why:** Both parameters are defined in the TABULA attribute specification and are used internally by the model. Exposing them allows calibration against measured data and makes the model's assumptions explicit.
 
 ------------------------------------------------------------------------
 
