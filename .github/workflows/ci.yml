@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  validate-schemas:
+    name: Validate JSON schemas against examples
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install jsonschema
+        run: pip install jsonschema
+
+      - name: Validate request and response schemas
+        run: |
+          python - <<'EOF'
+          import sys, json
+          from jsonschema import Draft202012Validator
+
+          failed = False
+          for name in ['request', 'response']:
+              schema  = json.load(open(f'schemas/{name}_schema.json'))
+              example = json.load(open(f'schemas/example_{name}.json'))
+              errors  = list(Draft202012Validator(schema).iter_errors(example))
+              if errors:
+                  for e in errors:
+                      print(f'{name}: ERROR — {e.message}')
+                  failed = True
+              else:
+                  print(f'{name}: OK')
+
+          if failed:
+              sys.exit(1)
+          EOF
