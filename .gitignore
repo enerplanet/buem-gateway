@@ -1,1 +1,15 @@
 .obsidian/
+
+# Binaries
+bin/
+
+# Go workspace files (module isn't part of the wider enerplanet-heat go.work)
+go.work
+go.work.sum
+
+# Environment
+environment/.env
+
+# Local dev volumes bind-mounted by docker-compose.yml
+environment/data/
+environment/.caddy-test-data/

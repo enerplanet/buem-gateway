@@ -1,0 +1,91 @@
+# Compose project name = the concern this stack belongs to. ignis and buem
+# are both building-simulation concerns and share this namespace — see
+# THD-Spatial-AI/ignis's environment/docker-compose.yml, which already
+# anticipates this (its .env.example: "several services (ignis, buem, …) run
+# side by side"). Running `docker compose up` in both repos on the same host
+# puts every container on the same `building-simulation_default` network,
+# without either repo depending on the other.
+name: building-simulation
+
+# Container naming convention: <service>-<role>, where role is one of
+# reverse-proxy | app | service. Matches ignis's <service>-app / <service>-db
+# / <service>-reverse-proxy shape.
+services:
+  # The actual BuEM thermal model (Flask/Gunicorn, Python). Not reachable
+  # from the host or from outside this network — only buem-app calls it.
+  buem-service:
+    container_name: buem-service
+    build:
+      context: .
+      dockerfile: buem.dockerfile
+    env_file: docker.env
+    environment:
+      - PYTHONPATH=/buem/src
+      - BUEM_WEATHER_DIR=/buem/data/weather
+      - BUEM_CBC_EXE=/opt/conda/envs/buem_env/bin/cbc
+      - GUNICORN_WORKERS=${BUEM_WORKERS:-2}
+    volumes:
+      - ${BUEM_WEATHER_DIR_HOST:-./data/buem-weather}:/buem/data/weather:ro
+      - buem-results-data:/app/results
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:5000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 5
+    # No `ports:` mapping — reachable only from buem-app, by service name.
+
+  # The Go connector: EnerPlanET's topology-JSON contract in, BuEM's
+  # per-building GeoJSON contract out. See ../internal/buem.
+  buem-app:
+    container_name: buem-app
+    build:
+      context: ./..
+      dockerfile: environment/Dockerfile
+    env_file: docker.env
+    environment:
+      - APP_PORT=${APP_PORT}
+      - BUEM_SERVICE_HOST=buem-service
+      - BUEM_SERVICE_PORT=5000
+      - BUEM_DATA_DIR=/app/data
+      - BUEM_RESULTS_DIR=/app/results
+    volumes:
+      - buem-csv-data:/app/data
+      - buem-results-data:/app/results
+    depends_on:
+      buem-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:$$APP_PORT/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    # No `ports:` mapping here on purpose — only the reverse proxy is exposed;
+    # everyone else must go through it.
+
+  buem-reverse-proxy:
+    image: caddy:2.11-alpine
+    container_name: buem-reverse-proxy
+    env_file: docker.env # provides ALLOWED_ORIGINS and BUEM_API_KEY
+    environment:
+      - APP_PORT=${APP_PORT}
+    depends_on:
+      buem-app:
+        condition: service_healthy
+    ports:
+      - "${HOST_HTTPS_PORT:-8443}:443" # host side assignable per service, so it doesn't collide with ignis's own 443
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ${CADDY_DATA_DIR}:/data/caddy # reuse the host's already-trusted local CA
+    # Same ALLOWED_ORIGINS -> regex derivation as ignis's reverse proxy — see
+    # that repo's docker-compose.yml for the full rationale.
+    entrypoint:
+      - sh
+      - -c
+      - >
+        export ALLOWED_ORIGINS_PATTERN="^($$(echo "$$ALLOWED_ORIGINS" | sed -e 's/[.]/\\./g' -e 's/,/|/g'))$$" &&
+        exec caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
+
+volumes:
+  buem-csv-data:
+  buem-results-data:
