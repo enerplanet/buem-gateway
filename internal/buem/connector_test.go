@@ -124,8 +124,18 @@ func TestConnectorRunSingle_EnrichesOneBuildingNoTopology(t *testing.T) {
 	if err := json.Unmarshal(enriched, &block); err != nil {
 		t.Fatalf("unmarshal enriched block: %v", err)
 	}
-	if _, ok := block["thermal_load_profile"]; !ok {
+	tlp, ok := block["thermal_load_profile"].(map[string]interface{})
+	if !ok {
 		t.Fatalf("expected thermal_load_profile in enriched block, got %v", block)
+	}
+	// RunSingle callers (e.g. a browser client) have no access to the shared
+	// volume CSVs land on — the timeseries must survive in the response.
+	ts, ok := tlp["timeseries"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected timeseries to be present in RunSingle's response, got %v", tlp)
+	}
+	if _, ok := ts["heating"]; !ok {
+		t.Fatalf("expected timeseries.heating to be present, got %v", ts)
 	}
 	assertHeatingCSVWritten(t, dataDir)
 }
@@ -196,8 +206,14 @@ func assertBuemBlockMerged(t *testing.T, enriched json.RawMessage) {
 	if len(edges) != 1 {
 		t.Fatalf("expected 1 edge, got %d", len(edges))
 	}
-	if _, ok := edges[0].From.Properties.BUEM["thermal_load_profile"]; !ok {
+	tlp, ok := edges[0].From.Properties.BUEM["thermal_load_profile"].(map[string]interface{})
+	if !ok {
 		t.Fatalf("expected thermal_load_profile in merged buem block, got %v", edges[0].From.Properties.BUEM)
+	}
+	// Run's topology callers read results from the shared volume CSVs — the
+	// inline timeseries should be stripped, unlike RunSingle's response.
+	if _, present := tlp["timeseries"]; present {
+		t.Fatalf("expected timeseries to be stripped from Run's response, got %v", tlp["timeseries"])
 	}
 }
 

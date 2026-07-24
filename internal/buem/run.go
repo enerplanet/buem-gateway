@@ -28,9 +28,12 @@ type RunMetrics struct {
 
 // RunFeature sends one Task to the upstream BuEM service, writes its
 // heating/cooling/electricity CSVs to the shared data directory, and returns
-// the enriched buem block (as raw JSON, with file paths injected and the
-// inline timeseries stripped out).
-func RunFeature(client *httpclient.Client, cfg *config.Config, task Task) ([]byte, RunMetrics, error) {
+// the enriched buem block as raw JSON, with file paths injected. The inline
+// timeseries is stripped unless keepTimeseries is true — callers that read
+// results from the shared volume (the multi-building topology path) don't
+// need it in the response; callers with no volume access (e.g. a browser
+// client hitting /buem/building) do.
+func RunFeature(client *httpclient.Client, cfg *config.Config, task Task, keepTimeseries bool) ([]byte, RunMetrics, error) {
 	wallStart := time.Now()
 
 	block, err := callUpstream(client, cfg, task)
@@ -39,7 +42,7 @@ func RunFeature(client *httpclient.Client, cfg *config.Config, task Task) ([]byt
 	}
 	modelSeconds := block.ModelMetadata.ProcessingTime.Value
 
-	enriched, csvWriteDuration, err := writeCSVsAndAnnotate(cfg, block, task)
+	enriched, csvWriteDuration, err := writeCSVsAndAnnotate(cfg, block, task, keepTimeseries)
 	if err != nil {
 		return nil, RunMetrics{}, err
 	}
@@ -75,8 +78,9 @@ func callUpstream(client *httpclient.Client, cfg *config.Config, task Task) (*Re
 
 // writeCSVsAndAnnotate writes heating, cooling, and electricity CSVs to
 // {BuemDataDir}/{modelID}/, injects the file paths into the buem block, and
-// marshals it. The timeseries arrays are removed once written to CSV.
-func writeCSVsAndAnnotate(cfg *config.Config, block *ResponseBlock, task Task) ([]byte, time.Duration, error) {
+// marshals it. The timeseries arrays are removed once written to CSV, unless
+// keepTimeseries is true.
+func writeCSVsAndAnnotate(cfg *config.Config, block *ResponseBlock, task Task, keepTimeseries bool) ([]byte, time.Duration, error) {
 	ts := block.ThermalLoadProfile.Timeseries
 	if ts == nil {
 		return nil, 0, fmt.Errorf("BuEM response missing timeseries (include_timeseries=true was requested)")
@@ -108,7 +112,9 @@ func writeCSVsAndAnnotate(cfg *config.Config, block *ResponseBlock, task Task) (
 	csvWriteDuration := time.Since(writeStart)
 
 	deleteSourceTimeseries(cfg, block.ThermalLoadProfile.TimeseriesFile)
-	block.ThermalLoadProfile.Timeseries = nil
+	if !keepTimeseries {
+		block.ThermalLoadProfile.Timeseries = nil
+	}
 
 	enriched, err := json.Marshal(block)
 	if err != nil {

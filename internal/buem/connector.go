@@ -88,7 +88,11 @@ func (c *Connector) RunSingle(id string, geometry, buemRaw json.RawMessage, star
 		return nil, fmt.Errorf("not a valid building request — check id, geometry.coordinates, and buem")
 	}
 
-	result := c.runOne(tasks[0])
+	// keepTimeseries=true: unlike Run's topology callers (which read results
+	// from the shared volume), a RunSingle caller (e.g. a browser client) has
+	// no access to that volume — it needs the values inline to do anything
+	// with them.
+	result := c.runOne(tasks[0], true)
 	if result.errMsg != "" {
 		return nil, fmt.Errorf("%s", result.errMsg)
 	}
@@ -130,7 +134,7 @@ func (c *Connector) runTasks(tasks []Task) map[string]outcome {
 			defer wg.Done()
 			c.sem <- struct{}{}
 			defer func() { <-c.sem }()
-			ch <- c.runOne(t)
+			ch <- c.runOne(t, false)
 		}(task)
 	}
 	wg.Wait()
@@ -143,8 +147,10 @@ func (c *Connector) runTasks(tasks []Task) map[string]outcome {
 	return results
 }
 
-func (c *Connector) runOne(task Task) outcome {
-	block, metrics, err := RunFeature(c.client, c.cfg, task)
+// runOne runs a single task against BuEM. keepTimeseries controls whether
+// the response's inline timeseries survives CSV extraction — see RunFeature.
+func (c *Connector) runOne(task Task, keepTimeseries bool) outcome {
+	block, metrics, err := RunFeature(c.client, c.cfg, task, keepTimeseries)
 	if err != nil {
 		log.Printf("buem-gateway | node=%s error: %s", task.NodeID, err)
 		return outcome{nodeID: task.NodeID, errMsg: err.Error()}
