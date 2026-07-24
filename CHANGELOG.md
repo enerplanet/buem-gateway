@@ -2,6 +2,23 @@
 
 ------------------------------------------------------------------------
 
+## Unreleased
+
+### `construction_period` clarified: TABULA class code, not a year range
+
+While implementing the TABULA-fallback resolver (used when `envelope` is omitted), discovered
+that TABULA variant codes identify construction era by a country-specific numbered class (e.g.
+`"01"`, `"02"`) — never by a literal year range. The schema's description previously said
+`"e.g. 1965-1974"`, which doesn't correspond to anything TABULA or ignis (the TABULA data source)
+actually use, and class boundaries differ per country (each national TABULA dataset drew its own).
+
+`construction_period` must now be the TABULA class code for the building's country. Since the
+TABULA-fallback resolver was never implemented before this, and BuEM itself has never read this
+field for anything, no working caller depended on the old (incorrect) format — treated as a
+documentation fix, not a breaking schema change.
+
+------------------------------------------------------------------------
+
 ## v4.2.0 (2026-06) — Current
 
 **Status:** Current version

@@ -14,7 +14,7 @@
             "building": {
               "name": "Building 1",
               "building_type": "SFH",
-              "construction_period": "1965-1974",
+              "construction_period": "06",
               "country": "DE",
               "n_storeys": 2,
               "A_ref": {"value": 120, "unit": "m2"},
@@ -57,7 +57,7 @@
             "building": {
               "name": "Building 2",
               "building_type": "MFH",
-              "construction_period": "1975-1984",
+              "construction_period": "07",
               "country": "DE",
               "n_storeys": 4,
               "A_ref": {"value": 360, "unit": "m2"},
