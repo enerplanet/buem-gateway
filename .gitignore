@@ -13,3 +13,8 @@ environment/.env
 # Local dev volumes bind-mounted by docker-compose.yml
 environment/data/
 environment/.caddy-test-data/
+environment/.caddy-docs-test/
+environment/.caddy-shared-test/
+
+# MkDocs build output
+/site

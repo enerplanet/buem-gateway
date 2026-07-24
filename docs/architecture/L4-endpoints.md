@@ -37,7 +37,7 @@ This is the primary endpoint used by the simulation gateway.
 
 **Request body** — `application/json`
 
-GeoJSON `FeatureCollection` conforming to [`request_schema.json`](../../schemas/request_schema.json).
+GeoJSON `FeatureCollection` conforming to [`request_schema.json`](https://github.com/enerplanet/buem-gateway/blob/main/schemas/request_schema.json).
 
 ```json
 {
@@ -70,7 +70,7 @@ GeoJSON `FeatureCollection` conforming to [`request_schema.json`](../../schemas/
 
 **Response body** — `application/json`
 
-GeoJSON `FeatureCollection` conforming to [`response_schema.json`](../../schemas/response_schema.json).
+GeoJSON `FeatureCollection` conforming to [`response_schema.json`](https://github.com/enerplanet/buem-gateway/blob/main/schemas/response_schema.json).
 Each feature echoes the request and appends `thermal_load_profile` and `model_metadata`.
 
 ```json
@@ -409,7 +409,7 @@ All endpoints require a valid bearer token from Keycloak.
 
 **Measurement units** — All numeric values in BUEM request/response payloads carry
 an explicit `unit` field. SI units are assumed when `unit` is omitted.
-See [SCHEMA_OVERVIEW.md](../../SCHEMA_OVERVIEW.md) for the full unit table.
+See [SCHEMA_OVERVIEW.md](https://github.com/enerplanet/buem-gateway/blob/main/SCHEMA_OVERVIEW.md) for the full unit table.
 
 **Timeseries on demand** — By default, hourly arrays are **not** returned in the
 response body. Pass `?include_timeseries=true` to `/api/process` to embed them.

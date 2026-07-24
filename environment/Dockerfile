@@ -30,7 +30,14 @@ RUN go build -o bin/app ./cmd/app
 # -----------------------------
 # Create non-root user and fix permissions
 # -----------------------------
+# /app/data and /app/results are volume mount points (BUEM_DATA_DIR /
+# BUEM_RESULTS_DIR in docker-compose.yml). They must exist in the image,
+# owned by appuser, before the volume mount happens — Docker only carries
+# an image directory's ownership into a freshly created named volume when
+# something already exists there; an empty mount point gets root:root
+# instead, which appuser then can't write into.
 RUN useradd -m -u 10001 appuser \
+    && mkdir -p /app/data /app/results \
     && chown -R appuser:appuser /app
 USER appuser
 

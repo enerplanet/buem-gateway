@@ -1,5 +1,15 @@
 # Architecture Documentation
 
+!!! warning "Describes the pre-buem-gateway embedded architecture"
+    These four documents were written when this repository held only the API contract, and BuEM
+    was reached through `enerplanet/simulation-engine`'s embedded gateway (HAProxy, Keycloak,
+    `docker_webservice`, the multi-engine `Simulation` interface). That is no longer how BuEM is
+    deployed — see [../index.md](../index.md) for the current, standalone buem-gateway
+    architecture (Caddy, `building-simulation` namespace, no simulation-engine dependency). Kept
+    here for historical reference and because most of L1/L4's content (standards, TABULA,
+    GeoJSON contract) still describes BuEM itself accurately; L2 and L3-gateway's container/routing
+    detail does not.
+
 This directory describes the BUEM ecosystem at four levels of detail,
 following **ISO/IEC/IEEE 42010** (architecture description) and the **C4 model** hierarchy.
 
@@ -38,6 +48,6 @@ Start at L1 for a plain-language overview. Go deeper only for the service you ar
 | Document | Location | Purpose |
 |----------|----------|---------|
 | Integration architecture | [../integration-architecture.md](../integration-architecture.md) | Request flow, data transformation, concurrency model |
-| Schema overview | [../../SCHEMA_OVERVIEW.md](../../SCHEMA_OVERVIEW.md) | Request / response field reference |
-| Versioning policy | [../../VERSIONING.md](../../VERSIONING.md) | How schema versions are managed |
-| Changelog | [../../CHANGELOG.md](../../CHANGELOG.md) | History of schema changes |
+| Schema overview | [SCHEMA_OVERVIEW.md](https://github.com/enerplanet/buem-gateway/blob/main/SCHEMA_OVERVIEW.md) | Request / response field reference |
+| Versioning policy | [VERSIONING.md](https://github.com/enerplanet/buem-gateway/blob/main/VERSIONING.md) | How schema versions are managed |
+| Changelog | [CHANGELOG.md](https://github.com/enerplanet/buem-gateway/blob/main/CHANGELOG.md) | History of schema changes |
