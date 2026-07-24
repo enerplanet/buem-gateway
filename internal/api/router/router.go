@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/enerplanet/buem-gateway/internal/api/handler"
+	"github.com/enerplanet/buem-gateway/internal/api/middleware"
 )
 
 // New builds the HTTP handler for buem-gateway: GET /health,
@@ -15,5 +16,5 @@ func New(h *handler.Handler) http.Handler {
 	mux.HandleFunc("GET /health", h.Health)
 	mux.HandleFunc("POST /buem/start", h.Start)
 	mux.HandleFunc("POST /buem/building", h.Building)
-	return mux
+	return middleware.CORS(mux)
 }
