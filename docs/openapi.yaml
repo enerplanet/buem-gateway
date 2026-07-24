@@ -1,0 +1,329 @@
+openapi: 3.0.3
+
+info:
+  title: buem-gateway API
+  version: 1.0.0
+  description: |
+    buem-gateway is the connector between EnerPlanET and
+    [BuEM](https://github.com/enerplanet/buem), the ISO 52016-1 thermal
+    building model. It fans a building (or a topology of several buildings)
+    out to BuEM, writes each building's heating/cooling/electricity load
+    profiles to CSV, and returns the enriched result.
+
+    When a building's `buem.building.envelope` is omitted, buem-gateway
+    resolves TABULA defaults from [ignis](https://github.com/THD-Spatial-AI/ignis)
+    before ever calling BuEM — BuEM's own contract still requires `envelope`
+    unconditionally. See [Getting started](../getting-started.md) for how
+    that fallback works and what it assumes.
+
+    ## Authentication
+
+    buem-gateway has no authentication of its own. It runs behind a reverse
+    proxy (Caddy), and the proxy is the only way to reach it. Any caller
+    sends a valid `X-Api-Key` header; the proxy rejects anything else with
+    `403` before the request ever reaches buem-gateway.
+
+    buem-gateway is meant to be called by a trusted, server-side caller —
+    never directly by a browser or an end user's client, since the key must
+    not be visible outside that caller.
+
+    The API key is a prototype-stage credential, suitable for local
+    development and evaluation. A production deployment should replace it
+    with a short-lived token or mutual TLS between the caller and
+    buem-gateway; the request/response contract of the endpoints does not
+    change if it does.
+  license:
+    name: MIT
+    url: https://github.com/enerplanet/buem-gateway/blob/main/LICENSE
+  contact:
+    name: enerplanet
+    url: https://github.com/enerplanet/buem-gateway
+
+servers:
+  - url: https://localhost:8443
+    description: Local development, via the reverse proxy (buem-reverse-proxy)
+  - url: https://{host}
+    description: Deployed behind the platform's reverse proxy
+    variables:
+      host:
+        default: buem-gateway.example.org
+        description: The public host the reverse proxy is published on
+
+tags:
+  - name: Health
+    description: Liveness check
+  - name: Simulation
+    description: Run BuEM and retrieve load profiles
+
+security:
+  - ApiKeyAuth: []
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Liveness check
+      description: Returns 200 while the connector is running. Does not check BuEM's own health.
+      responses:
+        "200":
+          description: Server is up
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /buem/building:
+    post:
+      tags: [Simulation]
+      summary: Run BuEM for one building
+      description: >
+        No topology/edge-list wrapper — for a caller with exactly one
+        building and no grid to describe (e.g. Building Configurator).
+        Unlike `/buem/start`, a failed run is reported as an HTTP error,
+        since there is no partial-success case to preserve caller data for
+        with only one building.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BuildingRequest"
+            example:
+              id: demo-building
+              geometry:
+                type: Point
+                coordinates: [12.95772, 48.833911]
+              model_id: demo-model-001
+              start_date: "2018-01-01T00:00:00Z"
+              end_date: "2018-12-31T23:00:00Z"
+              resolution: 60
+              buem:
+                building:
+                  building_type: SFH
+                  construction_period: "01"
+                  country: DE
+                  A_ref: { value: 120, unit: m2 }
+                  h_room: { value: 2.5, unit: m }
+                solver:
+                  compute_cooling: false
+      responses:
+        "200":
+          description: Building processed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BuildingResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/RunFailed"
+
+  /buem/start:
+    post:
+      tags: [Simulation]
+      summary: Run BuEM for every building in a topology
+      description: >
+        Buildings are the nodes of a `{from, to}` edge list — the shape
+        EnerPlanET's grid topology already uses elsewhere — with
+        `properties.feature_type == "BasePOI"` and a non-null
+        `properties.buem` block. Non-building nodes and edges pass through
+        unchanged. A building that fails is left in the response exactly as
+        it was sent; check for `thermal_load_profile`'s presence before
+        reading it — the failure itself is logged server-side, not returned
+        in the response body.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartRequest"
+      responses:
+        "200":
+          description: Topology processed (successfully or partially — see description)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StartResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-Api-Key
+      description: >
+        Static key checked by the reverse proxy. Sent by the trusted caller,
+        not by an end user's browser. A request without a valid key is
+        rejected with 403 before it reaches buem-gateway.
+
+  responses:
+    BadRequest:
+      description: Malformed request (unreadable body, missing buem block)
+      content:
+        text/plain:
+          schema:
+            type: string
+          example: "buem block is required"
+    Forbidden:
+      description: Missing or invalid API key (enforced by the reverse proxy)
+      content:
+        text/plain:
+          schema:
+            type: string
+          example: "Forbidden: missing or invalid API key"
+    RunFailed:
+      description: >
+        BuEM rejected the request or failed to process it (e.g. envelope
+        missing and no matching TABULA variant, invalid parameter values).
+      content:
+        text/plain:
+          schema:
+            type: string
+          example: "buem run failed: BuEM request: request to ... failed with status 400: ..."
+
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: ok
+        service:
+          type: string
+          example: buem-gateway
+      required: [status, service]
+
+    Geometry:
+      type: object
+      description: GeoJSON Point — [longitude, latitude].
+      properties:
+        type:
+          type: string
+          example: Point
+        coordinates:
+          type: array
+          items:
+            type: number
+          minItems: 2
+          maxItems: 3
+      required: [coordinates]
+
+    BuemBlock:
+      type: object
+      description: >
+        The building's classification, envelope, thermal, and solver data —
+        see `schemas/request_schema.json` in this repo for the full BuEM
+        request contract. Forwarded to BuEM largely as-is; `envelope` is
+        filled from TABULA when omitted (see the description above).
+      additionalProperties: true
+
+    BuildingRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Optional — used for logging and CSV filenames. Defaults to "building".
+          example: demo-building
+        geometry:
+          $ref: "#/components/schemas/Geometry"
+        model_id:
+          type: string
+          description: Isolates output — CSVs are written under `{BUEM_DATA_DIR}/{model_id}/`.
+          example: demo-model-001
+        start_date:
+          type: string
+          format: date-time
+          description: Simulation window start; its year selects the weather file.
+        end_date:
+          type: string
+          format: date-time
+        resolution:
+          type: integer
+          description: Output resolution in minutes.
+          example: 60
+        buem:
+          $ref: "#/components/schemas/BuemBlock"
+      required: [buem]
+
+    BuildingResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: demo-building
+        buem:
+          $ref: "#/components/schemas/BuemBlock"
+          description: Enriched with `thermal_load_profile` and `model_metadata`.
+      required: [id, buem]
+
+    TopologyNode:
+      type: object
+      description: One GeoJSON-shaped node. Only BasePOI nodes with a non-null buem block are treated as buildings.
+      properties:
+        id:
+          type: string
+        geometry:
+          $ref: "#/components/schemas/Geometry"
+        properties:
+          type: object
+          properties:
+            feature_type:
+              type: string
+              example: BasePOI
+            buem:
+              $ref: "#/components/schemas/BuemBlock"
+      required: [id, geometry, properties]
+
+    TopologyEdge:
+      type: object
+      properties:
+        from:
+          $ref: "#/components/schemas/TopologyNode"
+        to:
+          $ref: "#/components/schemas/TopologyNode"
+
+    StartRequest:
+      type: object
+      properties:
+        model_id:
+          type: string
+          example: demo-model-001
+        start_date:
+          type: string
+          format: date-time
+        end_date:
+          type: string
+          format: date-time
+        resolution:
+          type: integer
+          example: 60
+        topology:
+          type: array
+          items:
+            $ref: "#/components/schemas/TopologyEdge"
+      required: [start_date, end_date, topology]
+
+    StartResponse:
+      type: object
+      description: The same shape as StartRequest, with each processed building's buem block enriched.
+      properties:
+        model_id:
+          type: string
+        start_date:
+          type: string
+        end_date:
+          type: string
+        resolution:
+          type: integer
+        topology:
+          type: array
+          items:
+            $ref: "#/components/schemas/TopologyEdge"

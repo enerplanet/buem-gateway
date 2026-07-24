@@ -1,5 +1,9 @@
 # API reference
 
+The interactive reference below is generated from the OpenAPI spec
+([`openapi.yaml`](openapi.yaml)), the machine-readable source of truth for every endpoint, schema,
+and error. Download it to generate a client, load it into Postman, or import it into another tool.
+
 ## How to consume the API
 
 buem-gateway has no authentication of its own — the `buem-reverse-proxy` in front of it is the
@@ -13,48 +17,22 @@ client, since the key must not be visible outside that caller.
     [Getting started](getting-started.md)). In a deployment, whatever host the reverse proxy is
     published on.
 
-## Endpoints
+## Two ways to call it
 
-| Method | Path | Purpose |
+| Endpoint | Shape | Use when |
 |---|---|---|
-| `GET` | `/health` | Liveness check — no auth required at the connector itself, but still only reachable through the proxy |
-| `POST` | `/buem/start` | Run BuEM for every building in a topology, return the enriched topology |
+| `POST /buem/building` | One building, no wrapper | You have exactly one building and no grid to describe (e.g. Building Configurator) — a failed run is a clear HTTP error |
+| `POST /buem/start` | A topology (`{from, to}` edge list) | You have several buildings, possibly alongside non-building grid nodes — a failed building is left unchanged in the response rather than failing the whole request |
 
-## `POST /buem/start`
-
-### Request
-
-The top level describes the run; buildings live inside a `topology` array of `{from, to}` node
-pairs (an edge list — the same shape EnerPlanET's grid topology already uses elsewhere). Only
-nodes with `properties.feature_type == "BasePOI"` and a non-null `properties.buem` block are
-treated as buildings; everything else in the topology passes through unchanged.
-
-| Field | Type | Description |
-|---|---|---|
-| `model_id` | string | Isolates output — CSVs are written under `{BUEM_DATA_DIR}/{model_id}/` |
-| `start_date` | RFC 3339 | Simulation window start; its **year** selects the weather file |
-| `end_date` | RFC 3339 | Simulation window end |
-| `resolution` | integer | Output resolution in minutes (e.g. `60`) |
-| `topology` | array | List of `{ from, to }` node pairs |
-
-Each building node's `properties.buem` is forwarded to BuEM opaquely — buem-gateway doesn't
-interpret its contents beyond checking it's present and non-null, and one exception:
-`building.envelope`, described next. The rest must conform to whatever schema BuEM's own request
-validator currently accepts; see `schemas/` in this repo and `CHANGELOG.md` for what's actually
-implemented (not everything documented there is built — BuEM's own model doesn't support
-`solver.compute_cooling`'s upstream request format changing shape yet, for example, only the
-opt-in flag itself).
-
-!!! info "Full example"
-    `testdata/test_buem_topology_request.json` — two buildings, model `demo-model-001`. Used as
-    the reference payload in the [reproducibility check](getting-started.md#reproducibility-check).
+Both share the same `buem` block shape, the same TABULA-fallback behavior, and the same CSV
+output — described below.
 
 ### TABULA fallback when `envelope` is omitted
 
 BuEM's own validator still hard-requires `building.envelope` — that hasn't changed. But
-buem-gateway itself doesn't: if a building node's `buem.building.envelope` is missing, the
-connector resolves TABULA defaults from [ignis](https://github.com/THD-Spatial-AI/ignis) (reached
-directly by service name on the shared `building-simulation` Docker network — see
+buem-gateway itself doesn't: if a building's `buem.building.envelope` is missing, the connector
+resolves TABULA defaults from [ignis](https://github.com/THD-Spatial-AI/ignis) (reached directly
+by service name on the shared `building-simulation` Docker network — see
 [Getting started](getting-started.md#the-building-simulation-namespace)) using
 `building_type`/`construction_period`/`country`, maps them into BuEM's per-element `envelope`
 shape, and injects them before the request ever reaches BuEM. BuEM itself never sees a request
@@ -80,23 +58,6 @@ North/East/South/West/Horizontal area split, used directly rather than assumed.
 `thermal.n_air_infiltration`/`n_air_use` are also filled from TABULA when the request omits them
 — but never overwritten if the request already supplied a value.
 
-### Response
-
-The same topology, with each processed building's `buem` block enriched:
-
-| Field | Description |
-|---|---|
-| `thermal_load_profile.summary` | `heating`/`cooling`/`electricity` (`cooling` only present if `solver.compute_cooling` was `true`), each with `total` (kWh) plus `min`/`max`/`mean`/`median`/`std` (kW) |
-| `thermal_load_profile.summary.peak_heating_load` / `peak_cooling_load` | Peak power (kW) |
-| `thermal_load_profile.summary.energy_intensity` | Total demand per floor area (kWh/m²) |
-| `thermal_load_profile.summary.total_energy_demand` | Sum of computed load types (kWh) |
-| `thermal_load_profile.heating_file` / `cooling_file` / `electricity_file` | Path to each CSV on the shared volume — omitted for load types that weren't computed |
-| `model_metadata.simulations_run` | Which load types were actually computed, e.g. `["heating", "electricity"]` |
-
-A building that fails (BuEM validation error, upstream timeout, …) is left in the response
-exactly as it was sent — check for the presence of `thermal_load_profile` before reading it. The
-failure itself is logged by `buem-app`, not returned in the HTTP response body.
-
 ### CSV output
 
 One CSV per computed load type, per building, written to `{BUEM_DATA_DIR}/{model_id}/`:
@@ -116,3 +77,19 @@ demand
 19.162132866903892
 ...
 ```
+
+## Testing it yourself
+
+The Swagger UI below can call a locally running buem-gateway directly.
+
+1. Start the stack, from `environment/`: `cp .env.example .env` (then edit `CADDY_DATA_DIR`),
+   `docker compose up -d --build`.
+2. Serve these docs locally with `mkdocs serve`.
+3. If your browser has never trusted the local proxy's certificate, open `https://localhost:8443`
+   directly once and accept it (or run `caddy trust`).
+4. Click **Authorize** below and enter the API key checked by the reverse proxy (`X-Api-Key`; the
+   prototype default is set in `environment/docker.env`). It applies to every **Try it out** call
+   from then on.
+5. Expand an endpoint, click **Try it out**, fill in the parameters, and **Execute**.
+
+<swagger-ui src="openapi.yaml"/>

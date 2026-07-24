@@ -59,6 +59,8 @@ theme:
 plugins:
   - search:
       separator: '[\s​\-_,:!=\[\]()"`/]+|\.(?!\d)|&[lg]t;|(?!\b)(?=[A-Z][a-z])'
+  - swagger-ui-tag:
+      tryItOutEnabled: true
 
 # Extensions — pymdownx.superfences custom mermaid fence is required for
 # Mermaid diagrams to render under Material; see CLAUDE.md.
