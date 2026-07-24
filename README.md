@@ -1,109 +1,122 @@
 # buem-gateway
 
-[![Go](https://github.com/enerplanet/buem-gateway/actions/workflows/go.yml/badge.svg)](https://github.com/enerplanet/buem-gateway/actions/workflows/go.yml)
-&nbsp;
-[![codecov](https://codecov.io/gh/enerplanet/buem-gateway/branch/main/graph/badge.svg)](https://codecov.io/gh/enerplanet/buem-gateway)
+[![Go](https://github.com/enerplanet/buem-gateway/actions/workflows/go.yml/badge.svg)](https://github.com/enerplanet/buem-gateway/actions/workflows/go.yml)&nbsp;&nbsp;&nbsp;[![CI](https://github.com/enerplanet/buem-gateway/actions/workflows/ci.yml/badge.svg)](https://github.com/enerplanet/buem-gateway/actions/workflows/ci.yml)&nbsp;&nbsp;&nbsp;[![codecov](https://codecov.io/gh/enerplanet/buem-gateway/branch/main/graph/badge.svg)](https://codecov.io/gh/enerplanet/buem-gateway)&nbsp;&nbsp;&nbsp;[![GitHub release](https://img.shields.io/github/v/release/enerplanet/buem-gateway?include_prereleases&label=release&logo=github)](https://github.com/enerplanet/buem-gateway/releases)
 
-Contract definition and JSON schemas for the integration between\
-**EnerPlanET backend** and the **BUEM time-series microservice**.
+Go connector between **EnerPlanET** and [BuEM](https://github.com/enerplanet/buem), the
+ISO 52016-1 thermal building model. Fans a topology of buildings — or a single building — out to
+BuEM, writes each one's heating/cooling/electricity load profiles to CSV, and returns the results
+enriched into the caller's original shape.
 
-This repository defines the authoritative request and response formats
-used when EnerPlanET communicates with the BUEM container.
+buem-gateway also carries the JSON schema contract that defines BuEM's request/response format
+(`schemas/`, [`CHANGELOG.md`](CHANGELOG.md), [`VERSIONING.md`](VERSIONING.md),
+[`SCHEMA_OVERVIEW.md`](SCHEMA_OVERVIEW.md)) and the CSV output naming convention
+([`NAMING.md`](NAMING.md)) — this repository is both the connector *and* the authoritative source
+for that contract.
 
-The BUEM microservice runs internally within the EnerPlanET Docker stack
-and is not exposed externally.
+> [!NOTE]
+> buem-gateway is a standalone service, independently deployable — it does not require installing
+> or running `enerplanet/simulation-engine`. It joins the same `building-simulation` Docker
+> namespace as the standalone [`ignis`](https://github.com/THD-Spatial-AI/ignis) repo, but each is
+> its own repo, own container, own reverse proxy.
 
-------------------------------------------------------------------------
+---
 
-## Scope
+## What it does
 
-This repository defines:
-
-- The JSON structure of request payloads sent to BUEM
-- The JSON structure of response payloads returned by BUEM
-- Versioning rules for schema evolution
-- Example payloads
-- Change documentation
-
-This repository does **not** contain implementation code.
-
-------------------------------------------------------------------------
-
-## Microservice Contract
-
-The BUEM container must:
-
-- Expose `POST /timeseries`
-- Accept request payloads matching `request_schema.json`
-- Return response payloads matching `response_schema.json`
-- Preserve all input fields
-- Add computed `thermal_load_profile`
-- Expose `GET /health`
-- Bind to `0.0.0.0` inside the container
-
-------------------------------------------------------------------------
-
-## Schema Versioning
-
-Schemas are versioned using version folders:
-
-    schemas/
-      v1/
-      v2/
-      v3/
-
-Each version folder is immutable once released.
-
-Breaking changes require a new version folder.
-
-EnerPlanET validates both request and response payloads against the
-corresponding schema version.
-
-Clients should always use the latest agreed version unless explicitly
-required otherwise.
-
-For detailed rules see `VERSIONING.md`.
-
-------------------------------------------------------------------------
-
-## Version Folder Content
-
-Each version folder contains:
-
-- `request_schema.json`
-- `response_schema.json`
-- `example_request.json`
-- `example_response.json`
-
-Optional: - Version-specific notes in `CHANGELOG.md`
-
-------------------------------------------------------------------------
-
-## Schema Validation
-
-Schemas and example payloads can be validated using JSON Schema tools.
-
-Example using Python:
-
-```python
-import json
-from jsonschema import validate
-
-with open("schemas/v2/request_schema.json") as f:
-    schema = json.load(f)
-
-with open("schemas/v2/example_request.json") as f:
-    payload = json.load(f)
-
-validate(instance=payload, schema=schema)
-print("Valid.")
+```mermaid
+graph LR
+    CALLER[Caller] -->|POST /buem/start<br>topology JSON| PROXY[buem-reverse-proxy<br>Caddy, X-Api-Key auth]
+    CALLER -->|POST /buem/building<br>single building| PROXY
+    PROXY --> APP[buem-app<br>Go connector]
+    APP -->|POST /api/process<br>one call per building| MODEL[buem-service<br>BuEM Flask]
+    MODEL -->|thermal_load_profile| APP
+    APP -->|enriched result| CALLER
+    APP -->|heating/cooling/electricity CSVs| VOL[(shared volume)]
+    APP -.->|TABULA fallback<br>when envelope is omitted| IGNIS[ignis]
 ```
 
-Validation must pass before schema versions are released.
+A caller sends either a **topology** — a list of `{from, to}` node pairs, some of which are
+buildings carrying a `properties.buem` block — or a **single building**, with no topology wrapper.
+buem-gateway extracts the buildings, runs each one through BuEM concurrently (bounded by
+`MAX_CONCURRENT_SIMS`), writes the results to CSV, and returns the enriched output. If a building
+omits its envelope, buem-gateway resolves TABULA defaults via [`ignis`](https://github.com/THD-Spatial-AI/ignis)
+before calling BuEM — BuEM itself stays unaware this happens.
 
-## Schema Visualization
+---
 
-Helpful for understanding complex nested structures and relationships between fields it's recommended to use [jsoncrack](https://jsoncrack.com) to visualize the schema structure.
+## Compatibility
 
-> [!TIP]
-> If you are using VS Code, the [JSON Schema extension](https://marketplace.visualstudio.com/items?itemName=AykutSarac.jsoncrack-vscode) can provide inline validation and visualization.
+| Dependency | Version |
+| --- | --- |
+| Go | 1.26+ |
+| Docker + Compose plugin | any recent |
+
+---
+
+## Quick start
+
+| Step | Command | Description |
+| --- | --- | --- |
+| 1 | `cd environment && cp .env.example .env` | Configure `CADDY_DATA_DIR`, ports, weather data path |
+| 2 | `docker compose up -d --build` | Start `buem-service` (model), `buem-app` (this connector), `buem-reverse-proxy` (Caddy) |
+| 3 | `curl -sk https://localhost:8443/health -H "X-Api-Key: <BUEM_API_KEY>"` | Confirm the stack is up |
+
+Full setup, endpoint reference, and deployment details: [`docs/getting-started.md`](docs/getting-started.md)
+and [`docs/api.md`](docs/api.md) (or run `mkdocs serve` locally — see below).
+
+---
+
+## Endpoints
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `GET` | `/health` | Liveness check |
+| `POST` | `/buem/start` | Multi-building: topology in, enriched topology out |
+| `POST` | `/buem/building` | Single building, no topology wrapper: building in, enriched `buem` block out |
+
+All routes except `/health` require the `X-Api-Key` header, checked by the reverse proxy.
+
+---
+
+## Testing
+
+```bash
+go build ./...
+go vet ./...
+go test ./...
+
+# with coverage
+go test ./... -coverprofile=coverage.out -covermode=atomic
+go tool cover -html=coverage.out
+```
+
+---
+
+## Local docs
+
+```bash
+python -m venv .venv
+.venv/bin/pip install -r docs/requirements.txt
+.venv/bin/mkdocs serve
+```
+
+---
+
+## License
+
+MIT License — Copyright 2026 BigGeoData & Spatial AI, Technische Hochschule Deggendorf. See
+[LICENSE](LICENSE) for the full text.
+
+Found a security issue? See [SECURITY.md](SECURITY.md) for how to report it privately.
+
+## Acknowledgements
+
+Developed in the context of the RENvolveIT research project (<https://projekte.ffg.at/projekt/5127011>),
+funded by CETPartnership under the 2023 joint call for research proposals, co-funded by the
+European Commission (GA N°101069750).
+
+**BuEM:** the ISO 52016-1 thermal building model this connector calls
+([enerplanet/buem](https://github.com/enerplanet/buem)).
+
+**TABULA & EPISCOPE (IEE Projects):** building-characteristic data used by the TABULA-fallback
+path via [ignis](https://github.com/THD-Spatial-AI/ignis) ([episcope.eu](https://episcope.eu/iee-project/tabula/)).
