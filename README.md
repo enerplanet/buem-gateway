@@ -1,4 +1,8 @@
-# buem-contract
+# buem-gateway
+
+[![Go](https://github.com/enerplanet/buem-gateway/actions/workflows/go.yml/badge.svg)](https://github.com/enerplanet/buem-gateway/actions/workflows/go.yml)
+&nbsp;
+[![codecov](https://codecov.io/gh/enerplanet/buem-gateway/branch/main/graph/badge.svg)](https://codecov.io/gh/enerplanet/buem-gateway)
 
 Contract definition and JSON schemas for the integration between\
 **EnerPlanET backend** and the **BUEM time-series microservice**.
