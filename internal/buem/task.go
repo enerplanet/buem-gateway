@@ -18,7 +18,9 @@ type Task struct {
 
 // ExtractTasks walks a topology's edges, finds BasePOI nodes that carry a
 // "buem" block, deduplicates by node ID, and returns one Task per building.
-func ExtractTasks(rawTopology json.RawMessage, startDate, endDate string, resolution int, modelID string) ([]Task, error) {
+// resolver fills in a missing building.envelope from TABULA defaults; pass
+// nil to disable that (a request lacking envelope then fails at BuEM instead).
+func ExtractTasks(rawTopology json.RawMessage, startDate, endDate string, resolution int, modelID string, resolver envelopeResolver) ([]Task, error) {
 	var rawEdges []json.RawMessage
 	if err := json.Unmarshal(rawTopology, &rawEdges); err != nil {
 		return nil, fmt.Errorf("parse topology edges: %w", err)
@@ -27,7 +29,7 @@ func ExtractTasks(rawTopology json.RawMessage, startDate, endDate string, resolu
 	var tasks []Task
 	seen := make(map[string]bool)
 	for _, rawEdge := range rawEdges {
-		for _, task := range tasksFromEdge(rawEdge, startDate, endDate, resolution, modelID) {
+		for _, task := range tasksFromEdge(rawEdge, startDate, endDate, resolution, modelID, resolver) {
 			if seen[task.NodeID] {
 				continue
 			}
@@ -38,7 +40,7 @@ func ExtractTasks(rawTopology json.RawMessage, startDate, endDate string, resolu
 	return tasks, nil
 }
 
-func tasksFromEdge(rawEdge json.RawMessage, startDate, endDate string, resolution int, modelID string) []Task {
+func tasksFromEdge(rawEdge json.RawMessage, startDate, endDate string, resolution int, modelID string, resolver envelopeResolver) []Task {
 	var edge struct {
 		From json.RawMessage `json:"from"`
 		To   json.RawMessage `json:"to"`
@@ -49,7 +51,7 @@ func tasksFromEdge(rawEdge json.RawMessage, startDate, endDate string, resolutio
 
 	var tasks []Task
 	for _, rawNode := range []json.RawMessage{edge.From, edge.To} {
-		if task, ok := nodeToTask(rawNode, startDate, endDate, resolution, modelID); ok {
+		if task, ok := nodeToTask(rawNode, startDate, endDate, resolution, modelID, resolver); ok {
 			tasks = append(tasks, task)
 		}
 	}
@@ -58,7 +60,7 @@ func tasksFromEdge(rawEdge json.RawMessage, startDate, endDate string, resolutio
 
 // nodeToTask checks whether a topology node is a building with a buem block
 // and, if so, builds the BuEM Feature that will be sent to the service.
-func nodeToTask(rawNode json.RawMessage, startDate, endDate string, resolution int, modelID string) (Task, bool) {
+func nodeToTask(rawNode json.RawMessage, startDate, endDate string, resolution int, modelID string, resolver envelopeResolver) (Task, bool) {
 	node, ok := parseTopologyNode(rawNode)
 	if !ok {
 		return Task{}, false
@@ -68,6 +70,8 @@ func nodeToTask(rawNode json.RawMessage, startDate, endDate string, resolution i
 	if err != nil {
 		return Task{}, false
 	}
+
+	node.Properties.BUEM = ensureEnvelope(node.Properties.BUEM, resolver, node.ID)
 
 	rawFeature, err := buildFeature(node, startDate, endDate, resolution)
 	if err != nil {

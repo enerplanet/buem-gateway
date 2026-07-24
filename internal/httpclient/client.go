@@ -33,12 +33,42 @@ func New(timeoutSeconds, retryAttempts, baseDelayMs int) *Client {
 // PostJSONAndDecode POSTs body as JSON to url and decodes the JSON response
 // into result. Retries on network errors and 5xx responses.
 func (c *Client) PostJSONAndDecode(url string, body, result interface{}) error {
-	resp, err := c.postJSON(url, body)
+	requestBody, err := json.Marshal(body)
+	if err != nil {
+		return fmt.Errorf("marshal request body: %w", err)
+	}
+	resp, err := c.doWithRetry(func() (*http.Response, error) {
+		req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(requestBody))
+		if err != nil {
+			return nil, fmt.Errorf("create request: %w", err)
+		}
+		req.Header.Set("Content-Type", "application/json; charset=utf-8")
+		return c.http.Do(req)
+	}, url)
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	return decodeJSONResponse(url, resp, result)
+}
 
+// GetJSONAndDecode GETs url and decodes the JSON response into result.
+// Retries on network errors and 5xx responses, same as PostJSONAndDecode.
+func (c *Client) GetJSONAndDecode(url string, result interface{}) error {
+	resp, err := c.doWithRetry(func() (*http.Response, error) {
+		req, err := http.NewRequest(http.MethodGet, url, nil)
+		if err != nil {
+			return nil, fmt.Errorf("create request: %w", err)
+		}
+		return c.http.Do(req)
+	}, url)
+	if err != nil {
+		return err
+	}
+	return decodeJSONResponse(url, resp, result)
+}
+
+func decodeJSONResponse(url string, resp *http.Response, result interface{}) error {
+	defer resp.Body.Close()
 	if resp.StatusCode >= 400 {
 		respBody, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("request to %s failed with status %d: %s", url, resp.StatusCode, respBody)
@@ -52,17 +82,14 @@ func (c *Client) PostJSONAndDecode(url string, body, result interface{}) error {
 	return nil
 }
 
-func (c *Client) postJSON(url string, body interface{}) (*http.Response, error) {
-	requestBody, err := json.Marshal(body)
-	if err != nil {
-		return nil, fmt.Errorf("marshal request body: %w", err)
-	}
-
+// doWithRetry runs makeRequest, retrying network errors and 5xx responses
+// with exponential backoff, up to c.retryAttempts additional times.
+func (c *Client) doWithRetry(makeRequest func() (*http.Response, error), url string) (*http.Response, error) {
 	var lastErr error
 	for attempt := 0; attempt <= c.retryAttempts; attempt++ {
 		c.waitBeforeRetry(attempt)
 
-		resp, err := c.doPost(url, requestBody)
+		resp, err := makeRequest()
 		if err != nil {
 			lastErr = err
 			log.Printf("buem-gateway: request to %s failed (attempt %d): %v", url, attempt+1, err)
@@ -76,15 +103,6 @@ func (c *Client) postJSON(url string, body interface{}) (*http.Response, error) 
 		log.Printf("buem-gateway: request to %s returned %d (attempt %d)", url, resp.StatusCode, attempt+1)
 	}
 	return nil, fmt.Errorf("all %d attempts to %s failed: %w", c.retryAttempts+1, url, lastErr)
-}
-
-func (c *Client) doPost(url string, body []byte) (*http.Response, error) {
-	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
-	if err != nil {
-		return nil, fmt.Errorf("create request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json; charset=utf-8")
-	return c.http.Do(req)
 }
 
 func (c *Client) waitBeforeRetry(attempt int) {

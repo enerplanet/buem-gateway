@@ -96,7 +96,14 @@ func buildTestTopology(t *testing.T, nodeID string) json.RawMessage {
 			"geometry": map[string]interface{}{"type": "Point", "coordinates": []float64{12.5, 48.5}},
 			"properties": map[string]interface{}{
 				"feature_type": "BasePOI",
-				"buem":         map[string]interface{}{"building": map[string]interface{}{"building_type": "SFH", "country": "DE"}},
+				"buem": map[string]interface{}{"building": map[string]interface{}{
+					"building_type": "SFH", "country": "DE",
+					// Envelope present so this test never exercises the TABULA
+					// fallback path (internal/tabula) — that has its own tests.
+					"envelope": map[string]interface{}{"elements": []interface{}{
+						map[string]interface{}{"id": "Wall_1", "type": "wall", "area": 10.0, "azimuth": 0.0, "tilt": 90.0, "U": 1.5},
+					}},
+				}},
 			},
 		},
 		"to": map[string]interface{}{

@@ -33,6 +33,12 @@ type Config struct {
 
 	BuEM UpstreamService
 
+	// Ignis is called directly by service name on the shared building-simulation
+	// Docker network (bypassing ignis's own reverse proxy/auth, which exists for
+	// external callers, not internal service-to-service calls within the same
+	// namespace) to resolve TABULA defaults when a request omits envelope.
+	Ignis UpstreamService
+
 	// BuemDataDir is where heating/cooling/electricity CSVs are written,
 	// under {BuemDataDir}/{model_id}/. BuemResultsDir is where BuEM's own
 	// Flask service writes its intermediate .json.gz timeseries file,
@@ -68,6 +74,11 @@ func load() *Config {
 		BuEM: UpstreamService{
 			Host: envString("BUEM_SERVICE_HOST", "buem-service"),
 			Port: envInt("BUEM_SERVICE_PORT", 5000),
+		},
+
+		Ignis: UpstreamService{
+			Host: envString("IGNIS_SERVICE_HOST", "ignis-app"),
+			Port: envInt("IGNIS_SERVICE_PORT", 8080),
 		},
 
 		BuemDataDir:    envString("BUEM_DATA_DIR", "data"),

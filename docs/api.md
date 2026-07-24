@@ -38,14 +38,47 @@ treated as buildings; everything else in the topology passes through unchanged.
 | `topology` | array | List of `{ from, to }` node pairs |
 
 Each building node's `properties.buem` is forwarded to BuEM opaquely — buem-gateway doesn't
-interpret its contents beyond checking it's present and non-null. It must conform to whatever
-schema BuEM's own request validator currently accepts; see `schemas/` in this repo and
-`CHANGELOG.md` for what's actually implemented (not everything documented there is built yet —
-`envelope` is still required, for example).
+interpret its contents beyond checking it's present and non-null, and one exception:
+`building.envelope`, described next. The rest must conform to whatever schema BuEM's own request
+validator currently accepts; see `schemas/` in this repo and `CHANGELOG.md` for what's actually
+implemented (not everything documented there is built — BuEM's own model doesn't support
+`solver.compute_cooling`'s upstream request format changing shape yet, for example, only the
+opt-in flag itself).
 
 !!! info "Full example"
     `testdata/test_buem_topology_request.json` — two buildings, model `demo-model-001`. Used as
     the reference payload in the [reproducibility check](getting-started.md#reproducibility-check).
+
+### TABULA fallback when `envelope` is omitted
+
+BuEM's own validator still hard-requires `building.envelope` — that hasn't changed. But
+buem-gateway itself doesn't: if a building node's `buem.building.envelope` is missing, the
+connector resolves TABULA defaults from [ignis](https://github.com/THD-Spatial-AI/ignis) (reached
+directly by service name on the shared `building-simulation` Docker network — see
+[Getting started](getting-started.md#the-building-simulation-namespace)) using
+`building_type`/`construction_period`/`country`, maps them into BuEM's per-element `envelope`
+shape, and injects them before the request ever reaches BuEM. BuEM itself never sees a request
+without `envelope` — from BuEM's side, nothing has changed.
+
+!!! warning "construction_period is a TABULA class code, not a year range"
+    `"01"`, `"02"`, ... — a country-specific numbered era class, never a literal year range like
+    `"1965-1974"`. See `CHANGELOG.md`'s "Unreleased" entry for why.
+
+Because TABULA gives no per-element orientation for walls/roof/floor (only an aggregate area per
+category), the mapping makes an explicit assumption for those: each wall category's area is split
+evenly across the 4 cardinal directions (N/E/S/W), and roof/floor become one south-facing/
+untilted element per category. Windows are the exception — TABULA does track a real
+North/East/South/West/Horizontal area split, used directly rather than assumed.
+
+| Situation | Behavior |
+|---|---|
+| `envelope` present | Forwarded to BuEM unchanged — TABULA/ignis are never consulted |
+| `envelope` missing, ignis reachable, variant found | TABULA-derived envelope injected, request proceeds |
+| `envelope` missing, ignis unreachable or no matching variant | Request forwarded to BuEM unchanged; BuEM rejects it with its own `envelope required` error — logged, not silently swallowed |
+
+`A_ref`, `h_room`, `n_storeys`, `neighbour_status`, `attic_condition`, `cellar_condition`, and
+`thermal.n_air_infiltration`/`n_air_use` are also filled from TABULA when the request omits them
+— but never overwritten if the request already supplied a value.
 
 ### Response
 

@@ -14,6 +14,7 @@ import (
 
 	"github.com/enerplanet/buem-gateway/internal/config"
 	"github.com/enerplanet/buem-gateway/internal/httpclient"
+	"github.com/enerplanet/buem-gateway/internal/tabula"
 )
 
 // Connector runs BuEM requests for a topology, capping concurrency at
@@ -21,6 +22,7 @@ import (
 type Connector struct {
 	cfg    *config.Config
 	client *httpclient.Client
+	tabula envelopeResolver
 	sem    chan struct{}
 }
 
@@ -29,6 +31,7 @@ func NewConnector(cfg *config.Config) *Connector {
 	return &Connector{
 		cfg:    cfg,
 		client: httpclient.New(cfg.RequestTimeout, cfg.RetryAttempts, cfg.RetryBaseDelay),
+		tabula: tabula.New(cfg),
 		sem:    make(chan struct{}, maxConcurrent(cfg)),
 	}
 }
@@ -46,7 +49,7 @@ func maxConcurrent(cfg *config.Config) int {
 // through unchanged; a building that fails is left as it was, and its error
 // is logged.
 func (c *Connector) Run(rawTopology json.RawMessage, startDate, endDate, modelID string, resolution int) (json.RawMessage, error) {
-	tasks, err := ExtractTasks(rawTopology, startDate, endDate, resolution, modelID)
+	tasks, err := ExtractTasks(rawTopology, startDate, endDate, resolution, modelID, c.tabula)
 	if err != nil {
 		return nil, fmt.Errorf("parse topology: %w", err)
 	}
