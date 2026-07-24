@@ -66,6 +66,58 @@ func (c *Connector) Run(rawTopology json.RawMessage, startDate, endDate, modelID
 	return mergeIntoTopology(rawTopology, results)
 }
 
+// RunSingle runs BuEM for exactly one building — no topology/edge-list
+// wrapper. For callers with a single building and no grid to describe (e.g.
+// Building Configurator), forcing them to fabricate a topology just to
+// satisfy Run's contract would leak an internal concept they have no use
+// for. Internally this reuses the identical task-extraction (including
+// TABULA fallback) and BuEM-calling path Run uses, just skipping the
+// topology-merge step and returning a clear error instead of silently
+// leaving the input unchanged on failure.
+func (c *Connector) RunSingle(id string, geometry, buemRaw json.RawMessage, startDate, endDate, modelID string, resolution int) (json.RawMessage, error) {
+	topology, err := singleBuildingTopology(id, geometry, buemRaw)
+	if err != nil {
+		return nil, fmt.Errorf("build request: %w", err)
+	}
+
+	tasks, err := ExtractTasks(topology, startDate, endDate, resolution, modelID, c.tabula)
+	if err != nil {
+		return nil, fmt.Errorf("parse request: %w", err)
+	}
+	if len(tasks) == 0 {
+		return nil, fmt.Errorf("not a valid building request — check id, geometry.coordinates, and buem")
+	}
+
+	result := c.runOne(tasks[0])
+	if result.errMsg != "" {
+		return nil, fmt.Errorf("%s", result.errMsg)
+	}
+	return result.buemBlock, nil
+}
+
+// singleBuildingTopology wraps one building into the same {from, to} edge
+// shape ExtractTasks expects, with no "to" side — ExtractTasks already
+// skips a missing/unparseable side gracefully, since Run's real topologies
+// often have non-building nodes on one side (transformers, etc.) too.
+func singleBuildingTopology(id string, geometry, buemRaw json.RawMessage) (json.RawMessage, error) {
+	node, err := json.Marshal(map[string]interface{}{
+		"id":       id,
+		"geometry": geometry,
+		"properties": map[string]interface{}{
+			"feature_type": "BasePOI",
+			"buem":         buemRaw,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	edge, err := json.Marshal(map[string]interface{}{"from": json.RawMessage(node)})
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal([]json.RawMessage{edge})
+}
+
 // runTasks runs every task concurrently, bounded by c.sem, and collects each
 // outcome keyed by node ID.
 func (c *Connector) runTasks(tasks []Task) map[string]outcome {

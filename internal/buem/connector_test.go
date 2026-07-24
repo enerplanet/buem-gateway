@@ -88,6 +88,68 @@ func TestConnectorRun_EnrichesTopologyAndWritesCSV(t *testing.T) {
 	assertHeatingCSVWritten(t, dataDir)
 }
 
+func TestConnectorRunSingle_EnrichesOneBuildingNoTopology(t *testing.T) {
+	upstream := fakeUpstream(t)
+	defer upstream.Close()
+
+	host, portStr, ok := strings.Cut(strings.TrimPrefix(upstream.URL, "http://"), ":")
+	if !ok {
+		t.Fatalf("unexpected upstream URL %q", upstream.URL)
+	}
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		t.Fatalf("parse upstream port: %v", err)
+	}
+
+	dataDir := t.TempDir()
+	cfg := &config.Config{
+		MaxConcurrentSims: 4,
+		BuEM:              config.UpstreamService{Host: host, Port: port},
+		BuemDataDir:       dataDir,
+		BuemResultsDir:    dataDir,
+	}
+	conn := NewConnector(cfg)
+
+	geometry := json.RawMessage(`{"type":"Point","coordinates":[12.5,48.5]}`)
+	buemBlock := json.RawMessage(`{"building":{"building_type":"SFH","country":"DE","envelope":{"elements":[
+		{"id":"Wall_1","type":"wall","area":10.0,"azimuth":0.0,"tilt":90.0,"U":1.5}
+	]}}}`)
+
+	enriched, err := conn.RunSingle("solo-building", geometry, buemBlock, "2018-01-01T00:00:00Z", "2018-12-31T23:00:00Z", "demo-model", 60)
+	if err != nil {
+		t.Fatalf("RunSingle() error: %v", err)
+	}
+
+	var block map[string]interface{}
+	if err := json.Unmarshal(enriched, &block); err != nil {
+		t.Fatalf("unmarshal enriched block: %v", err)
+	}
+	if _, ok := block["thermal_load_profile"]; !ok {
+		t.Fatalf("expected thermal_load_profile in enriched block, got %v", block)
+	}
+	assertHeatingCSVWritten(t, dataDir)
+}
+
+func TestConnectorRunSingle_ReturnsErrorOnFailure(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "upstream rejected the request", http.StatusBadRequest)
+	}))
+	defer upstream.Close()
+
+	host, portStr, _ := strings.Cut(strings.TrimPrefix(upstream.URL, "http://"), ":")
+	port, _ := strconv.Atoi(portStr)
+	cfg := &config.Config{MaxConcurrentSims: 4, BuEM: config.UpstreamService{Host: host, Port: port}}
+	conn := NewConnector(cfg)
+
+	geometry := json.RawMessage(`{"type":"Point","coordinates":[12.5,48.5]}`)
+	buemBlock := json.RawMessage(`{"building":{"envelope":{"elements":[{"id":"Wall_1"}]}}}`)
+
+	_, err := conn.RunSingle("solo-building", geometry, buemBlock, "2018-01-01T00:00:00Z", "2018-12-31T23:00:00Z", "demo-model", 60)
+	if err == nil {
+		t.Fatal("expected RunSingle to return an error when BuEM rejects the request")
+	}
+}
+
 func buildTestTopology(t *testing.T, nodeID string) json.RawMessage {
 	t.Helper()
 	edge := map[string]interface{}{

@@ -69,6 +69,54 @@ func (h *Handler) Start(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, rawConfig)
 }
 
+// buildingRequest is the body accepted by POST /buem/building — one
+// building, no topology/edge-list wrapper. See startRequest for the
+// grid-scale multi-building shape.
+type buildingRequest struct {
+	ID         string          `json:"id"`
+	Geometry   json.RawMessage `json:"geometry"`
+	StartDate  string          `json:"start_date"`
+	EndDate    string          `json:"end_date"`
+	Resolution int             `json:"resolution"`
+	ModelID    string          `json:"model_id"`
+	BUEM       json.RawMessage `json:"buem"`
+}
+
+// Building handles POST /buem/building: runs BuEM for exactly one building
+// and returns its enriched buem block (thermal_load_profile + model_metadata).
+// Unlike Start, a failed run is reported as an HTTP error, not echoed back
+// unchanged — with only one building there's no partial-success case to
+// preserve caller data for.
+func (h *Handler) Building(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "can't read body", http.StatusBadRequest)
+		return
+	}
+	var req buildingRequest
+	if err := json.Unmarshal(body, &req); err != nil {
+		http.Error(w, "can't parse request body", http.StatusBadRequest)
+		return
+	}
+	if req.BUEM == nil {
+		http.Error(w, "buem block is required", http.StatusBadRequest)
+		return
+	}
+
+	id := req.ID
+	if id == "" {
+		id = "building"
+	}
+
+	enriched, err := h.connector.RunSingle(id, req.Geometry, req.BUEM, req.StartDate, req.EndDate, req.ModelID, req.Resolution)
+	if err != nil {
+		http.Error(w, "buem run failed: "+err.Error(), http.StatusUnprocessableEntity)
+		return
+	}
+
+	writeJSON(w, map[string]interface{}{"id": id, "buem": json.RawMessage(enriched)})
+}
+
 func writeJSON(w http.ResponseWriter, v interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(v)
