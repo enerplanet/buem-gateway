@@ -3,9 +3,9 @@ package config
 import "testing"
 
 func TestUpstreamService_URL(t *testing.T) {
-	s := UpstreamService{Host: "buem-service", Port: 5000}
+	s := UpstreamService{Host: "buem-model", Port: 5000}
 	got := s.URL("/api/process")
-	want := "http://buem-service:5000/api/process"
+	want := "http://buem-model:5000/api/process"
 	if got != want {
 		t.Errorf("URL() = %q, want %q", got, want)
 	}
@@ -70,8 +70,8 @@ func TestLoad_defaultsWhenEnvUnset(t *testing.T) {
 	if c.MaxConcurrentSims != 4 {
 		t.Errorf("MaxConcurrentSims = %d, want 4", c.MaxConcurrentSims)
 	}
-	if c.BuEM.Host != "buem-service" || c.BuEM.Port != 5000 {
-		t.Errorf("BuEM = %s:%d, want buem-service:5000", c.BuEM.Host, c.BuEM.Port)
+	if c.BuEM.Host != "buem-model" || c.BuEM.Port != 5000 {
+		t.Errorf("BuEM = %s:%d, want buem-model:5000", c.BuEM.Host, c.BuEM.Port)
 	}
 	if c.Ignis.Host != "ignis-app" || c.Ignis.Port != 8080 {
 		t.Errorf("Ignis = %s:%d, want ignis-app:8080", c.Ignis.Host, c.Ignis.Port)

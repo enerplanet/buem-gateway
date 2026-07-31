@@ -27,8 +27,8 @@ for that contract.
 graph LR
     CALLER[Caller] -->|POST /buem/start<br>topology JSON| PROXY[buem-reverse-proxy<br>Caddy, X-Api-Key auth]
     CALLER -->|POST /buem/building<br>single building| PROXY
-    PROXY --> APP[buem-app<br>Go connector]
-    APP -->|POST /api/process<br>one call per building| MODEL[buem-service<br>BuEM Flask]
+    PROXY --> APP[buem-gateway<br>Go connector]
+    APP -->|POST /api/process<br>one call per building| MODEL[buem-model<br>BuEM Flask]
     MODEL -->|thermal_load_profile| APP
     APP -->|enriched result| CALLER
     APP -->|heating/cooling/electricity CSVs| VOL[(shared volume)]
@@ -58,7 +58,7 @@ before calling BuEM — BuEM itself stays unaware this happens.
 | Step | Command | Description |
 | --- | --- | --- |
 | 1 | `cd environment && cp .env.example .env` | Configure `CADDY_DATA_DIR`, ports, weather data path |
-| 2 | `docker compose up -d --build` | Start `buem-service` (model), `buem-app` (this connector), `buem-reverse-proxy` (Caddy) |
+| 2 | `docker compose up -d --build` | Start `buem-model` (the model), `buem-gateway` (this connector), `buem-reverse-proxy` (Caddy) |
 | 3 | `curl -sk https://localhost:8443/health -H "X-Api-Key: <BUEM_API_KEY>"` | Confirm the stack is up |
 
 Full setup, endpoint reference, and deployment details: [`docs/getting-started.md`](docs/getting-started.md)
