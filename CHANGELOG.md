@@ -2,7 +2,10 @@
 
 ------------------------------------------------------------------------
 
-## Unreleased
+## v4.2.1 (2026-07) — Current
+
+**Status:** Current version
+**Compatible with v4.2.0:** Yes — documentation fix only, no validation change.
 
 ### `construction_period` clarified: TABULA class code, not a year range
 
@@ -19,9 +22,9 @@ documentation fix, not a breaking schema change.
 
 ------------------------------------------------------------------------
 
-## v4.2.0 (2026-06) — Current
+## v4.2.0 (2026-06)
 
-**Status:** Current version
+**Status:** Superseded by v4.2.1
 **Compatible with v4.1.0:** Yes — new optional field only.
 
 ### What changed and why
@@ -40,7 +43,7 @@ The BuEM solver does not use this value — it is forwarded as-is and ignored by
 
 ## v4.1.0 (2026-04)
 
-**Status:** Current version
+**Status:** Superseded by v4.2.1
 **Compatible with v4.0.0:** Yes — new optional fields only.
 
 ### What changed and why
@@ -62,7 +65,7 @@ buildings easier to identify in UI and export files.
 
 ## v4.0.0 (2026-03)
 
-**Status:** Current version (unreleased)
+**Status:** Superseded by v4.2.1
 **Compatible with v3:** No — response clients must handle optional `cooling` field.
 
 ------------------------------------------------------------------------

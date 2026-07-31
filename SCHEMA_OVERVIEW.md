@@ -1,6 +1,6 @@
-# BUEM API Schema Overview — v3
+# BUEM API Schema Overview — v4.2.1
 
-Visual reference for the v3 request and response schemas.
+Visual reference for the current (v4.2.1) request and response schemas.
 
 **Legend**
 - `*` = required field
@@ -23,7 +23,8 @@ flowchart TD
     ───────────────
     * type: FeatureCollection
     * features[ ]
-    - timeStamp"]:::obj
+    - timeStamp
+    - model_id"]:::obj
 
     FEAT["Feature
     ───────────────
@@ -54,6 +55,7 @@ flowchart TD
 
     BUILD["building
     ───────────────
+    - name
     - A_ref { v, unit: m2 }
     - h_room { v, unit: m }
     - n_storeys
@@ -63,7 +65,9 @@ flowchart TD
     - attic_condition
     - cellar_condition
     - neighbour_status
-    * envelope
+    - envelope  (TABULA fallback via
+                 building_type + construction_period +
+                 country when omitted)
     - thermal"]:::sep
 
     ENV["envelope
@@ -73,6 +77,7 @@ flowchart TD
     EL["envelope_element
     ───────────────
     * id  (user-defined)
+    - name
     * type  wall / roof / floor /
             window / door / ventilation
     * area { v, unit: m2 }  [not ventilation]
@@ -101,6 +106,7 @@ flowchart TD
     SOLV["solver
     ───────────────
     - use_milp  (default: false)
+    - compute_cooling  (default: false)
     - parallel_thermal  (default: true)
     - use_chunked_processing  (default: true)"]:::sep
 
@@ -239,6 +245,8 @@ flowchart TD
     - solver_used
     - processing_time { v, unit: s }
     - weather_year
+    - simulations_run
+    - electricity_source
     - parallel_thermal
     - use_chunked_processing
     - validation_warnings[ ]"]:::leaf
@@ -286,7 +294,7 @@ All measurable quantities use `{ "value": number, "unit": string }`. The `unit` 
 
 Fields in `building.thermal` map directly to IEE TABULA database parameters:
 
-| v3 schema field | TABULA field | Unit | Default |
+| schema field | TABULA field | Unit | Default |
 |---|---|---|---|
 | `n_air_infiltration` | `n_air_infiltration` | 1/h | 0.5 |
 | `n_air_use` | `n_air_use` | 1/h | 0.5 |

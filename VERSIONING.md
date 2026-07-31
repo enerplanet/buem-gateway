@@ -102,7 +102,7 @@ gh release create v3.1.0 --title "v3.1.0" --notes "Short description of change" 
 | Location | Contents |
 |---|---|
 | `schemas/` | Current version — edit here |
-| `schemas/v1/`, `schemas/v2/`, `schemas/v3/` | Read-only snapshots of past versions |
+| `schemas/v1/`, `schemas/v2/`, `schemas/v3/`, `schemas/v4/` | Read-only snapshots of past versions |
 
 Any past version can also be retrieved from Git using the release tags
 (`v1.0.0`, `v2.0.0`, etc.).
@@ -113,7 +113,11 @@ Any past version can also be retrieved from Git using the release tags
 
 | Version | Date | Status | What changed |
 |---|---|---|---|
-| v3.0.0 | 2026-03 | Current | `buem` split into `building` (full physical description: classification, envelope, thermal) and `solver`; thermal properties on each surface element directly; every physical quantity carries its unit |
+| v4.2.1 | 2026-07 | Current | `construction_period` description clarified: TABULA class code, not a year range (documentation fix, no validation change) |
+| v4.2.0 | 2026-06 | Superseded | Added optional `model_id` on the request `FeatureCollection` |
+| v4.1.0 | 2026-04 | Superseded | Added optional `name` on `building` and `envelope_element` |
+| v4.0.0 | 2026-03 | Superseded | Cooling simulation now opt-in (`solver.compute_cooling`); response `cooling` field becomes optional |
+| v3.0.0 | 2026-03 | Deprecated | `buem` split into `building` (full physical description: classification, envelope, thermal) and `solver`; thermal properties on each surface element directly; every physical quantity carries its unit |
 | v2.0.0 | 2026-02 | Deprecated | Structured building attributes; nested component model introduced |
 | v1.0.0 | 2025-11 | Deprecated | Initial format — minimal structure |
 
