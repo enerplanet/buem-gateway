@@ -72,7 +72,7 @@ func load() *Config {
 		RetryBaseDelay:    envInt("RETRY_BASE_DELAY", 1000),
 
 		BuEM: UpstreamService{
-			Host: envString("BUEM_SERVICE_HOST", "buem-service"),
+			Host: envString("BUEM_SERVICE_HOST", "buem-model"),
 			Port: envInt("BUEM_SERVICE_PORT", 5000),
 		},
 

@@ -93,14 +93,6 @@ nav:
   - Home: index.md
   - Getting started: getting-started.md
   - API reference: api.md
-  - Architecture (legacy):
-      - architecture/README.md
-      - L1 System context: architecture/L1-system-context.md
-      - L2 Containers: architecture/L2-containers.md
-      - L3 BuEM components: architecture/L3-buem-components.md
-      - L3 Gateway components: architecture/L3-gateway-components.md
-      - L4 Endpoints: architecture/L4-endpoints.md
-      - Integration architecture: integration-architecture.md
 
 # Copyright
 copyright: |

@@ -22,8 +22,8 @@ authoritative source for that contract.
 ```mermaid
 graph LR
     CALLER[Caller<br>e.g. EnerPlanET backend] -->|POST /buem/start<br>topology JSON| PROXY[buem-reverse-proxy<br>Caddy, X-Api-Key auth]
-    PROXY --> APP[buem-app<br>Go connector]
-    APP -->|POST /api/process<br>one call per building| MODEL[buem-service<br>BuEM Flask]
+    PROXY --> APP[buem-gateway<br>Go connector]
+    APP -->|POST /api/process<br>one call per building| MODEL[buem-model<br>BuEM Flask]
     MODEL -->|thermal_load_profile| APP
     APP -->|enriched topology| CALLER
     APP -->|heating/cooling/electricity CSVs| VOL[(shared volume)]
@@ -40,11 +40,6 @@ same topology with each building's `buem` block enriched with `thermal_load_prof
 |---|---|
 | [Getting started](getting-started.md) | Local dev, deployment, reproducibility check |
 | [API reference](api.md) | Input/output contract, auth, example request/response |
-
-The `docs/architecture/` C4-model documents predate buem-gateway's extraction from
-`simulation-engine` and describe the embedded (HAProxy, Keycloak, `docker_webservice`)
-architecture, not this standalone service — see the note at the top of
-[`docs/architecture/README.md`](architecture/README.md).
 
 ## Repository
 

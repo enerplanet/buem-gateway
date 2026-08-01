@@ -2,13 +2,20 @@ openapi: 3.0.3
 
 info:
   title: buem-gateway API
-  version: 1.0.0
+  version: 4.2.0
   description: |
     buem-gateway is the connector between EnerPlanET and
     [BuEM](https://github.com/enerplanet/buem), the ISO 52016-1 thermal
     building model. It fans a building (or a topology of several buildings)
     out to BuEM, writes each building's heating/cooling/electricity load
     profiles to CSV, and returns the enriched result.
+
+    `version` above tracks the BUEM↔EnerPlanET data-contract version (see
+    [CHANGELOG.md](../CHANGELOG.md) / [VERSIONING.md](../VERSIONING.md)) —
+    the schemas below mirror `schemas/request_schema.json` /
+    `response_schema.json`, both titled "v4" — not buem-gateway's own
+    service release tags (currently v3.0.0), which follow a separate,
+    independent numbering.
 
     When a building's `buem.building.envelope` is omitted, buem-gateway
     resolves TABULA defaults from [ignis](https://github.com/THD-Spatial-AI/ignis)

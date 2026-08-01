@@ -10,7 +10,7 @@ func TestNew_buildsServerWithConfiguredAddr(t *testing.T) {
 	cfg := &config.Config{
 		ServerHost: "127.0.0.1",
 		ServerPort: 9999,
-		BuEM:       config.UpstreamService{Host: "buem-service", Port: 5000},
+		BuEM:       config.UpstreamService{Host: "buem-model", Port: 5000},
 	}
 
 	srv := New(cfg)
