@@ -4,7 +4,10 @@
   "title": "BUEM GeoJSON Response Schema v4",
   "description": "Response schema for the BUEM building energy model. Echoes the full v4 request structure and adds thermal_load_profile and model_metadata to each feature's buem node. All output quantities carry explicit unit fields. Timeseries arrays declare their unit once at the array level.",
   "type": "object",
-  "required": ["type", "features"],
+  "required": [
+    "type",
+    "features"
+  ],
   "properties": {
     "type": {
       "const": "FeatureCollection",
@@ -24,20 +27,26 @@
       "type": "number",
       "description": "Total wall-clock time for the full request in seconds"
     },
-    "metadata": { "$ref": "#/$defs/collection_metadata" },
+    "metadata": {
+      "$ref": "#/$defs/collection_metadata"
+    },
     "features": {
       "type": "array",
-      "items": { "$ref": "#/$defs/feature" },
+      "items": {
+        "$ref": "#/$defs/feature"
+      },
       "description": "Array of processed building features with results appended"
     }
   },
-
   "$defs": {
-
     "collection_metadata": {
       "type": "object",
       "description": "Aggregate processing statistics for the feature collection",
-      "required": ["total_features", "successful_features", "failed_features"],
+      "required": [
+        "total_features",
+        "successful_features",
+        "failed_features"
+      ],
       "properties": {
         "total_features": {
           "type": "integer",
@@ -61,39 +70,60 @@
         }
       }
     },
-
     "feature": {
       "type": "object",
-      "required": ["type", "id", "geometry", "properties"],
+      "required": [
+        "type",
+        "id",
+        "geometry",
+        "properties"
+      ],
       "properties": {
-        "type": { "const": "Feature" },
+        "type": {
+          "const": "Feature"
+        },
         "id": {
           "type": "string",
           "description": "Building identifier — echoed from request"
         },
-        "geometry": { "$ref": "#/$defs/geometry" },
-        "properties": { "$ref": "#/$defs/properties" }
+        "geometry": {
+          "$ref": "#/$defs/geometry"
+        },
+        "properties": {
+          "$ref": "#/$defs/properties"
+        }
       }
     },
-
     "geometry": {
       "type": "object",
-      "required": ["type", "coordinates"],
+      "required": [
+        "type",
+        "coordinates"
+      ],
       "properties": {
-        "type": { "const": "Point" },
+        "type": {
+          "const": "Point"
+        },
         "coordinates": {
           "type": "array",
-          "items": { "type": "number" },
+          "items": {
+            "type": "number"
+          },
           "minItems": 2,
           "maxItems": 3,
           "description": "Geographic coordinates [longitude, latitude, elevation?] — echoed from request"
         }
       }
     },
-
     "properties": {
       "type": "object",
-      "required": ["start_time", "end_time", "resolution", "resolution_unit", "buem"],
+      "required": [
+        "start_time",
+        "end_time",
+        "resolution",
+        "resolution_unit",
+        "buem"
+      ],
       "properties": {
         "start_time": {
           "type": "string",
@@ -113,26 +143,48 @@
           "type": "string",
           "description": "Time resolution unit — echoed from request"
         },
-        "buem": { "$ref": "#/$defs/buem" }
+        "buem": {
+          "$ref": "#/$defs/buem"
+        }
       }
     },
-
     "buem": {
       "type": "object",
-      "required": ["building", "thermal_load_profile"],
+      "required": [
+        "building",
+        "thermal_load_profile"
+      ],
       "description": "Echoes the request buem node (building, solver, inputs) and appends thermal_load_profile and model_metadata",
       "properties": {
-        "building":             { "type": "object", "description": "Echoed from request — contains name (optional display label), envelope, thermal, and all classification fields" },
-        "solver":               { "type": "object", "description": "Echoed from request" },
-        "inputs":               { "type": "object", "description": "Echoed from request — user-provided timeseries inputs, if any were supplied" },
-        "thermal_load_profile": { "$ref": "#/$defs/thermal_load_profile" },
-        "model_metadata":       { "$ref": "#/$defs/model_metadata" }
+        "building": {
+          "type": "object",
+          "description": "Echoed from request — contains name (optional display label), envelope, thermal, and all classification fields"
+        },
+        "solver": {
+          "type": "object",
+          "description": "Echoed from request"
+        },
+        "inputs": {
+          "type": "object",
+          "description": "Echoed from request — user-provided timeseries inputs, if any were supplied"
+        },
+        "thermal_load_profile": {
+          "$ref": "#/$defs/thermal_load_profile"
+        },
+        "model_metadata": {
+          "$ref": "#/$defs/model_metadata"
+        }
       }
     },
-
     "thermal_load_profile": {
       "type": "object",
-      "required": ["start_time", "end_time", "resolution", "resolution_unit", "summary"],
+      "required": [
+        "start_time",
+        "end_time",
+        "resolution",
+        "resolution_unit",
+        "summary"
+      ],
       "description": "Computed thermal load results for the building",
       "properties": {
         "start_time": {
@@ -153,108 +205,180 @@
           "type": "string",
           "description": "Unit of the time resolution"
         },
-        "summary":        { "$ref": "#/$defs/load_summary" },
-        "timeseries":     { "$ref": "#/$defs/load_timeseries" },
+        "summary": {
+          "$ref": "#/$defs/load_summary"
+        },
+        "timeseries": {
+          "$ref": "#/$defs/load_timeseries"
+        },
         "timeseries_file": {
           "type": "string",
           "description": "Path to the output timeseries file on the shared Docker volume ($DATA_DIR/results/). Named after the building centroid coordinates: {profile_type}_{lat}_{lon}_{year}.json.gz — e.g. heating_48.833911_12.957720_2018.json.gz. See NAMING.md for the full convention."
         }
       }
     },
-
     "load_summary": {
       "type": "object",
-      "required": ["heating", "electricity"],
+      "required": [
+        "heating",
+        "electricity"
+      ],
       "description": "Aggregated statistics over the full simulation period. heating and electricity are always present. cooling is present only when compute_cooling was true in the request solver.",
       "properties": {
-        "heating":     { "$ref": "#/$defs/energy_summary" },
-        "cooling":     { "$ref": "#/$defs/energy_summary" },
-        "electricity": { "$ref": "#/$defs/energy_summary" },
+        "heating": {
+          "$ref": "#/$defs/energy_summary"
+        },
+        "cooling": {
+          "$ref": "#/$defs/energy_summary"
+        },
+        "electricity": {
+          "$ref": "#/$defs/energy_summary"
+        },
         "total_energy_demand": {
-          "allOf": [{ "$ref": "#/$defs/energy_qty" }],
+          "allOf": [
+            {
+              "$ref": "#/$defs/energy_qty"
+            }
+          ],
           "description": "Total heating + cooling + electricity demand over the simulation period"
         },
         "peak_heating_load": {
-          "allOf": [{ "$ref": "#/$defs/power_qty" }],
+          "allOf": [
+            {
+              "$ref": "#/$defs/power_qty"
+            }
+          ],
           "description": "Maximum instantaneous heating load"
         },
         "peak_cooling_load": {
-          "allOf": [{ "$ref": "#/$defs/power_qty" }],
+          "allOf": [
+            {
+              "$ref": "#/$defs/power_qty"
+            }
+          ],
           "description": "Maximum instantaneous cooling load"
         },
         "energy_intensity": {
-          "allOf": [{ "$ref": "#/$defs/energy_intensity_qty" }],
+          "allOf": [
+            {
+              "$ref": "#/$defs/energy_intensity_qty"
+            }
+          ],
           "description": "Total energy demand per reference floor area"
         }
       }
     },
-
     "energy_summary": {
       "type": "object",
-      "required": ["total", "max", "min", "mean"],
+      "required": [
+        "total",
+        "max",
+        "min",
+        "mean"
+      ],
       "description": "Statistical summary for one energy carrier over the simulation period",
       "properties": {
         "total": {
-          "allOf": [{ "$ref": "#/$defs/energy_qty" }],
+          "allOf": [
+            {
+              "$ref": "#/$defs/energy_qty"
+            }
+          ],
           "description": "Total energy over the simulation period"
         },
         "max": {
-          "allOf": [{ "$ref": "#/$defs/power_qty" }],
+          "allOf": [
+            {
+              "$ref": "#/$defs/power_qty"
+            }
+          ],
           "description": "Peak instantaneous power"
         },
         "min": {
-          "allOf": [{ "$ref": "#/$defs/power_qty" }],
+          "allOf": [
+            {
+              "$ref": "#/$defs/power_qty"
+            }
+          ],
           "description": "Minimum instantaneous power"
         },
         "mean": {
-          "allOf": [{ "$ref": "#/$defs/power_qty" }],
+          "allOf": [
+            {
+              "$ref": "#/$defs/power_qty"
+            }
+          ],
           "description": "Mean power over the simulation period"
         },
         "median": {
-          "allOf": [{ "$ref": "#/$defs/power_qty" }],
+          "allOf": [
+            {
+              "$ref": "#/$defs/power_qty"
+            }
+          ],
           "description": "Median power over the simulation period"
         },
         "std": {
-          "allOf": [{ "$ref": "#/$defs/power_qty" }],
+          "allOf": [
+            {
+              "$ref": "#/$defs/power_qty"
+            }
+          ],
           "description": "Standard deviation of power over the simulation period"
         }
       }
     },
-
     "load_timeseries": {
       "type": "object",
-      "required": ["unit", "timestamps", "heating", "electricity"],
+      "required": [
+        "unit",
+        "timestamps",
+        "heating",
+        "electricity"
+      ],
       "description": "Hourly timeseries arrays — only present when ?include_timeseries=true is passed to the endpoint. Unit applies to all load arrays. cooling is present only when compute_cooling was true in the request solver.",
       "properties": {
         "unit": {
           "type": "string",
-          "enum": ["kW", "W", "MW"],
+          "enum": [
+            "kW",
+            "W",
+            "MW"
+          ],
           "default": "kW",
           "description": "Unit for all load arrays (heating, cooling, electricity)"
         },
         "timestamps": {
           "type": "array",
-          "items": { "type": "string", "format": "date-time" },
+          "items": {
+            "type": "string",
+            "format": "date-time"
+          },
           "description": "ISO 8601 timestamps, one per time step"
         },
         "heating": {
           "type": "array",
-          "items": { "type": "number" },
+          "items": {
+            "type": "number"
+          },
           "description": "Heating load at each time step"
         },
         "cooling": {
           "type": "array",
-          "items": { "type": "number" },
+          "items": {
+            "type": "number"
+          },
           "description": "Cooling load at each time step"
         },
         "electricity": {
           "type": "array",
-          "items": { "type": "number" },
+          "items": {
+            "type": "number"
+          },
           "description": "Electricity consumption at each time step"
         }
       }
     },
-
     "model_metadata": {
       "type": "object",
       "description": "Diagnostic information about the model run",
@@ -268,7 +392,11 @@
           "description": "Solver selected for the run (e.g. scipy-sparse, OSQP, CBC)"
         },
         "processing_time": {
-          "allOf": [{ "$ref": "#/$defs/duration_qty" }],
+          "allOf": [
+            {
+              "$ref": "#/$defs/duration_qty"
+            }
+          ],
           "description": "Wall-clock time for this feature"
         },
         "weather_year": {
@@ -277,12 +405,22 @@
         },
         "simulations_run": {
           "type": "array",
-          "items": { "type": "string", "enum": ["heating", "cooling", "electricity"] },
+          "items": {
+            "type": "string",
+            "enum": [
+              "heating",
+              "cooling",
+              "electricity"
+            ]
+          },
           "description": "Load types that were computed in this model run. heating and electricity are always present. cooling is present only when compute_cooling was true in the request."
         },
         "electricity_source": {
           "type": "string",
-          "enum": ["model_generated", "client_provided"],
+          "enum": [
+            "model_generated",
+            "client_provided"
+          ],
           "description": "Whether the electricity load profile was generated by the occupancy model or supplied by the client in inputs.electricity_load_profile"
         },
         "parallel_thermal": {
@@ -295,52 +433,103 @@
         },
         "validation_warnings": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "description": "Any validation warnings generated during processing"
         }
       }
     },
-
     "measurement": {
       "type": "object",
-      "required": ["value"],
+      "required": [
+        "value"
+      ],
       "description": "Base type for all measurable quantities. Unit defaults to SI when omitted.",
       "properties": {
-        "value": { "type": "number" },
-        "unit":  { "type": "string" }
+        "value": {
+          "type": "number"
+        },
+        "unit": {
+          "type": "string"
+        }
       }
     },
-
     "energy_qty": {
-      "allOf": [{ "$ref": "#/$defs/measurement" }],
+      "allOf": [
+        {
+          "$ref": "#/$defs/measurement"
+        }
+      ],
       "properties": {
-        "value": { "minimum": 0 },
-        "unit":  { "enum": ["kWh", "MWh", "Wh"], "default": "kWh" }
+        "value": {
+          "minimum": 0
+        },
+        "unit": {
+          "enum": [
+            "kWh",
+            "MWh",
+            "Wh"
+          ],
+          "default": "kWh"
+        }
       }
     },
-
     "power_qty": {
-      "allOf": [{ "$ref": "#/$defs/measurement" }],
+      "allOf": [
+        {
+          "$ref": "#/$defs/measurement"
+        }
+      ],
       "properties": {
-        "unit": { "enum": ["kW", "W", "MW"], "default": "kW" }
+        "unit": {
+          "enum": [
+            "kW",
+            "W",
+            "MW"
+          ],
+          "default": "kW"
+        }
       }
     },
-
     "energy_intensity_qty": {
-      "allOf": [{ "$ref": "#/$defs/measurement" }],
+      "allOf": [
+        {
+          "$ref": "#/$defs/measurement"
+        }
+      ],
       "properties": {
-        "value": { "minimum": 0 },
-        "unit":  { "enum": ["kWh/m2", "kWh/ft2"], "default": "kWh/m2" }
+        "value": {
+          "minimum": 0
+        },
+        "unit": {
+          "enum": [
+            "kWh/m2",
+            "kWh/ft2"
+          ],
+          "default": "kWh/m2"
+        }
       }
     },
-
     "duration_qty": {
-      "allOf": [{ "$ref": "#/$defs/measurement" }],
+      "allOf": [
+        {
+          "$ref": "#/$defs/measurement"
+        }
+      ],
       "properties": {
-        "value": { "minimum": 0 },
-        "unit":  { "enum": ["s", "ms", "min"], "default": "s" }
+        "value": {
+          "minimum": 0
+        },
+        "unit": {
+          "enum": [
+            "s",
+            "ms",
+            "min"
+          ],
+          "default": "s"
+        }
       }
     }
-
   }
 }
