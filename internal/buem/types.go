@@ -3,12 +3,12 @@ package buem
 import "encoding/json"
 
 // APIVersion is the BuEM wire-format version this connector currently speaks
-// to the upstream Flask API. This is deliberately still v3: BuEM's own
-// GeoJsonRequestSchema validator has not yet been confirmed against the
-// buem-api-spec v4.2.0 contract (tracked separately — see the
-// "align buem-api-spec docs with v4.2.0" work). Bumping this constant without
-// that confirmation will break every request.
-const APIVersion = "v3"
+// to the upstream Flask API. Confirmed against a live BuEM instance: the
+// v4.2.1 example request/response round-trip validates cleanly against
+// schemas/v4/{request,response}_schema.json, including compute_cooling
+// opt-in, model_metadata.simulations_run/electricity_source, and the
+// electricity_load_profile file-path input.
+const APIVersion = "v4"
 
 // FeatureCollection is the GeoJSON request body sent to BuEM. Features are
 // kept as raw JSON so the caller-supplied buem block is forwarded unchanged.
