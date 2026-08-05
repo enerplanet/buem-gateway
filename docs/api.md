@@ -82,14 +82,18 @@ demand
 
 The Swagger UI below can call a locally running buem-gateway directly.
 
-1. Start the stack, from `environment/`: `cp .env.example .env` (then edit `CADDY_DATA_DIR`),
-   `docker compose up -d --build`.
+1. Start the stack, from `environment/`: `docker compose -f docker-compose.quickstart.yml up -d`
+   — pre-built images from GHCR, no `.env`, no build. (Testing a local code change instead? Use
+   `cp .env.example .env` then `docker compose up -d --build` — see
+   [Getting started](getting-started.md).)
 2. Serve these docs locally with `mkdocs serve`.
-3. If your browser has never trusted the local proxy's certificate, open `https://localhost:8443`
-   directly once and accept it (or run `caddy trust`).
+3. The quickstart stack's certificate is never added to your OS/browser trust store (see
+   [Getting started](getting-started.md#try-it-out-no-caddy-setup)), so open
+   `https://localhost:8443` directly once and click through the untrusted-certificate warning —
+   expected, not a setup mistake.
 4. Click **Authorize** below and enter the API key checked by the reverse proxy (`X-Api-Key`; the
    prototype default is set in `environment/env/proxy.env`). It applies to every **Try it out**
-   call from then on.
+   call from then on. `/health` needs no key.
 5. Expand an endpoint, click **Try it out**, fill in the parameters, and **Execute**.
 
 <swagger-ui src="openapi.yaml"/>
