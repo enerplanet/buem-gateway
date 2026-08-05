@@ -2,10 +2,7 @@
 
 [![Go](https://github.com/enerplanet/buem-gateway/actions/workflows/go.yml/badge.svg)](https://github.com/enerplanet/buem-gateway/actions/workflows/go.yml)&nbsp;&nbsp;&nbsp;[![CI](https://github.com/enerplanet/buem-gateway/actions/workflows/ci.yml/badge.svg)](https://github.com/enerplanet/buem-gateway/actions/workflows/ci.yml)&nbsp;&nbsp;&nbsp;[![codecov](https://codecov.io/gh/enerplanet/buem-gateway/branch/main/graph/badge.svg)](https://codecov.io/gh/enerplanet/buem-gateway)&nbsp;&nbsp;&nbsp;[![GitHub release](https://img.shields.io/github/v/release/enerplanet/buem-gateway?include_prereleases&label=release&logo=github)](https://github.com/enerplanet/buem-gateway/releases)
 
-Go connector between **EnerPlanET** and [BuEM](https://github.com/enerplanet/buem), the
-ISO 52016-1 thermal building model. Fans a topology of buildings — or a single building — out to
-BuEM, writes each one's heating/cooling/electricity load profiles to CSV, and returns the results
-enriched into the caller's original shape.
+Go connector between **EnerPlanET** and [BuEM](https://github.com/UU-BUEM/buem), the ISO 52016-1 thermal building model. Fans a topology of buildings or a single building, out to BuEM. It writes each one's heating/cooling/electricity load profiles to CSV, and returns the results enriched into the caller's original shape.
 
 buem-gateway also carries the JSON schema contract that defines BuEM's request/response format
 (`schemas/`, [`CHANGELOG.md`](CHANGELOG.md), [`VERSIONING.md`](VERSIONING.md),
@@ -111,12 +108,12 @@ Found a security issue? See [SECURITY.md](SECURITY.md) for how to report it priv
 
 ## Acknowledgements
 
-Developed in the context of the RENvolveIT research project (<https://projekte.ffg.at/projekt/5127011>),
-funded by CETPartnership under the 2023 joint call for research proposals, co-funded by the
-European Commission (GA N°101069750).
+Developed in the context of the **RENvolveIT** research project (<https://projekte.ffg.at/projekt/5127011>), funded by CETPartnership under the 2023 joint call for research proposals, co-funded by the European Commission (GA N°101069750).
+
+<img src="docs/assets/sponsors/CETP-logo.svg" alt="CETPartnership" width="144" height="72">&nbsp;&nbsp;&nbsp;<img src="docs/assets/sponsors/EN_Co-fundedbytheEU_RGB_POS.png" alt="EU" width="180" height="40">
 
 **BuEM:** the ISO 52016-1 thermal building model this connector calls
-([enerplanet/buem](https://github.com/enerplanet/buem)).
+([UU-BUEM/buem](https://github.com/UU-BUEM/buem)).
 
 **TABULA & EPISCOPE (IEE Projects):** building-characteristic data used by the TABULA-fallback
 path via [ignis](https://github.com/THD-Spatial-AI/ignis) ([episcope.eu](https://episcope.eu/iee-project/tabula/)).
