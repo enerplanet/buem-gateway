@@ -5,10 +5,11 @@
 Go connector between **EnerPlanET** and [BuEM](https://github.com/UU-BUEM/buem), the ISO 52016-1 thermal building model. Fans a topology of buildings or a single building, out to BuEM. It writes each one's heating/cooling/electricity load profiles to CSV, and returns the results enriched into the caller's original shape.
 
 buem-gateway also carries the JSON schema contract that defines BuEM's request/response format
-(`schemas/`, [`CHANGELOG.md`](CHANGELOG.md), [`VERSIONING.md`](VERSIONING.md),
-[`SCHEMA_OVERVIEW.md`](SCHEMA_OVERVIEW.md)) and the CSV output naming convention
-([`NAMING.md`](NAMING.md)) — this repository is both the connector *and* the authoritative source
-for that contract.
+(`schemas/`, [`CHANGELOG.md`](CHANGELOG.md), [`docs/versioning.md`](docs/versioning.md)) and the
+CSV output naming convention ([`docs/naming.md`](docs/naming.md)) — this repository is both the
+connector *and* the authoritative source for that contract. The schema-contract version and
+buem-gateway's own release version are numbered independently — see
+[`docs/versioning.md`](docs/versioning.md) for why.
 
 > [!NOTE]
 > buem-gateway is a standalone service, independently deployable — it does not require installing
@@ -22,8 +23,8 @@ for that contract.
 
 ```mermaid
 graph LR
-    CALLER[Caller] -->|POST /buem/start<br>topology JSON| PROXY[buem-reverse-proxy<br>Caddy, X-Api-Key auth]
-    CALLER -->|POST /buem/building<br>single building| PROXY
+    CALLER[Caller] -->|POST /api/v1/buem/start<br>topology JSON| PROXY[buem-reverse-proxy<br>Caddy, X-Api-Key auth]
+    CALLER -->|POST /api/v1/buem/building<br>single building| PROXY
     PROXY --> APP[buem-gateway<br>Go connector]
     APP -->|POST /api/process<br>one call per building| MODEL[buem-model<br>BuEM Flask]
     MODEL -->|thermal_load_profile| APP
@@ -68,8 +69,8 @@ and [`docs/api.md`](docs/api.md) (or run `mkdocs serve` locally — see below).
 | Method | Path | Description |
 | --- | --- | --- |
 | `GET` | `/health` | Liveness check |
-| `POST` | `/buem/start` | Multi-building: topology in, enriched topology out |
-| `POST` | `/buem/building` | Single building, no topology wrapper: building in, enriched `buem` block out |
+| `POST` | `/api/v1/buem/start` | Multi-building: topology in, enriched topology out |
+| `POST` | `/api/v1/buem/building` | Single building, no topology wrapper: building in, enriched `buem` block out |
 
 All routes except `/health` require the `X-Api-Key` header, checked by the reverse proxy.
 
@@ -102,7 +103,7 @@ python -m venv .venv
 ## License
 
 MIT License — Copyright 2026 BigGeoData & Spatial AI, Technische Hochschule Deggendorf. See
-[LICENSE](LICENSE) for the full text.
+[LICENSE](LICENSE) for the full text. Third-party attributions: [ATTRIBUTIONS.md](ATTRIBUTIONS.md).
 
 Found a security issue? See [SECURITY.md](SECURITY.md) for how to report it privately.
 

@@ -32,7 +32,7 @@ type RunMetrics struct {
 // timeseries is stripped unless keepTimeseries is true — callers that read
 // results from the shared volume (the multi-building topology path) don't
 // need it in the response; callers with no volume access (e.g. a browser
-// client hitting /buem/building) do.
+// client hitting /api/v1/buem/building) do.
 func RunFeature(client *httpclient.Client, cfg *config.Config, task Task, keepTimeseries bool) ([]byte, RunMetrics, error) {
 	wallStart := time.Now()
 

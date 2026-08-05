@@ -11,7 +11,7 @@
 
 localhost {
 	# Single source of truth for allowed origins is ALLOWED_ORIGINS in
-	# docker.env (also read directly by anything that needs to check origins).
+	# env/common.env (also read directly by anything that needs to check origins).
 	# ALLOWED_ORIGINS_PATTERN is derived from it at container startup
 	# (see docker-compose.yml's entrypoint) into the regex form this
 	# matcher needs — nothing here is hardcoded per origin.
@@ -30,8 +30,9 @@ localhost {
 	}
 
 	# Unlike ignis's Caddyfile (which hardcodes this value), the key is read
-	# from BUEM_API_KEY at container start — a real key belongs in docker.env
-	# (untracked in production, see .env.example), not committed source.
+	# from BUEM_API_KEY at container start — a real key belongs in
+	# env/proxy.env (untracked in production, see .env.example), not
+	# committed source.
 	@authorized header X-Api-Key {$BUEM_API_KEY}
 	handle @authorized {
 		reverse_proxy buem-gateway:{$APP_PORT:8080}

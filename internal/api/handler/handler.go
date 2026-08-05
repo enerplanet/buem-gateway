@@ -19,7 +19,7 @@ func New(connector *buem.Connector) *Handler {
 	return &Handler{connector: connector}
 }
 
-// StartRequest is the topology-JSON body accepted by POST /buem/start. It is
+// StartRequest is the topology-JSON body accepted by POST /api/v1/buem/start. It is
 // decoded twice on purpose: once into rawFields to read only the handful of
 // top-level scalars this handler needs, and the topology itself is kept as
 // raw JSON so buem.Connector.Run can parse and re-merge it without this
@@ -32,7 +32,7 @@ type startRequest struct {
 	Topology   json.RawMessage `json:"topology"`
 }
 
-// Start handles POST /buem/start: it fans the request topology's buildings
+// Start handles POST /api/v1/buem/start: it fans the request topology's buildings
 // out to BuEM, writes their load profile CSVs, and returns the topology with
 // each building's buem block enriched with the results. Buildings with no
 // buem block are returned unchanged.
@@ -69,7 +69,7 @@ func (h *Handler) Start(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, rawConfig)
 }
 
-// buildingRequest is the body accepted by POST /buem/building — one
+// buildingRequest is the body accepted by POST /api/v1/buem/building — one
 // building, no topology/edge-list wrapper. See startRequest for the
 // grid-scale multi-building shape.
 type buildingRequest struct {
@@ -82,7 +82,7 @@ type buildingRequest struct {
 	BUEM       json.RawMessage `json:"buem"`
 }
 
-// Building handles POST /buem/building: runs BuEM for exactly one building
+// Building handles POST /api/v1/buem/building: runs BuEM for exactly one building
 // and returns its enriched buem block (thermal_load_profile + model_metadata).
 // Unlike Start, a failed run is reported as an HTTP error, not echoed back
 // unchanged — with only one building there's no partial-success case to

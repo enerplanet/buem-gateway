@@ -25,8 +25,8 @@ and `buem-reverse-proxy` (Caddy — the only one reachable from the host).
 | `HOST_HTTPS_PORT` | `.env` | Host port the reverse proxy publishes (default `8443`, not `443`, so it doesn't collide with ignis's own reverse proxy on the same host) |
 | `APP_PORT` | `.env` | Internal port `buem-gateway` listens on |
 | `CADDY_DATA_DIR` | `.env` | Host path to Caddy's trusted local CA — run `caddy trust` once on the host, then point this at where that created the CA |
-| `ALLOWED_ORIGINS` | `docker.env` | CORS origins the reverse proxy accepts |
-| `BUEM_API_KEY` | `docker.env` | Value callers must send as `X-Api-Key`. Local-dev placeholder — rotate before any real deployment |
+| `ALLOWED_ORIGINS` | `env/common.env` | CORS origins the reverse proxy accepts |
+| `BUEM_API_KEY` | `env/proxy.env` | Value callers must send as `X-Api-Key`. Local-dev placeholder — rotate before any real deployment |
 | `BUEM_WEATHER_DIR_HOST` | `.env` | Host path to MERRA-2 weather data — see below |
 
 !!! note "buem-gateway is not reachable from the host"

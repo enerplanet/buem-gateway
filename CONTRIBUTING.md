@@ -108,7 +108,7 @@ Keep messages clear and specific.
 
 Good examples:
 - `fix: TABULA fallback panics when resolver is nil`
-- `feat: add cooling support to /buem/building`
+- `feat: add cooling support to /api/v1/buem/building`
 - `docs: update README quick start`
 
 ## Licensing of Contributions

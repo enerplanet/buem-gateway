@@ -21,8 +21,8 @@ client, since the key must not be visible outside that caller.
 
 | Endpoint | Shape | Use when |
 |---|---|---|
-| `POST /buem/building` | One building, no wrapper | You have exactly one building and no grid to describe (e.g. Building Configurator) — a failed run is a clear HTTP error |
-| `POST /buem/start` | A topology (`{from, to}` edge list) | You have several buildings, possibly alongside non-building grid nodes — a failed building is left unchanged in the response rather than failing the whole request |
+| `POST /api/v1/buem/building` | One building, no wrapper | You have exactly one building and no grid to describe (e.g. Building Configurator) — a failed run is a clear HTTP error |
+| `POST /api/v1/buem/start` | A topology (`{from, to}` edge list) | You have several buildings, possibly alongside non-building grid nodes — a failed building is left unchanged in the response rather than failing the whole request |
 
 Both share the same `buem` block shape, the same TABULA-fallback behavior, and the same CSV
 output — described below.
@@ -88,8 +88,8 @@ The Swagger UI below can call a locally running buem-gateway directly.
 3. If your browser has never trusted the local proxy's certificate, open `https://localhost:8443`
    directly once and accept it (or run `caddy trust`).
 4. Click **Authorize** below and enter the API key checked by the reverse proxy (`X-Api-Key`; the
-   prototype default is set in `environment/docker.env`). It applies to every **Try it out** call
-   from then on.
+   prototype default is set in `environment/env/proxy.env`). It applies to every **Try it out**
+   call from then on.
 5. Expand an endpoint, click **Try it out**, fill in the parameters, and **Execute**.
 
 <swagger-ui src="openapi.yaml"/>

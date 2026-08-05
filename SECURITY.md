@@ -2,9 +2,10 @@
 
 ## Supported Versions
 
-buem-gateway does not yet follow a formal release cadence for the connector itself (the tagged
-releases in this repo predate the Go connector and cover the JSON schema contract only). Only the
-latest commit on `main` is supported — please update before reporting an issue.
+`v4.0.0` is the first git-tagged release of the Go connector itself (releases before it covered
+only the JSON schema contract, which now versions separately — see
+[`docs/versioning.md`](docs/versioning.md)). Only the latest tagged release and the latest commit
+on `main` are supported — please update before reporting an issue.
 
 ## Reporting a Vulnerability
 
@@ -23,7 +24,7 @@ A few things about buem-gateway's design that are **intentional, documented limi
 vulnerabilities to report:
 
 - **The `X-Api-Key` header is a prototype-stage credential**, checked by the Caddy reverse proxy
-  in front of the `buem-gateway` container (see [`environment/Caddyfile`](environment/Caddyfile)).
+  in front of the `buem-gateway` container (see [`environment/caddy/Caddyfile`](environment/caddy/Caddyfile)).
   It is not a substitute for real authentication and must not be relied on in a production
   deployment — see the orchestration-layer decision note referenced from the docs for the intended
   long-term replacement.

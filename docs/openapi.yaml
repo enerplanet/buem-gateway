@@ -11,11 +11,13 @@ info:
     profiles to CSV, and returns the enriched result.
 
     `version` above tracks the BUEM↔EnerPlanET data-contract version (see
-    [CHANGELOG.md](../CHANGELOG.md) / [VERSIONING.md](../VERSIONING.md)) —
+    [CHANGELOG.md](../CHANGELOG.md) / [versioning.md](versioning.md)) —
     the schemas below mirror `schemas/request_schema.json` /
     `response_schema.json`, both titled "v4" — not buem-gateway's own
-    service release tags (currently v3.0.0), which follow a separate,
-    independent numbering.
+    service release tags (see [GitHub Releases](https://github.com/enerplanet/buem-gateway/releases)),
+    which follow separate, independent numbering. Only the connector's own
+    releases get a git tag; the data-contract version above is tracked in
+    CHANGELOG.md/versioning.md, not tagged.
 
     When a building's `buem.building.envelope` is omitted, buem-gateway
     resolves TABULA defaults from [ignis](https://github.com/THD-Spatial-AI/ignis)
@@ -81,14 +83,14 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
-  /buem/building:
+  /api/v1/buem/building:
     post:
       tags: [Simulation]
       summary: Run BuEM for one building
       description: >
         No topology/edge-list wrapper — for a caller with exactly one
         building and no grid to describe (e.g. Building Configurator).
-        Unlike `/buem/start`, a failed run is reported as an HTTP error,
+        Unlike `/api/v1/buem/start`, a failed run is reported as an HTTP error,
         since there is no partial-success case to preserve caller data for
         with only one building.
       requestBody:
@@ -129,7 +131,7 @@ paths:
         "422":
           $ref: "#/components/responses/RunFailed"
 
-  /buem/start:
+  /api/v1/buem/start:
     post:
       tags: [Simulation]
       summary: Run BuEM for every building in a topology

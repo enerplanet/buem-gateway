@@ -114,7 +114,7 @@ func TestHealth(t *testing.T) {
 
 func TestBuilding_MissingBuemBlock(t *testing.T) {
 	h := New(nil)
-	req := httptest.NewRequest(http.MethodPost, "/buem/building", strings.NewReader(`{"id":"b1"}`))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/buem/building", strings.NewReader(`{"id":"b1"}`))
 	w := httptest.NewRecorder()
 	h.Building(w, req)
 
@@ -125,7 +125,7 @@ func TestBuilding_MissingBuemBlock(t *testing.T) {
 
 func TestBuilding_BadJSON(t *testing.T) {
 	h := New(nil)
-	req := httptest.NewRequest(http.MethodPost, "/buem/building", strings.NewReader(`not json`))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/buem/building", strings.NewReader(`not json`))
 	w := httptest.NewRecorder()
 	h.Building(w, req)
 
@@ -149,7 +149,7 @@ func TestBuilding_DefaultsIDWhenOmitted(t *testing.T) {
 			{"id":"Wall_1","type":"wall","area":10.0,"azimuth":0.0,"tilt":90.0,"U":1.5}
 		]}}}
 	}`
-	req := httptest.NewRequest(http.MethodPost, "/buem/building", strings.NewReader(reqBody))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/buem/building", strings.NewReader(reqBody))
 	w := httptest.NewRecorder()
 	h.Building(w, req)
 
@@ -185,7 +185,7 @@ func TestBuilding_UsesProvidedID(t *testing.T) {
 			{"id":"Wall_1","type":"wall","area":10.0,"azimuth":0.0,"tilt":90.0,"U":1.5}
 		]}}}
 	}`
-	req := httptest.NewRequest(http.MethodPost, "/buem/building", strings.NewReader(reqBody))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/buem/building", strings.NewReader(reqBody))
 	w := httptest.NewRecorder()
 	h.Building(w, req)
 
@@ -212,7 +212,7 @@ func TestBuilding_ConnectorErrorReturnsUnprocessableEntity(t *testing.T) {
 		"model_id": "demo",
 		"buem": {"building":{"envelope":{"elements":[{"id":"Wall_1"}]}}}
 	}`
-	req := httptest.NewRequest(http.MethodPost, "/buem/building", strings.NewReader(reqBody))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/buem/building", strings.NewReader(reqBody))
 	w := httptest.NewRecorder()
 	h.Building(w, req)
 
@@ -226,7 +226,7 @@ func TestBuilding_ConnectorErrorReturnsUnprocessableEntity(t *testing.T) {
 
 func TestStart_BadJSON(t *testing.T) {
 	h := New(nil)
-	req := httptest.NewRequest(http.MethodPost, "/buem/start", strings.NewReader(`not json`))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/buem/start", strings.NewReader(`not json`))
 	w := httptest.NewRecorder()
 	h.Start(w, req)
 
@@ -238,7 +238,7 @@ func TestStart_BadJSON(t *testing.T) {
 func TestStart_NoTopologyEchoesRequestBack(t *testing.T) {
 	h := New(nil)
 	reqBody := `{"start_date":"2018-01-01T00:00:00Z","model_id":"demo"}`
-	req := httptest.NewRequest(http.MethodPost, "/buem/start", strings.NewReader(reqBody))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/buem/start", strings.NewReader(reqBody))
 	w := httptest.NewRecorder()
 	h.Start(w, req)
 
@@ -262,7 +262,7 @@ func TestStart_MalformedTopologyReturnsInternalServerError(t *testing.T) {
 	// "topology" is present but isn't the edge-list array ExtractTasks
 	// expects — fails before ever reaching the upstream.
 	reqBody := `{"model_id":"demo","topology":"not-an-edge-list"}`
-	req := httptest.NewRequest(http.MethodPost, "/buem/start", strings.NewReader(reqBody))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/buem/start", strings.NewReader(reqBody))
 	w := httptest.NewRecorder()
 	h.Start(w, req)
 
@@ -294,7 +294,7 @@ func TestStart_EnrichesTopologyAndReturnsIt(t *testing.T) {
 			}
 		}]
 	}`
-	req := httptest.NewRequest(http.MethodPost, "/buem/start", strings.NewReader(reqBody))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/buem/start", strings.NewReader(reqBody))
 	w := httptest.NewRecorder()
 	h.Start(w, req)
 

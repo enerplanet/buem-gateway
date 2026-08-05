@@ -21,7 +21,7 @@ authoritative source for that contract.
 
 ```mermaid
 graph LR
-    CALLER[Caller<br>e.g. EnerPlanET backend] -->|POST /buem/start<br>topology JSON| PROXY[buem-reverse-proxy<br>Caddy, X-Api-Key auth]
+    CALLER[Caller<br>e.g. EnerPlanET backend] -->|POST /api/v1/buem/start<br>topology JSON| PROXY[buem-reverse-proxy<br>Caddy, X-Api-Key auth]
     PROXY --> APP[buem-gateway<br>Go connector]
     APP -->|POST /api/process<br>one call per building| MODEL[buem-model<br>BuEM Flask]
     MODEL -->|thermal_load_profile| APP
