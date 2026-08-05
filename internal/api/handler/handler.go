@@ -3,6 +3,7 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 
@@ -109,6 +110,12 @@ func (h *Handler) Building(w http.ResponseWriter, r *http.Request) {
 	}
 
 	enriched, err := h.connector.RunSingle(id, req.Geometry, req.BUEM, req.StartDate, req.EndDate, req.ModelID, req.Resolution)
+	if errors.Is(err, buem.ErrMissingEnvelope) {
+		// Rejected before ever calling BuEM — an incomplete request, not a
+		// run that was attempted and failed. 400, not 422.
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 	if err != nil {
 		http.Error(w, "buem run failed: "+err.Error(), http.StatusUnprocessableEntity)
 		return

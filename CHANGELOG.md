@@ -2,26 +2,45 @@
 
 ------------------------------------------------------------------------
 
-## Unreleased
+## v5.0.0 (2026-08) — Current
 
-### `construction_period` clarified: TABULA class code, not a year range
+**Status:** Current version
+**Compatible with v4.2.0:** No — `building.envelope` is now required.
 
-While implementing the TABULA-fallback resolver (used when `envelope` is omitted), discovered
-that TABULA variant codes identify construction era by a country-specific numbered class (e.g.
-`"01"`, `"02"`) — never by a literal year range. The schema's description previously said
-`"e.g. 1965-1974"`, which doesn't correspond to anything TABULA or ignis (the TABULA data source)
-actually use, and class boundaries differ per country (each national TABULA dataset drew its own).
+### 1. `envelope` is required again (breaking)
 
-`construction_period` must now be the TABULA class code for the building's country. Since the
-TABULA-fallback resolver was never implemented before this, and BuEM itself has never read this
-field for anything, no working caller depended on the old (incorrect) format — treated as a
-documentation fix, not a breaking schema change.
+v4.0.0 made `building.envelope` optional, on the premise that when omitted, buem-gateway would
+derive surface areas and U-values from a TABULA variant resolved via a live call to ignis. In
+practice that made buem-gateway's "standalone, independently deployable" claim false — it silently
+needed a second service (ignis) reachable on the same Docker network to accept a request shape its
+own schema advertised as valid — and the failure mode was bad: an unreachable/non-matching ignis
+lookup fell through to forwarding the incomplete request to BuEM, which rejected it with a generic
+"invalid GeoJSON payload" error that named neither TABULA nor ignis. BuEM itself has never had its
+own TABULA-derivation capability; the v4.x "the model derives..." wording described buem-gateway's
+fallback behavior, not BuEM's.
+
+Removed the fallback entirely. `building.envelope` is required, with at least one element.
+buem-gateway now rejects a missing envelope immediately and explicitly — see
+[`docs/api.md`](docs/api.md#envelope-is-required) — instead of forwarding an incomplete request
+and relying on an external service or on BuEM's own downstream error. Any caller building a
+request from classification data alone (building_type/construction_period/country) must resolve a
+concrete envelope itself before calling buem-gateway — e.g. via ignis directly — rather than
+relying on buem-gateway to do it silently.
+
+### 2. `construction_period` clarified: TABULA class code, not a year range
+
+TABULA variant codes identify construction era by a country-specific numbered class (e.g. `"01"`,
+`"02"`) — never a literal year range. The schema's description previously said `"e.g. 1965-1974"`,
+which doesn't correspond to anything TABULA actually uses, and class boundaries differ per country
+(each national TABULA dataset drew its own). `construction_period` is classification metadata only
+now (§1 above) — it has no effect on the simulation, which reads geometry and U-values from
+`envelope` directly.
 
 ------------------------------------------------------------------------
 
-## v4.2.0 (2026-06) — Current
+## v4.2.0 (2026-06) — Deprecated
 
-**Status:** Current version
+**Status:** Deprecated — superseded by v5.0.0 (`envelope` was optional here, required from v5.0.0)
 **Compatible with v4.1.0:** Yes — new optional field only.
 
 ### What changed and why
@@ -38,9 +57,9 @@ The BuEM solver does not use this value — it is forwarded as-is and ignored by
 
 ------------------------------------------------------------------------
 
-## v4.1.0 (2026-04)
+## v4.1.0 (2026-04) — Deprecated
 
-**Status:** Current version
+**Status:** Deprecated — superseded by v5.0.0
 **Compatible with v4.0.0:** Yes — new optional fields only.
 
 ### What changed and why
@@ -60,9 +79,9 @@ buildings easier to identify in UI and export files.
 
 ------------------------------------------------------------------------
 
-## v4.0.0 (2026-03)
+## v4.0.0 (2026-03) — Deprecated
 
-**Status:** Current version (unreleased)
+**Status:** Deprecated — superseded by v5.0.0
 **Compatible with v3:** No — response clients must handle optional `cooling` field.
 
 ------------------------------------------------------------------------

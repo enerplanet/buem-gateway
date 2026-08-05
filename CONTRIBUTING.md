@@ -57,7 +57,7 @@ cd buem-gateway
 git checkout -b type/short-description
 ```
 
-Examples: `fix/tabula-fallback-nil-check`, `feat/add-cooling-endpoint`, `docs/readme-update`
+Examples: `fix/envelope-validation-nil-check`, `feat/add-cooling-endpoint`, `docs/readme-update`
 
 ### 3. Make your changes
 
@@ -107,7 +107,7 @@ Create a pull request against `main`. Include:
 Keep messages clear and specific.
 
 Good examples:
-- `fix: TABULA fallback panics when resolver is nil`
+- `fix: envelope validation panics on malformed JSON`
 - `feat: add cooling support to /api/v1/buem/building`
 - `docs: update README quick start`
 

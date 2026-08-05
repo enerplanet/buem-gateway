@@ -76,8 +76,7 @@
 
     "building": {
       "type": "object",
-      "required": ["envelope"],
-      "description": "Complete physical description of the building. Classification fields (type, country, etc.) sit at this level. Geometry and per-element thermal properties are in envelope, which is required — neither BuEM nor buem-gateway derives it from classification fields alone.",
+      "description": "Complete physical description of the building. Classification fields (type, country, etc.) sit at this level. Geometry and per-element thermal properties are in envelope. Building-wide thermal parameters are in thermal. When envelope is omitted, the model derives surface areas and U-values from the TABULA variant identified by building_type + construction_period + country.",
       "properties": {
         "name": {
           "type": "string",
@@ -104,7 +103,7 @@
         },
         "construction_period": {
           "type": "string",
-          "description": "TABULA construction-year class code for the building's country (e.g. \"01\", \"02\"), not a literal year range. Class boundaries are defined per country by each national TABULA dataset and are not consistent across countries. Classification metadata only — has no effect on the simulation, which reads geometry and U-values from envelope directly."
+          "description": "TABULA construction-year class code for the building's country (e.g. \"01\", \"02\"), not a literal year range. Class boundaries are defined per country by each national TABULA dataset and are not consistent across countries. When envelope is omitted, this is looked up directly against the TABULA variant code (<country>.N.<building_type>.<construction_period>...) — there is no year-range-to-class translation."
         },
         "country": {
           "type": "string",

@@ -30,15 +30,15 @@ graph LR
     MODEL -->|thermal_load_profile| APP
     APP -->|enriched result| CALLER
     APP -->|heating/cooling/electricity CSVs| VOL[(shared volume)]
-    APP -.->|TABULA fallback<br>when envelope is omitted| IGNIS[ignis]
 ```
 
 A caller sends either a **topology** — a list of `{from, to}` node pairs, some of which are
 buildings carrying a `properties.buem` block — or a **single building**, with no topology wrapper.
 buem-gateway extracts the buildings, runs each one through BuEM concurrently (bounded by
-`MAX_CONCURRENT_SIMS`), writes the results to CSV, and returns the enriched output. If a building
-omits its envelope, buem-gateway resolves TABULA defaults via [`ignis`](https://github.com/THD-Spatial-AI/ignis)
-before calling BuEM — BuEM itself stays unaware this happens.
+`MAX_CONCURRENT_SIMS`), writes the results to CSV, and returns the enriched output.
+`buem.building.envelope` is required — buem-gateway resolves nothing from any external service; a
+missing envelope is rejected immediately with a clear error (see
+[Envelope is required](docs/api.md#envelope-is-required)).
 
 ---
 
@@ -132,6 +132,3 @@ Developed in the context of the **RENvolveIT** research project (<https://projek
 
 **BuEM:** the ISO 52016-1 thermal building model this connector calls
 ([UU-BUEM/buem](https://github.com/UU-BUEM/buem)).
-
-**TABULA & EPISCOPE (IEE Projects):** building-characteristic data used by the TABULA-fallback
-path via [ignis](https://github.com/THD-Spatial-AI/ignis) ([episcope.eu](https://episcope.eu/iee-project/tabula/)).

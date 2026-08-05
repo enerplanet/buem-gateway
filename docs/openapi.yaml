@@ -2,7 +2,7 @@ openapi: 3.0.3
 
 info:
   title: buem-gateway API
-  version: 4.2.0
+  version: 5.0.0
   description: |
     buem-gateway is the connector between EnerPlanET and
     [BuEM](https://github.com/enerplanet/buem), the ISO 52016-1 thermal
@@ -13,17 +13,20 @@ info:
     `version` above tracks the BUEM↔EnerPlanET data-contract version (see
     [CHANGELOG.md](../CHANGELOG.md) / [versioning.md](versioning.md)) —
     the schemas below mirror `schemas/request_schema.json` /
-    `response_schema.json`, both titled "v4" — not buem-gateway's own
+    `response_schema.json`, both titled "v5" — not buem-gateway's own
     service release tags (see [GitHub Releases](https://github.com/enerplanet/buem-gateway/releases)),
     which follow separate, independent numbering. Only the connector's own
     releases get a git tag; the data-contract version above is tracked in
     CHANGELOG.md/versioning.md, not tagged.
 
-    When a building's `buem.building.envelope` is omitted, buem-gateway
-    resolves TABULA defaults from [ignis](https://github.com/THD-Spatial-AI/ignis)
-    before ever calling BuEM — BuEM's own contract still requires `envelope`
-    unconditionally. See [Getting started](../getting-started.md) for how
-    that fallback works and what it assumes.
+    `buem.building.envelope` is required. buem-gateway resolves nothing from
+    any external service — an earlier version (schema v4.x) called ignis to
+    derive TABULA defaults when envelope was omitted, but that made
+    buem-gateway's "standalone, independently deployable" claim false and
+    turned a missing-input mistake into a confusing downstream error from
+    BuEM instead of a clear one here. See
+    [Envelope is required](../api.md#envelope-is-required) for the current
+    behavior and error shape.
 
     ## Authentication
 
@@ -100,12 +103,9 @@ paths:
             schema:
               $ref: "#/components/schemas/BuildingRequest"
             example:
-              # Full envelope, self-contained — resolves without calling ignis. An
-              # envelope-omitting example would rely on the TABULA fallback, which
-              # needs a separate ignis stack reachable at ignis-app:8080 on the same
-              # Docker network; not something buem-gateway's own quickstart stack
-              # provides by itself. See docs/api.md's TABULA-fallback section for
-              # that path instead.
+              # envelope is required (see the Envelope is required section in
+              # docs/api.md) — buem-gateway does not derive it from
+              # classification fields, so a complete one is included here.
               id: demo-building
               geometry:
                 type: Point
@@ -204,7 +204,9 @@ components:
 
   responses:
     BadRequest:
-      description: Malformed request (unreadable body, missing buem block)
+      description: >
+        Malformed or incomplete request (unreadable body, missing buem block,
+        missing building.envelope) — rejected before BuEM is ever called.
       content:
         text/plain:
           schema:
@@ -219,8 +221,9 @@ components:
           example: "Forbidden: missing or invalid API key"
     RunFailed:
       description: >
-        BuEM rejected the request or failed to process it (e.g. envelope
-        missing and no matching TABULA variant, invalid parameter values).
+        BuEM rejected the request or failed to process it after buem-gateway
+        forwarded it (e.g. invalid parameter values). Distinct from 400: the
+        request reached BuEM before failing.
       content:
         text/plain:
           schema:
@@ -260,7 +263,7 @@ components:
         The building's classification, envelope, thermal, and solver data —
         see `schemas/request_schema.json` in this repo for the full BuEM
         request contract. Forwarded to BuEM largely as-is; `envelope` is
-        filled from TABULA when omitted (see the description above).
+        required (see the description above).
       additionalProperties: true
 
     BuildingRequest:

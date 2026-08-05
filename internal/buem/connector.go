@@ -14,7 +14,6 @@ import (
 
 	"github.com/enerplanet/buem-gateway/internal/config"
 	"github.com/enerplanet/buem-gateway/internal/httpclient"
-	"github.com/enerplanet/buem-gateway/internal/tabula"
 )
 
 // Connector runs BuEM requests for a topology, capping concurrency at
@@ -22,7 +21,6 @@ import (
 type Connector struct {
 	cfg    *config.Config
 	client *httpclient.Client
-	tabula envelopeResolver
 	sem    chan struct{}
 }
 
@@ -31,7 +29,6 @@ func NewConnector(cfg *config.Config) *Connector {
 	return &Connector{
 		cfg:    cfg,
 		client: httpclient.New(cfg.RequestTimeout, cfg.RetryAttempts, cfg.RetryBaseDelay),
-		tabula: tabula.New(cfg),
 		sem:    make(chan struct{}, maxConcurrent(cfg)),
 	}
 }
@@ -49,7 +46,7 @@ func maxConcurrent(cfg *config.Config) int {
 // through unchanged; a building that fails is left as it was, and its error
 // is logged.
 func (c *Connector) Run(rawTopology json.RawMessage, startDate, endDate, modelID string, resolution int) (json.RawMessage, error) {
-	tasks, err := ExtractTasks(rawTopology, startDate, endDate, resolution, modelID, c.tabula)
+	tasks, err := ExtractTasks(rawTopology, startDate, endDate, resolution, modelID)
 	if err != nil {
 		return nil, fmt.Errorf("parse topology: %w", err)
 	}
@@ -70,17 +67,24 @@ func (c *Connector) Run(rawTopology json.RawMessage, startDate, endDate, modelID
 // wrapper. For callers with a single building and no grid to describe (e.g.
 // Building Configurator), forcing them to fabricate a topology just to
 // satisfy Run's contract would leak an internal concept they have no use
-// for. Internally this reuses the identical task-extraction (including
-// TABULA fallback) and BuEM-calling path Run uses, just skipping the
-// topology-merge step and returning a clear error instead of silently
-// leaving the input unchanged on failure.
+// for. Internally this reuses the identical task-extraction and
+// BuEM-calling path Run uses, just skipping the topology-merge step and
+// returning a clear error instead of silently leaving the input unchanged
+// on failure. Unlike Run's per-node log-and-skip (appropriate for a batch,
+// where one bad building shouldn't sink the rest), a missing envelope here
+// is checked explicitly up front so the caller gets the specific reason in
+// the HTTP response, not just "not a valid building request".
 func (c *Connector) RunSingle(id string, geometry, buemRaw json.RawMessage, startDate, endDate, modelID string, resolution int) (json.RawMessage, error) {
+	if err := requireEnvelope(buemRaw); err != nil {
+		return nil, err
+	}
+
 	topology, err := singleBuildingTopology(id, geometry, buemRaw)
 	if err != nil {
 		return nil, fmt.Errorf("build request: %w", err)
 	}
 
-	tasks, err := ExtractTasks(topology, startDate, endDate, resolution, modelID, c.tabula)
+	tasks, err := ExtractTasks(topology, startDate, endDate, resolution, modelID)
 	if err != nil {
 		return nil, fmt.Errorf("parse request: %w", err)
 	}

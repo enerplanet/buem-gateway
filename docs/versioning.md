@@ -4,19 +4,19 @@ This file explains how the data format between EnerPlanET and BUEM is versioned 
 how to release a new version.
 
 !!! note "This is the data-contract version, not buem-gateway's own release version"
-    The number here (currently **v4.2.0**) tracks the request/response JSON shape in
+    The number here (currently **v5.0.0**) tracks the request/response JSON shape in
     `schemas/` — it has its own number and its own history, separate from the
-    buem-gateway *connector's* own software releases (git tags like `v4.0.0`, which
-    trigger `.github/workflows/release.yml` and publish Docker images). A schema
-    version is never git-tagged; it lives only in this file,
-    `CHANGELOG.md`, and `docs/openapi.yaml`'s `info.version` field. Only the
-    connector's own releases get a git tag and a GitHub release.
+    buem-gateway *connector's* own software releases (git tags, which trigger
+    `.github/workflows/release.yml` and publish Docker images). A schema version is
+    never git-tagged; it lives only in this file, `CHANGELOG.md`, and
+    `docs/openapi.yaml`'s `info.version` field. Only the connector's own releases get
+    a git tag and a GitHub release.
 
-    Both currently lead with the digit 4 (`v4.2.0` schema, `v4.0.0` software) — that
-    is **coincidence, not a relationship**. The two numbers are picked and bumped
-    independently and will drift apart the moment either one changes without the
-    other (e.g. a bugfix software release, `v4.1.0`, with no schema change at all).
-    Don't infer anything from them matching.
+    These two numbers are picked and bumped independently — they will land on the
+    same digit sometimes and drift apart other times, purely by chance each time
+    (see this file's `v4.0.0`/`v4.2.0` vs the software's earlier `v4.0.0` for one
+    such coincidence, already resolved). Never infer a relationship from them
+    matching or not matching.
 
 ------------------------------------------------------------------------
 
@@ -117,11 +117,11 @@ for name in ['request', 'response']:
 | Location | Contents |
 |---|---|
 | `schemas/` | Current version — edit here |
-| `schemas/v1/`, `schemas/v2/`, `schemas/v3/` | Read-only snapshots of past major versions |
+| `schemas/v1/`, `schemas/v2/`, `schemas/v3/`, `schemas/v4/` | Read-only snapshots of past major versions |
 
-The `v4.x` line (`v4.0.0` → current) has no separate snapshot folder yet — it's the
-line currently in `schemas/` at the repo root. A `schemas/v4/` snapshot gets cut only
-when a future breaking change moves the current schema to `v5.0.0`.
+The `v5.x` line (`v5.0.0` → current) has no separate snapshot folder yet — it's the
+line currently in `schemas/` at the repo root. A `schemas/v5/` snapshot gets cut only
+when a future breaking change moves the current schema to `v6.0.0`.
 
 ------------------------------------------------------------------------
 
@@ -129,9 +129,10 @@ when a future breaking change moves the current schema to `v5.0.0`.
 
 | Version | Date | Status | What changed |
 |---|---|---|---|
-| v4.2.0 | 2026-06 | Current | Optional `model_id` on the request `FeatureCollection`, used by the gateway to namespace CSV output per model |
-| v4.1.0 | 2026-04 | Compatible | Optional `name` field on `building` and `envelope_element`, for display purposes only |
-| v4.0.0 | 2026-03 | Breaking vs v3 | `solver.compute_cooling` (opt-in cooling), file-path electricity input, `envelope` now optional (TABULA fallback), `phi_int`/`q_w_nd` configurable |
+| v5.0.0 | 2026-08 | Current | `envelope` required again — the v4.x TABULA-fallback-when-omitted behavior needed buem-gateway to call ignis, which broke its standalone claim and produced confusing errors; removed, see `CHANGELOG.md` |
+| v4.2.0 | 2026-06 | Deprecated | Optional `model_id` on the request `FeatureCollection`, used by the gateway to namespace CSV output per model |
+| v4.1.0 | 2026-04 | Deprecated | Optional `name` field on `building` and `envelope_element`, for display purposes only |
+| v4.0.0 | 2026-03 | Deprecated | `solver.compute_cooling` (opt-in cooling), file-path electricity input, `envelope` now optional (TABULA fallback), `phi_int`/`q_w_nd` configurable |
 | v3.0.0 | 2026-03 | Deprecated | `buem` split into `building` (classification, envelope, thermal) and `solver`; thermal properties on each surface element directly; every physical quantity carries its unit |
 | v2.0.0 | 2026-02 | Deprecated | Structured building attributes; nested component model introduced |
 | v1.0.0 | 2025-11 | Deprecated | Initial format — minimal structure |

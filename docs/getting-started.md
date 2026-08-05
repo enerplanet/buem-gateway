@@ -65,9 +65,14 @@ and `buem-reverse-proxy` (Caddy — the only one reachable from the host).
 
 `docker-compose.yml` declares `name: building-simulation` — the same project name the standalone
 `ignis` repo's own compose file uses. Bringing both stacks up (from their own repos,
-independently) puts every container on the same `building-simulation_default` Docker network, so
-`buem-gateway` can reach `ignis-app` directly by service name if it ever needs to (e.g. the planned
-TABULA-fallback lookup).
+independently) puts every container on the same `building-simulation_default` Docker network,
+purely for co-location (grouping the two services conceptually, avoiding host port collisions).
+**Nothing on either side calls across it** — buem-gateway does not reach ignis, and vice versa.
+An earlier version had buem-gateway call ignis directly for TABULA-derived envelope defaults; that
+made buem-gateway's "standalone, independently deployable" claim false in practice (it silently
+needed ignis reachable to accept a common request shape) and turned a missing-input mistake into a
+confusing downstream error from BuEM instead of a clear one at buem-gateway's own boundary. Removed
+— see [`docs/api.md`](api.md#envelope-is-required) for the current behavior.
 
 !!! warning "Don't share this project name with anything else"
     Compose tracks ownership by `(project name, service key)`, not `container_name`. Sharing

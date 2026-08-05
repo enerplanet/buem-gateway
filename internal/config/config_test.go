@@ -57,7 +57,7 @@ func TestLoad_defaultsWhenEnvUnset(t *testing.T) {
 	for _, key := range []string{
 		"SERVER_HOST", "SERVER_PORT", "MAX_CONCURRENT_SIMS", "REQUEST_TIMEOUT",
 		"RETRY_ATTEMPTS", "RETRY_BASE_DELAY", "BUEM_SERVICE_HOST", "BUEM_SERVICE_PORT",
-		"IGNIS_SERVICE_HOST", "IGNIS_SERVICE_PORT", "BUEM_DATA_DIR", "BUEM_RESULTS_DIR",
+		"BUEM_DATA_DIR", "BUEM_RESULTS_DIR",
 	} {
 		t.Setenv(key, "")
 	}
@@ -72,9 +72,6 @@ func TestLoad_defaultsWhenEnvUnset(t *testing.T) {
 	}
 	if c.BuEM.Host != "buem-model" || c.BuEM.Port != 5000 {
 		t.Errorf("BuEM = %s:%d, want buem-model:5000", c.BuEM.Host, c.BuEM.Port)
-	}
-	if c.Ignis.Host != "ignis-app" || c.Ignis.Port != 8080 {
-		t.Errorf("Ignis = %s:%d, want ignis-app:8080", c.Ignis.Host, c.Ignis.Port)
 	}
 	if c.BuemDataDir != "data" || c.BuemResultsDir != "results" {
 		t.Errorf("data dirs = %s, %s, want data, results", c.BuemDataDir, c.BuemResultsDir)

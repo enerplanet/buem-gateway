@@ -134,6 +134,27 @@ func TestBuilding_BadJSON(t *testing.T) {
 	}
 }
 
+// TestBuilding_MissingEnvelope confirms a request with no building.envelope
+// is rejected with 400 (an incomplete request), not 422 (a run that reached
+// BuEM and failed) — buem-gateway resolves envelope from nowhere else.
+func TestBuilding_MissingEnvelope(t *testing.T) {
+	h := New(nil)
+	reqBody := `{
+		"geometry": {"type":"Point","coordinates":[12.5,48.5]},
+		"buem": {"building":{"building_type":"SFH","country":"DE"}}
+	}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/buem/building", strings.NewReader(reqBody))
+	w := httptest.NewRecorder()
+	h.Building(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d (body=%s)", w.Code, http.StatusBadRequest, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "envelope") {
+		t.Errorf("body = %q, want it to mention envelope", w.Body.String())
+	}
+}
+
 func TestBuilding_DefaultsIDWhenOmitted(t *testing.T) {
 	upstream := fakeUpstream(t, http.StatusOK)
 	defer upstream.Close()

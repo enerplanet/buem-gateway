@@ -2,6 +2,7 @@ package buem
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -160,6 +161,31 @@ func TestConnectorRunSingle_ReturnsErrorOnFailure(t *testing.T) {
 	}
 }
 
+// TestConnectorRunSingle_RejectsMissingEnvelopeWithoutCallingBuEM confirms
+// buem-gateway never resolves a missing envelope itself (no ignis, no other
+// external service) and never forwards the incomplete request to BuEM
+// either — the upstream server in this test would fail the test if called
+// at all.
+func TestConnectorRunSingle_RejectsMissingEnvelopeWithoutCallingBuEM(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatal("BuEM must not be called when envelope is missing")
+	}))
+	defer upstream.Close()
+
+	host, portStr, _ := strings.Cut(strings.TrimPrefix(upstream.URL, "http://"), ":")
+	port, _ := strconv.Atoi(portStr)
+	cfg := &config.Config{MaxConcurrentSims: 4, BuEM: config.UpstreamService{Host: host, Port: port}}
+	conn := NewConnector(cfg)
+
+	geometry := json.RawMessage(`{"type":"Point","coordinates":[12.5,48.5]}`)
+	buemBlock := json.RawMessage(`{"building":{"building_type":"SFH","country":"DE"}}`)
+
+	_, err := conn.RunSingle("solo-building", geometry, buemBlock, "2018-01-01T00:00:00Z", "2018-12-31T23:00:00Z", "demo-model", 60)
+	if !errors.Is(err, ErrMissingEnvelope) {
+		t.Fatalf("RunSingle() error = %v, want ErrMissingEnvelope", err)
+	}
+}
+
 func buildTestTopology(t *testing.T, nodeID string) json.RawMessage {
 	t.Helper()
 	edge := map[string]interface{}{
@@ -170,8 +196,6 @@ func buildTestTopology(t *testing.T, nodeID string) json.RawMessage {
 				"feature_type": "BasePOI",
 				"buem": map[string]interface{}{"building": map[string]interface{}{
 					"building_type": "SFH", "country": "DE",
-					// Envelope present so this test never exercises the TABULA
-					// fallback path (internal/tabula) — that has its own tests.
 					"envelope": map[string]interface{}{"elements": []interface{}{
 						map[string]interface{}{"id": "Wall_1", "type": "wall", "area": 10.0, "azimuth": 0.0, "tilt": 90.0, "U": 1.5},
 					}},
