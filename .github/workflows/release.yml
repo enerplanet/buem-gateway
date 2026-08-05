@@ -1,0 +1,71 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build binaries
+        env:
+          VERSION: ${{ github.ref_name }}
+          COMMIT: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          mkdir -p dist
+
+          MOD_PATH="$(awk '/^module /{print $2}' go.mod)"
+
+          LDFLAGS="-s -w\
+          -X ${MOD_PATH}/internal/version.Version=${VERSION} \
+          -X ${MOD_PATH}/internal/version.Commit=${COMMIT} \
+          -X ${MOD_PATH}/internal/version.Date=${DATE}"
+
+          for bin in buem-gateway; do
+            MAIN_PKG="./cmd/${bin}"
+            GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "$LDFLAGS" -o "dist/${bin}_${VERSION}_linux_amd64" "$MAIN_PKG"
+            GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "$LDFLAGS" -o "dist/${bin}_${VERSION}_windows_amd64.exe" "$MAIN_PKG"
+            GOOS=darwin GOARCH=amd64 go build -trimpath -ldflags "$LDFLAGS" -o "dist/${bin}_${VERSION}_darwin_amd64" "$MAIN_PKG"
+            GOOS=darwin GOARCH=arm64 go build -trimpath -ldflags "$LDFLAGS" -o "dist/${bin}_${VERSION}_darwin_arm64" "$MAIN_PKG"
+          done
+
+      - name: Upload assets to GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+
+  attach-assets:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Upload schema files to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${{ github.event.release.tag_name }}" \
+            schemas/request_schema.json \
+            schemas/response_schema.json \
+            schemas/example_request.json \
+            schemas/example_response.json \
+            --clobber
