@@ -41,4 +41,4 @@ RUN useradd -m -u 10001 appuser \
     && chown -R appuser:appuser /app
 USER appuser
 
-CMD ["./bin/app"]
+CMD ["./bin/buem-gateway"]
