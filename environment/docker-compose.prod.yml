@@ -6,9 +6,8 @@ services:
   # The actual BuEM thermal model (Flask/Gunicorn, Python). Not reachable from the host or from outside this network — only buem-gateway calls it.
   buem-model:
     container_name: buem-model
-    build:
-      context: .
-      dockerfile: buem.dockerfile
+    image: ghcr.io/enerplanet/buem-model:${BUEM_IMAGE_TAG:-latest}
+    env_file: env/common.env
     environment:
       - PYTHONPATH=/buem/src
       - BUEM_WEATHER_DIR=/buem/data/weather
@@ -29,9 +28,7 @@ services:
   # per-building GeoJSON contract out. See ../internal/buem.
   buem-gateway:
     container_name: buem-gateway
-    build:
-      context: ./..
-      dockerfile: environment/gateway.dockerfile
+    image: ghcr.io/enerplanet/buem-gateway:${BUEM_IMAGE_TAG:-latest}
     env_file: env/common.env
     environment:
       - APP_PORT=${APP_PORT}
@@ -62,7 +59,7 @@ services:
   buem-reverse-proxy:
     image: caddy:2.11-alpine
     container_name: buem-reverse-proxy
-    env_file: [env/common.env, env/proxy.env] # provides ALLOWED_ORIGINS and BUEM_API_KEY
+    env_file: env/proxy.env # provides ALLOWED_ORIGINS and BUEM_API_KEY
     environment:
       - APP_PORT=${APP_PORT}
     depends_on:
