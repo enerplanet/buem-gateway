@@ -12,10 +12,14 @@ WORKDIR /
 RUN git clone --branch enerplanet https://github.com/enerplanet/buem.git
 
 WORKDIR /buem
-RUN conda env create -f environment_docker.yml && conda clean -afy
+RUN conda env create -f infrastructure/env/buem_env.yml && conda clean -afy
 
 ENV PATH=/opt/conda/envs/buem_env/bin:$PATH
 ENV PYTHONPATH=/buem/src
+
+# gunicorn is Unix-only and deliberately excluded from buem_env.yml (see
+# buem's own infrastructure/container/Dockerfile) — install it here instead.
+RUN /opt/conda/envs/buem_env/bin/pip install gunicorn
 
 WORKDIR /buem/src
 

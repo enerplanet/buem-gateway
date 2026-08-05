@@ -25,7 +25,7 @@ ENV PATH="${GOROOT}/bin:${PATH}"
 # -----------------------------
 WORKDIR /app
 COPY . .
-RUN go build -o bin/app ./cmd/app
+RUN go build -o bin/buem-gateway ./cmd/buem-gateway
 
 # -----------------------------
 # Create non-root user and fix permissions
