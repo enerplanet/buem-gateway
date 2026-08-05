@@ -32,7 +32,7 @@ jobs:
 
           MOD_PATH="$(awk '/^module /{print $2}' go.mod)"
 
-          LDFLAGS="-s -w\
+          LDFLAGS="-s -w \
           -X ${MOD_PATH}/internal/version.Version=${VERSION} \
           -X ${MOD_PATH}/internal/version.Commit=${COMMIT} \
           -X ${MOD_PATH}/internal/version.Date=${DATE}"
@@ -51,6 +51,7 @@ jobs:
           files: dist/*
 
   attach-assets:
+    needs: build-and-release
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -63,7 +64,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release upload "${{ github.event.release.tag_name }}" \
+          gh release upload "${{ github.ref_name }}" \
             schemas/request_schema.json \
             schemas/response_schema.json \
             schemas/example_request.json \
