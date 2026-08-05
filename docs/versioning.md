@@ -12,6 +12,12 @@ how to release a new version.
     `CHANGELOG.md`, and `docs/openapi.yaml`'s `info.version` field. Only the
     connector's own releases get a git tag and a GitHub release.
 
+    Both currently lead with the digit 4 (`v4.2.0` schema, `v4.0.0` software) — that
+    is **coincidence, not a relationship**. The two numbers are picked and bumped
+    independently and will drift apart the moment either one changes without the
+    other (e.g. a bugfix software release, `v4.1.0`, with no schema change at all).
+    Don't infer anything from them matching.
+
 ------------------------------------------------------------------------
 
 ## What is the schema?
