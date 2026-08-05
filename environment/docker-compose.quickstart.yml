@@ -1,0 +1,115 @@
+# Try-it-out compose file: pulls the pre-built, CI-published buem-gateway and
+# buem-model images from GHCR, so nothing is compiled/built locally and no Go
+# toolchain, conda, source checkout, `caddy` install or `caddy trust` is
+# needed on the host. Needs only Docker, plus this file, the env/ directory
+# and caddy/ in the working directory. No `.env` is required: every ${...}
+# in this file has a default (APP_PORT 8080, HOST_HTTPS_PORT 8443,
+# BUEM_IMAGE_TAG latest).
+#
+# ---
+# Usage:  docker compose -f docker-compose.quickstart.yml up -d
+# ---
+#
+# Trade-off vs. docker-compose.prod.yml: Caddy's local CA lives in a
+# Docker-managed volume (caddy-data) instead of a host bind mount, so it is
+# never added to your OS/browser trust store. Requests to https://localhost
+# will show an untrusted-certificate warning — expected here. Click through
+# it in the browser, or pass -k/--no-check-certificate/"disable SSL
+# verification" from curl, wget, or Postman. Not meant for a real
+# deployment: see docker-compose.prod.yml for that (real trust chain or a
+# public domain).
+#
+# All requests are gated behind the X-Api-Key header, matched against
+# BUEM_API_KEY in env/proxy.env (see caddy/Caddyfile). /health is the one
+# exemption, so container and uptime checks need no key. The committed
+# BUEM_API_KEY is a local-dev placeholder.
+#
+# Weather data: BUEM_WEATHER_DIR_HOST defaults to ./data/buem-weather, which
+# doesn't exist in a fresh clone. Without it, buem-model still starts and
+# reports healthy, but falls back to a synthetic zero-filled weather profile
+# — fine for confirming the pipeline works end-to-end, not for a real number.
+# See docs/getting-started.md for the real MERRA-2 directory layout.
+#
+# Deliberately standalone rather than a partial override merged with
+# docker-compose.yml — see that file's header for the reasoning. The volume
+# definitions differ here too (named caddy-data vs. the ${CADDY_DATA_DIR}
+# bind mount), and Compose merges `volumes:` lists by appending rather than
+# replacing, so an override would leave both mounted at /data/caddy.
+
+name: building-simulation
+
+services:
+  buem-model:
+    container_name: buem-model
+    # Pre-built by .github/workflows/docker-publish.yml on each vX.Y.Z tag.
+    # Set BUEM_IMAGE_TAG to pin a version; defaults to `latest`.
+    image: ghcr.io/enerplanet/buem-model:${BUEM_IMAGE_TAG:-latest}
+    environment:
+      - PYTHONPATH=/buem/src
+      - BUEM_WEATHER_DIR=/buem/data/weather
+      - BUEM_CBC_EXE=/opt/conda/envs/buem_env/bin/cbc
+      - GUNICORN_WORKERS=${BUEM_WORKERS:-2}
+    volumes:
+      - ${BUEM_WEATHER_DIR_HOST:-./data/buem-weather}:/buem/data/weather:ro
+      - buem-results-data:/app/results
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:5000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 5
+    # No `ports:` mapping — reachable only from buem-gateway, by service name.
+
+  buem-gateway:
+    container_name: buem-gateway
+    image: ghcr.io/enerplanet/buem-gateway:${BUEM_IMAGE_TAG:-latest}
+    env_file: env/common.env
+    environment:
+      - APP_PORT=${APP_PORT:-8080}
+      - BUEM_SERVICE_HOST=buem-model
+      - BUEM_SERVICE_PORT=5000
+      - BUEM_DATA_DIR=/app/data
+      - BUEM_RESULTS_DIR=/app/results
+      - IGNIS_SERVICE_HOST=ignis-app
+      - IGNIS_SERVICE_PORT=8080
+    volumes:
+      - buem-csv-data:/app/data
+      - buem-results-data:/app/results
+    depends_on:
+      buem-model:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:$$APP_PORT/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    # No `ports:` mapping here on purpose — only the reverse proxy is exposed;
+    # everyone else must go through it.
+
+  buem-reverse-proxy:
+    image: caddy:2.11-alpine
+    container_name: buem-reverse-proxy
+    env_file: [env/common.env, env/proxy.env]
+    environment:
+      - APP_PORT=${APP_PORT:-8080}
+    depends_on:
+      buem-gateway:
+        condition: service_healthy
+    ports:
+      - "${HOST_HTTPS_PORT:-8443}:443"
+    volumes:
+      # Directory mount, not per-file: see docker-compose.yml for why a
+      # single-file bind mount silently serves stale content after an edit.
+      - ./caddy:/etc/caddy:ro
+      - caddy-data:/data/caddy
+    entrypoint:
+      - sh
+      - -c
+      - >
+        export ALLOWED_ORIGINS_PATTERN="^($$(echo "$$ALLOWED_ORIGINS" | sed -e 's/[.]/\\./g' -e 's/,/|/g'))$$" &&
+        exec caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
+
+volumes:
+  buem-csv-data:
+  buem-results-data:
+  caddy-data:

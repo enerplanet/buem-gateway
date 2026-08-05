@@ -53,6 +53,23 @@ before calling BuEM — BuEM itself stays unaware this happens.
 
 ## Quick start
 
+Try it out with pre-built images — no Go toolchain, no conda, no local Caddy install, no
+`caddy trust`:
+
+```bash
+cd environment
+docker compose -f docker-compose.quickstart.yml up -d
+curl -sk https://localhost:8443/health
+```
+
+No `.env` needed — every value has a default. The only cost of skipping `caddy trust` is that
+`https://localhost:8443` shows an untrusted-certificate warning; `curl -k` (or clicking through the
+browser warning) is expected here, not a setup mistake. See
+[`docs/getting-started.md`](docs/getting-started.md#try-it-out-no-caddy-setup) for what this
+trades off against a real deployment.
+
+Building from source instead (for testing local code changes):
+
 | Step | Command | Description |
 | --- | --- | --- |
 | 1 | `cd environment && cp .env.example .env` | Configure `CADDY_DATA_DIR`, ports, weather data path |

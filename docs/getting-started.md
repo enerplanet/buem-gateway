@@ -8,7 +8,35 @@
 | Go | 1.26+ (only needed to build/test outside Docker) |
 | Caddy (host, optional) | for `caddy trust` — see below |
 
-## Local dev
+## Try it out (no Caddy setup)
+
+`docker-compose.quickstart.yml` pulls the pre-built, CI-published `buem-gateway` and `buem-model`
+images from GHCR instead of building from source — no Go toolchain, no conda, and no local Caddy
+install or `caddy trust` needed:
+
+```bash
+cd environment
+docker compose -f docker-compose.quickstart.yml up -d
+curl -sk https://localhost:8443/health
+```
+
+No `.env` is required — every `${...}` in that file has a default (`APP_PORT` 8080,
+`HOST_HTTPS_PORT` 8443, `BUEM_IMAGE_TAG` `latest`).
+
+!!! warning "Trade-off vs. a real deployment"
+    Caddy's local CA lives in a Docker-managed volume here instead of a host bind mount, so it's
+    never added to your OS/browser trust store. `https://localhost:8443` will show an
+    untrusted-certificate warning — expected, not a bug. Pass `-k`/`--no-check-certificate` (curl,
+    wget) or click through the browser warning. Use `docker-compose.prod.yml` (below) for a real
+    trust chain or public domain.
+
+Without `BUEM_WEATHER_DIR_HOST` set, `buem-model` still starts and reports healthy, but falls back
+to a synthetic zero-filled weather profile — enough to confirm the pipeline works end-to-end, not
+for a physically meaningful number. See [Weather data](#weather-data) below for the real layout.
+
+## Local dev (building from source)
+
+For testing local code changes to `buem-gateway` or `buem-model` itself:
 
 ```bash
 cd environment
@@ -77,7 +105,7 @@ ${BUEM_WEATHER_DIR_HOST}/
 full envelope + thermal data). With the stack up:
 
 ```bash
-curl -sk -X POST https://localhost:8443/buem/start \
+curl -sk -X POST https://localhost:8443/api/v1/buem/start \
   -H "Content-Type: application/json" -H "X-Api-Key: dev-placeholder-change-me" \
   -d @testdata/test_buem_topology_request.json | jq '{
     building_1_heating_kWh: .topology[0].from.properties.buem.thermal_load_profile.summary.heating.total,
