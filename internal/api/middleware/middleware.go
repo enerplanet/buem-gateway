@@ -12,7 +12,7 @@ import (
 // middleware (github.com/thd-spatial-ai/ignis, internal/api/middleware).
 //
 // Caddy's reverse proxy already answers CORS preflight (OPTIONS) before a
-// request reaches this server — see environment/Caddyfile. But a browser's
+// request reaches this server — see environment/caddy/Caddyfile. But a browser's
 // CORS check also applies to the *actual* response, and Caddy's Caddyfile
 // only sets Access-Control-Allow-Origin on the preflight response, not on
 // real GET/POST responses. Without this middleware, every real request
