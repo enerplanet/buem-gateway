@@ -17,7 +17,7 @@ buem-gateway has no authentication of its own. The `buem-reverse-proxy` in front
 | Endpoint | Payload | Use when |
 |---|---|---|
 | `POST /api/v1/buem/building` | One building, no wrapper | A single building with no grid to describe, for example the Building Configurator. A failed run returns a clear HTTP error. |
-| `POST /api/v1/buem/start` | A topology (`{from, to}` edge list) | Several buildings, possibly alongside non-building grid nodes. A failed building is left unchanged in the response rather than failing the whole request. |
+| `POST /api/v1/buem/topology` | A topology (`{from, to}` edge list) | Several buildings, possibly alongside non-building grid nodes. A failed building is left unchanged in the response rather than failing the whole request. |
 
 ### Envelope is required
 
@@ -26,7 +26,7 @@ buem-gateway has no authentication of its own. The `buem-reverse-proxy` in front
 | `envelope` | Behaviour |
 |---|---|
 | Present | Forwarded to BuEM unchanged |
-| Missing or empty | Rejected before BuEM is called. `POST /api/v1/buem/building` returns `400` with the reason in the body. `POST /api/v1/buem/start` skips that building, leaves it unchanged in the response, and logs the reason server-side. |
+| Missing or empty | Rejected before BuEM is called. `POST /api/v1/buem/building` returns `400` with the reason in the body. `POST /api/v1/buem/topology` skips that building, leaves it unchanged in the response, and logs the reason server-side. |
 
 To resolve TABULA defaults from classification data, call [ignis](https://github.com/THD-Spatial-AI/ignis) yourself and build a complete `envelope` first: `GET /api/v1/variants/{country}/match?type=...&period=...` then `GET /api/v1/data/{code}`.
 

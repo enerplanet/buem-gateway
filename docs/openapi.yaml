@@ -86,7 +86,7 @@ paths:
       description: >
         For a caller with exactly one building and no grid to describe, such as
         the Building Configurator. No topology or edge-list wrapper. Unlike
-        `/api/v1/buem/start`, a failed run is reported as an HTTP error, since
+        `/api/v1/buem/topology`, a failed run is reported as an HTTP error, since
         with a single building there is no partial success to preserve.
       requestBody:
         required: true
@@ -111,7 +111,7 @@ paths:
         "422":
           $ref: "#/components/responses/RunFailed"
 
-  /api/v1/buem/start:
+  /api/v1/buem/topology:
     post:
       tags: [Simulation]
       summary: Run BuEM for every building in a topology
@@ -128,14 +128,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/StartRequest"
+              $ref: "#/components/schemas/TopologyRequest"
       responses:
         "200":
           description: Topology processed. Individual buildings may have failed; see the endpoint description.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/StartResponse"
+                $ref: "#/components/schemas/TopologyResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
         "403":
@@ -280,7 +280,7 @@ components:
         to:
           $ref: "#/components/schemas/TopologyNode"
 
-    StartRequest:
+    TopologyRequest:
       type: object
       properties:
         model_id:
@@ -301,9 +301,9 @@ components:
             $ref: "#/components/schemas/TopologyEdge"
       required: [start_date, end_date, topology]
 
-    StartResponse:
+    TopologyResponse:
       type: object
-      description: The same shape as StartRequest, with each processed building's buem block enriched.
+      description: The same shape as TopologyRequest, with each processed building's buem block enriched.
       properties:
         model_id:
           type: string

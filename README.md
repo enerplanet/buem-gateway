@@ -23,7 +23,7 @@ buem-gateway's own release version are numbered independently — see
 
 ```mermaid
 graph LR
-    CALLER[Caller] -->|POST /api/v1/buem/start<br>topology JSON| PROXY[buem-reverse-proxy<br>Caddy, X-Api-Key auth]
+    CALLER[Caller] -->|POST /api/v1/buem/topology<br>topology JSON| PROXY[buem-reverse-proxy<br>Caddy, X-Api-Key auth]
     CALLER -->|POST /api/v1/buem/building<br>single building| PROXY
     PROXY --> APP[buem-gateway<br>Go connector]
     APP -->|POST /api/process<br>one call per building| MODEL[buem-model<br>BuEM Flask]
@@ -86,7 +86,7 @@ and [`docs/api.md`](docs/api.md) (or run `mkdocs serve` locally — see below).
 | Method | Path | Description |
 | --- | --- | --- |
 | `GET` | `/health` | Liveness check |
-| `POST` | `/api/v1/buem/start` | Multi-building: topology in, enriched topology out |
+| `POST` | `/api/v1/buem/topology` | Multi-building: topology in, enriched topology out |
 | `POST` | `/api/v1/buem/building` | Single building, no topology wrapper: building in, enriched `buem` block out |
 
 All routes except `/health` require the `X-Api-Key` header, checked by the reverse proxy.

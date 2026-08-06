@@ -79,7 +79,7 @@ ${BUEM_WEATHER_DIR_HOST}/
 `testdata/test_buem_topology_request.json` is a two-building fixture (Germany, one SFH, one MFH, full envelope and thermal data). With the stack up:
 
 ```bash
-curl -sk -X POST https://localhost:8443/api/v1/buem/start -H "Content-Type: application/json" -H "X-Api-Key: dev-placeholder-change-me" -d @testdata/test_buem_topology_request.json | jq '{building_1_heating_kWh: .topology[0].from.properties.buem.thermal_load_profile.summary.heating.total, building_2_heating_kWh: .topology[0].to.properties.buem.thermal_load_profile.summary.heating.total}'
+curl -sk -X POST https://localhost:8443/api/v1/buem/topology -H "Content-Type: application/json" -H "X-Api-Key: dev-placeholder-change-me" -d @testdata/test_buem_topology_request.json | jq '{building_1_heating_kWh: .topology[0].from.properties.buem.thermal_load_profile.summary.heating.total, building_2_heating_kWh: .topology[0].to.properties.buem.thermal_load_profile.summary.heating.total}'
 ```
 
 The values below come from the synthetic weather fallback, since no MERRA-2 data is mounted in a fresh clone:

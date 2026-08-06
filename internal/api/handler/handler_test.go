@@ -247,9 +247,9 @@ func TestBuilding_ConnectorErrorReturnsUnprocessableEntity(t *testing.T) {
 
 func TestStart_BadJSON(t *testing.T) {
 	h := New(nil)
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/buem/start", strings.NewReader(`not json`))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/buem/topology", strings.NewReader(`not json`))
 	w := httptest.NewRecorder()
-	h.Start(w, req)
+	h.Topology(w, req)
 
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want %d", w.Code, http.StatusBadRequest)
@@ -259,9 +259,9 @@ func TestStart_BadJSON(t *testing.T) {
 func TestStart_NoTopologyEchoesRequestBack(t *testing.T) {
 	h := New(nil)
 	reqBody := `{"start_date":"2018-01-01T00:00:00Z","model_id":"demo"}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/buem/start", strings.NewReader(reqBody))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/buem/topology", strings.NewReader(reqBody))
 	w := httptest.NewRecorder()
-	h.Start(w, req)
+	h.Topology(w, req)
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", w.Code, http.StatusOK)
@@ -283,9 +283,9 @@ func TestStart_MalformedTopologyReturnsInternalServerError(t *testing.T) {
 	// "topology" is present but isn't the edge-list array ExtractTasks
 	// expects — fails before ever reaching the upstream.
 	reqBody := `{"model_id":"demo","topology":"not-an-edge-list"}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/buem/start", strings.NewReader(reqBody))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/buem/topology", strings.NewReader(reqBody))
 	w := httptest.NewRecorder()
-	h.Start(w, req)
+	h.Topology(w, req)
 
 	if w.Code != http.StatusInternalServerError {
 		t.Fatalf("status = %d, want %d (body=%s)", w.Code, http.StatusInternalServerError, w.Body.String())
@@ -315,9 +315,9 @@ func TestStart_EnrichesTopologyAndReturnsIt(t *testing.T) {
 			}
 		}]
 	}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/buem/start", strings.NewReader(reqBody))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/buem/topology", strings.NewReader(reqBody))
 	w := httptest.NewRecorder()
-	h.Start(w, req)
+	h.Topology(w, req)
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d (body=%s)", w.Code, http.StatusOK, w.Body.String())
