@@ -170,6 +170,8 @@ When omitted, the model uses the defaults above (TABULA residential reference va
 
 **Why:** Both parameters are defined in the TABULA attribute specification and are used internally by the model. Exposing them allows calibration against measured data and makes the model's assumptions explicit.
 
+**Note:** This schema version (v4.0.0) happens to share a number with an earlier buem-gateway software release also tagged v4.0.0. The two version numbers are chosen independently; the match is coincidence, not a relationship.
+
 ------------------------------------------------------------------------
 
 ## v3.0.0 (2026-03) — Deprecated
