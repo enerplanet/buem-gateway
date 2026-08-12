@@ -25,24 +25,5 @@ jobs:
       - name: Install jsonschema
         run: pip install jsonschema
 
-      - name: Validate request and response schemas
-        run: |
-          python - <<'EOF'
-          import sys, json
-          from jsonschema import Draft202012Validator
-
-          failed = False
-          for name in ['request', 'response']:
-              schema  = json.load(open(f'schemas/{name}_schema.json'))
-              example = json.load(open(f'schemas/example_{name}.json'))
-              errors  = list(Draft202012Validator(schema).iter_errors(example))
-              if errors:
-                  for e in errors:
-                      print(f'{name}: ERROR — {e.message}')
-                  failed = True
-              else:
-                  print(f'{name}: OK')
-
-          if failed:
-              sys.exit(1)
-          EOF
+      - name: Validate schemas and version sync
+        run: python scripts/validate_schemas.py

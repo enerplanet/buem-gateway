@@ -85,29 +85,23 @@ are corrected.
 
 No git tag and no GitHub release — a schema bump is tracked entirely in text:
 
+0. Breaking change only: copy the current `schemas/` files to `schemas/vN/` before
+   editing anything, where N is the version you are leaving.
 1. Edit the schema files directly in `schemas/` — this folder always holds the
    current version.
-2. Run the validation check below to confirm the schema and its example files are
-   consistent.
-3. Update `CHANGELOG.md` with a plain-language description of what changed and why.
-4. Update the version number in this file's table below and in
+2. Update `CHANGELOG.md` with a plain-language description of what changed and why.
+3. Update the version number in this file's table below and in
    `docs/openapi.yaml`'s `info.version` field, so all three stay in sync.
+4. Run the validation check below. It confirms the schema and its example files are
+   consistent, and that the version string in this file, `CHANGELOG.md`, and
+   `docs/openapi.yaml` all agree.
 5. Commit directly — no tag, no release. If the change also required a
    buem-gateway code change (e.g. a new field the connector now reads), that code
    change gets its own git tag as a normal software release — see
    [`docs/getting-started.md`](getting-started.md) for that process.
 
 ```bash
-# Validation check — run this before every release
-python -c "
-import json
-from jsonschema import Draft202012Validator
-for name in ['request', 'response']:
-    schema  = json.load(open(f'schemas/{name}_schema.json'))
-    example = json.load(open(f'schemas/example_{name}.json'))
-    errs = list(Draft202012Validator(schema).iter_errors(example))
-    print(f'{name}: OK' if not errs else [e.message for e in errs])
-"
+python scripts/validate_schemas.py
 ```
 
 ------------------------------------------------------------------------
