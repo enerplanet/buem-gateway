@@ -23,10 +23,10 @@ it with a 400 naming the specific missing or invalid field. There is no
 separate wrong-version error, so to a caller it looks identical to any other
 validation failure.
 
-One caveat: `internal/buem/types.go` has its own `APIVersion = "v3"`
-constant, describing what BuEM's own validator was last confirmed to
-accept. It predates the v5.0.0 schema change (2026-08-06) and has not been
-revisited since. Reconciling it is tracked separately, not covered here.
+One caveat: `internal/buem/types.go` has its own `APIVersion` constant,
+recording what BuEM's own validator was last confirmed to accept. It is
+updated manually when someone re-runs that confirmation, not automatically
+alongside this file.
 
 ------------------------------------------------------------------------
 
