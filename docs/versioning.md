@@ -20,6 +20,27 @@ how to release a new version.
 
 ------------------------------------------------------------------------
 
+## How a version is communicated
+
+Nothing in a request declares which schema version it was built against —
+there is no `schema_version` field, no header, and no URL segment for it.
+The version in this file is a label for what shape the current `schemas/`
+describes, not something negotiated per request.
+
+A request that does not match the current schema is not detected as "wrong
+version" — it fails ordinary field validation. `requireEnvelope`,
+`requireWeather`, and BuEM's own downstream checks reject it with a 400
+naming the specific missing or invalid field. There is no separate
+wrong-version error; to a caller it looks identical to any other validation
+failure.
+
+One caveat: `internal/buem/types.go` has its own `APIVersion = "v3"`
+constant, describing what BuEM's own validator was last confirmed to
+accept. It predates the v5.0.0 schema change (2026-08-06) and has not been
+revisited since. Reconciling it is tracked separately, not covered here.
+
+------------------------------------------------------------------------
+
 ## What is the schema?
 
 The schema is a formal description of what the model accepts as input and what it
@@ -124,12 +145,12 @@ when a future breaking change moves the current schema to `v6.0.0`.
 | Version | Date | Status | What changed |
 |---|---|---|---|
 | v5.0.0 | 2026-08 | Current | `envelope` required again — the v4.x TABULA-fallback-when-omitted behavior needed buem-gateway to call ignis, which broke its standalone claim and produced confusing errors; removed, see `CHANGELOG.md` |
-| v4.2.0 | 2026-06 | Deprecated | Optional `model_id` on the request `FeatureCollection`, used by the gateway to namespace CSV output per model |
-| v4.1.0 | 2026-04 | Deprecated | Optional `name` field on `building` and `envelope_element`, for display purposes only |
-| v4.0.0 | 2026-03 | Deprecated | `solver.compute_cooling` (opt-in cooling), file-path electricity input, `envelope` now optional (TABULA fallback), `phi_int`/`q_w_nd` configurable |
-| v3.0.0 | 2026-03 | Deprecated | `buem` split into `building` (classification, envelope, thermal) and `solver`; thermal properties on each surface element directly; every physical quantity carries its unit |
-| v2.0.0 | 2026-02 | Deprecated | Structured building attributes; nested component model introduced |
-| v1.0.0 | 2025-11 | Deprecated | Initial format — minimal structure |
+| v4.2.0 | 2026-06 | Unsupported | Optional `model_id` on the request `FeatureCollection`, used by the gateway to namespace CSV output per model |
+| v4.1.0 | 2026-04 | Unsupported | Optional `name` field on `building` and `envelope_element`, for display purposes only |
+| v4.0.0 | 2026-03 | Unsupported | `solver.compute_cooling` (opt-in cooling), file-path electricity input, `envelope` now optional (TABULA fallback), `phi_int`/`q_w_nd` configurable |
+| v3.0.0 | 2026-03 | Unsupported | `buem` split into `building` (classification, envelope, thermal) and `solver`; thermal properties on each surface element directly; every physical quantity carries its unit |
+| v2.0.0 | 2026-02 | Unsupported | Structured building attributes; nested component model introduced |
+| v1.0.0 | 2025-11 | Unsupported | Initial format — minimal structure |
 
 See `CHANGELOG.md` for full detail on each version.
 
