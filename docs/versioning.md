@@ -30,67 +30,6 @@ revisited since. Reconciling it is tracked separately, not covered here.
 
 ------------------------------------------------------------------------
 
-## What is the schema?
-
-The schema is a formal description of what the model accepts as input and what it
-returns as output. It defines which fields are required, what units to use, and how
-results are structured.
-
-Both sides of the integration depend on this description:
-- EnerPlanET (the client) uses it to build requests.
-- BUEM (the model server) uses it to read and validate incoming data.
-
-------------------------------------------------------------------------
-
-## Why versioning?
-
-The model evolves over time. New parameters are added, field names may change, or
-the structure may be reorganised. Versioning gives every change a clear label so
-that both sides always know which format they are working with.
-
-A version number looks like this: **4.2.0**
-
-The three numbers mean:
-
-```
-  MAJOR . MINOR . PATCH
-  |       |       |
-  |       |       +-- Documentation fix only (no data format change)
-  |       +---------- New optional field added (old requests still work)
-  +------------------ Breaking change (old requests no longer work)
-```
-
-------------------------------------------------------------------------
-
-## Three types of change
-
-### Breaking change (first number increases, e.g. 3.0.0 → 4.0.0)
-
-The new format is not compatible with the old one. Any system sending requests in
-the old format must update before it will work again.
-
-This applies when:
-- A required field is renamed or removed
-- A field that accepted a plain number now requires a value with a unit (e.g. `150`
-  becomes `{"value": 150, "unit": "kJ/(m2K)"}`)
-- A section of the payload is reorganised or split
-
-### New optional field (middle number increases, e.g. 4.1.0 → 4.2.0)
-
-Something new is available, but nothing existing is removed or changed. Requests
-that worked before still work. The new field is simply ignored if not provided.
-
-This applies when:
-- A new optional parameter is added (e.g. a new shading correction factor)
-- A new unit option is allowed for an existing quantity
-
-### Documentation fix only (last number increases, e.g. 4.2.0 → 4.2.1)
-
-The data format is unchanged. Only text descriptions, example values, or formatting
-are corrected.
-
-------------------------------------------------------------------------
-
 ## How to release a new schema version
 
 No git tag and no GitHub release. A schema bump is tracked entirely in text:
@@ -142,12 +81,3 @@ when a future breaking change moves the current schema to `v6.0.0`.
 | v1.0.0 | 2025-11 | Unsupported | Initial format, minimal structure |
 
 See `CHANGELOG.md` for full detail on each version.
-
-------------------------------------------------------------------------
-
-## What must happen before a change is merged?
-
-1. `CHANGELOG.md` is updated with a description of the change.
-2. The validation check above passes without errors.
-3. The change has been reviewed.
-4. The version number follows the rules above.
