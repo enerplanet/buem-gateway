@@ -155,6 +155,110 @@ func TestBuilding_MissingEnvelope(t *testing.T) {
 	}
 }
 
+// TestBuilding_MissingWeather mirrors TestBuilding_MissingEnvelope: a
+// request with envelope but no buem.weather is rejected with 400, not 422
+// — buem-gateway resolves weather from nowhere else either.
+func TestBuilding_MissingWeather(t *testing.T) {
+	h := New(nil)
+	reqBody := `{
+		"geometry": {"type":"Point","coordinates":[12.5,48.5]},
+		"buem": {"building":{"building_type":"SFH","country":"DE","envelope":{"elements":[
+			{"id":"Wall_1","type":"wall","area":10.0,"azimuth":0.0,"tilt":90.0,"U":1.5}
+		]}}}
+	}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/buem/building", strings.NewReader(reqBody))
+	w := httptest.NewRecorder()
+	h.Building(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d (body=%s)", w.Code, http.StatusBadRequest, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "weather") {
+		t.Errorf("body = %q, want it to mention weather", w.Body.String())
+	}
+}
+
+func TestValidate_MissingBuemBlock(t *testing.T) {
+	h := New(nil)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/buem/validate", strings.NewReader(`{"id":"b1"}`))
+	w := httptest.NewRecorder()
+	h.Validate(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusBadRequest)
+	}
+}
+
+func TestValidate_BadJSON(t *testing.T) {
+	h := New(nil)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/buem/validate", strings.NewReader(`not json`))
+	w := httptest.NewRecorder()
+	h.Validate(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusBadRequest)
+	}
+}
+
+func TestValidate_MissingEnvelope(t *testing.T) {
+	h := New(nil)
+	reqBody := `{"buem": {"building":{"building_type":"SFH","country":"DE"}}}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/buem/validate", strings.NewReader(reqBody))
+	w := httptest.NewRecorder()
+	h.Validate(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d (body=%s)", w.Code, http.StatusBadRequest, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "envelope") {
+		t.Errorf("body = %q, want it to mention envelope", w.Body.String())
+	}
+}
+
+func TestValidate_MissingWeather(t *testing.T) {
+	h := New(nil)
+	reqBody := `{
+		"buem": {"building":{"building_type":"SFH","country":"DE","envelope":{"elements":[
+			{"id":"Wall_1","type":"wall","area":10.0,"azimuth":0.0,"tilt":90.0,"U":1.5}
+		]}}}
+	}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/buem/validate", strings.NewReader(reqBody))
+	w := httptest.NewRecorder()
+	h.Validate(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d (body=%s)", w.Code, http.StatusBadRequest, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "weather") {
+		t.Errorf("body = %q, want it to mention weather", w.Body.String())
+	}
+}
+
+// TestValidate_ValidRequestNeverCallsBuEM confirms /validate reports a
+// well-formed request without ever reaching the upstream BuEM service --
+// h is built with New(nil), so any attempt to call a connector method
+// would nil-panic and fail the test.
+func TestValidate_ValidRequestNeverCallsBuEM(t *testing.T) {
+	h := New(nil)
+	reqBody := `{
+		"geometry": {"type":"Point","coordinates":[12.5,48.5]},
+		"buem": {"building":{"building_type":"SFH","country":"DE","envelope":{"elements":[
+			{"id":"Wall_1","type":"wall","area":10.0,"azimuth":0.0,"tilt":90.0,"U":1.5}
+		]}},"weather":{"index":["2018-01-01T00:30:00Z"],"variables":{"T":[1.0]}}}
+	}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/buem/validate", strings.NewReader(reqBody))
+	w := httptest.NewRecorder()
+	h.Validate(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d (body=%s)", w.Code, http.StatusOK, w.Body.String())
+	}
+	body := decodeBody(t, w)
+	if body["valid"] != true {
+		t.Errorf("body = %v, want valid=true", body)
+	}
+}
+
 func TestBuilding_DefaultsIDWhenOmitted(t *testing.T) {
 	upstream := fakeUpstream(t, http.StatusOK)
 	defer upstream.Close()
@@ -168,7 +272,7 @@ func TestBuilding_DefaultsIDWhenOmitted(t *testing.T) {
 		"model_id": "demo",
 		"buem": {"building":{"building_type":"SFH","country":"DE","envelope":{"elements":[
 			{"id":"Wall_1","type":"wall","area":10.0,"azimuth":0.0,"tilt":90.0,"U":1.5}
-		]}}}
+		]}},"weather":{"index":["2018-01-01T00:30:00Z"],"variables":{"T":[1.0]}}}
 	}`
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/buem/building", strings.NewReader(reqBody))
 	w := httptest.NewRecorder()
@@ -204,7 +308,7 @@ func TestBuilding_UsesProvidedID(t *testing.T) {
 		"model_id": "demo",
 		"buem": {"building":{"building_type":"SFH","country":"DE","envelope":{"elements":[
 			{"id":"Wall_1","type":"wall","area":10.0,"azimuth":0.0,"tilt":90.0,"U":1.5}
-		]}}}
+		]}},"weather":{"index":["2018-01-01T00:30:00Z"],"variables":{"T":[1.0]}}}
 	}`
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/buem/building", strings.NewReader(reqBody))
 	w := httptest.NewRecorder()
@@ -231,7 +335,7 @@ func TestBuilding_ConnectorErrorReturnsUnprocessableEntity(t *testing.T) {
 		"end_date": "2018-12-31T23:00:00Z",
 		"resolution": 60,
 		"model_id": "demo",
-		"buem": {"building":{"envelope":{"elements":[{"id":"Wall_1"}]}}}
+		"buem": {"building":{"envelope":{"elements":[{"id":"Wall_1"}]}},"weather":{"index":["2018-01-01T00:30:00Z"],"variables":{"T":[1.0]}}}
 	}`
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/buem/building", strings.NewReader(reqBody))
 	w := httptest.NewRecorder()
@@ -310,7 +414,7 @@ func TestStart_EnrichesTopologyAndReturnsIt(t *testing.T) {
 					"feature_type": "BasePOI",
 					"buem": {"building":{"building_type":"SFH","country":"DE","envelope":{"elements":[
 						{"id":"Wall_1","type":"wall","area":10.0,"azimuth":0.0,"tilt":90.0,"U":1.5}
-					]}}}
+					]}},"weather":{"index":["2018-01-01T00:30:00Z"],"variables":{"T":[1.0]}}}
 				}
 			}
 		}]
@@ -325,5 +429,31 @@ func TestStart_EnrichesTopologyAndReturnsIt(t *testing.T) {
 	body := decodeBody(t, w)
 	if _, present := body["topology"]; !present {
 		t.Fatalf("expected enriched topology in response, got %v", body)
+	}
+	// Loose "topology key present" alone would still pass even if
+	// building-1 got skipped (missing weather/envelope) -- confirm it was
+	// actually enriched, not just echoed back unchanged.
+	topology, ok := body["topology"].([]interface{})
+	if !ok || len(topology) == 0 {
+		t.Fatalf("expected a non-empty topology array, got %v", body["topology"])
+	}
+	edge, ok := topology[0].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected topology[0] to be an edge object, got %v", topology[0])
+	}
+	from, ok := edge["from"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected edge.from, got %v", edge)
+	}
+	props, ok := from["properties"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected edge.from.properties, got %v", from)
+	}
+	buemBlock, ok := props["buem"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected edge.from.properties.buem, got %v", props)
+	}
+	if _, present := buemBlock["thermal_load_profile"]; !present {
+		t.Fatalf("expected building-1 to be enriched with thermal_load_profile (not skipped), got %v", buemBlock)
 	}
 }

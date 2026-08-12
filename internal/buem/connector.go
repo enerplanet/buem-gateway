@@ -71,11 +71,12 @@ func (c *Connector) Run(rawTopology json.RawMessage, startDate, endDate, modelID
 // BuEM-calling path Run uses, just skipping the topology-merge step and
 // returning a clear error instead of silently leaving the input unchanged
 // on failure. Unlike Run's per-node log-and-skip (appropriate for a batch,
-// where one bad building shouldn't sink the rest), a missing envelope here
-// is checked explicitly up front so the caller gets the specific reason in
-// the HTTP response, not just "not a valid building request".
+// where one bad building shouldn't sink the rest), a missing envelope or
+// weather block here is checked explicitly up front (see ValidateSingle)
+// so the caller gets the specific reason in the HTTP response, not just
+// "not a valid building request".
 func (c *Connector) RunSingle(id string, geometry, buemRaw json.RawMessage, startDate, endDate, modelID string, resolution int) (json.RawMessage, error) {
-	if err := requireEnvelope(buemRaw); err != nil {
+	if err := ValidateSingle(buemRaw); err != nil {
 		return nil, err
 	}
 

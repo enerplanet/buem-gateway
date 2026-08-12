@@ -19,6 +19,10 @@ buem-gateway has no authentication of its own. The `buem-reverse-proxy` in front
 | `POST /api/v1/buem/building` | One building, no wrapper | A single building with no grid to describe, for example the Building Configurator. A failed run returns a clear HTTP error. |
 | `POST /api/v1/buem/topology` | A topology (`{from, to}` edge list) | Several buildings, possibly alongside non-building grid nodes. A failed building is left unchanged in the response rather than failing the whole request. |
 
+### Pre-flight validation
+
+`POST /api/v1/buem/validate` takes the same body as `POST /api/v1/buem/building` and checks that `envelope` and `weather` are both present with usable data, without ever calling BuEM. Returns `{"valid": true}` on success, the same `400` shape described below otherwise. Useful for a caller (the Orchestrator) confirming a request is well-formed before paying for the real run -- a `200` here doesn't guarantee BuEM will accept the request, only that the two things buem-gateway itself checks are present.
+
 ### Envelope is required
 
 `buem.building.envelope` must be present and contain at least one element. buem-gateway does not derive geometry from the classification fields (`building_type`, `construction_period`, `country`), and calls no external service to resolve them.
@@ -32,6 +36,15 @@ To resolve TABULA defaults from classification data, call [ignis](https://github
 
 !!! warning "construction_period is a TABULA class code, not a year range"
     `"01"`, `"02"` and so on: a country-specific numbered era class, never a literal year range like `"1965-1974"`. Classification metadata only, with no effect on the simulation.
+
+### Weather is required
+
+`buem.weather` must be present with `index` and at least one of `T`/`GHI`/`DNI`/`DHI` under `variables` -- the shape [weather serve](https://github.com/enerplanet/weather)'s `GET /v1/weather/point?format=json` returns. buem-gateway does not resolve weather from any external service either; BuEM itself has raised on missing weather since [enerplanet/buem#10](https://github.com/enerplanet/buem/issues/10), and this check surfaces that as a clear `400` here instead of a `422` after an unnecessary round trip to BuEM.
+
+| `weather` | Behaviour |
+|---|---|
+| Present, with a usable variable | Forwarded to BuEM unchanged |
+| Missing, or `variables` has none of T/GHI/DNI/DHI (e.g. only wind) | Rejected before BuEM is called. `POST /api/v1/buem/building` returns `400` with the reason in the body. `POST /api/v1/buem/topology` skips that building, leaves it unchanged in the response, and logs the reason server-side. |
 
 ### CSV output
 

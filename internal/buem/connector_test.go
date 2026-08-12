@@ -114,7 +114,7 @@ func TestConnectorRunSingle_EnrichesOneBuildingNoTopology(t *testing.T) {
 	geometry := json.RawMessage(`{"type":"Point","coordinates":[12.5,48.5]}`)
 	buemBlock := json.RawMessage(`{"building":{"building_type":"SFH","country":"DE","envelope":{"elements":[
 		{"id":"Wall_1","type":"wall","area":10.0,"azimuth":0.0,"tilt":90.0,"U":1.5}
-	]}}}`)
+	]}},"weather":{"index":["2018-01-01T00:30:00Z"],"variables":{"T":[1.0]}}}`)
 
 	enriched, err := conn.RunSingle("solo-building", geometry, buemBlock, "2018-01-01T00:00:00Z", "2018-12-31T23:00:00Z", "demo-model", 60)
 	if err != nil {
@@ -153,11 +153,14 @@ func TestConnectorRunSingle_ReturnsErrorOnFailure(t *testing.T) {
 	conn := NewConnector(cfg)
 
 	geometry := json.RawMessage(`{"type":"Point","coordinates":[12.5,48.5]}`)
-	buemBlock := json.RawMessage(`{"building":{"envelope":{"elements":[{"id":"Wall_1"}]}}}`)
+	buemBlock := json.RawMessage(`{"building":{"envelope":{"elements":[{"id":"Wall_1"}]}},"weather":{"index":["2018-01-01T00:30:00Z"],"variables":{"T":[1.0]}}}`)
 
 	_, err := conn.RunSingle("solo-building", geometry, buemBlock, "2018-01-01T00:00:00Z", "2018-12-31T23:00:00Z", "demo-model", 60)
 	if err == nil {
 		t.Fatal("expected RunSingle to return an error when BuEM rejects the request")
+	}
+	if errors.Is(err, ErrMissingEnvelope) || errors.Is(err, ErrMissingWeather) {
+		t.Fatalf("expected the upstream's rejection to propagate, got a pre-flight validation error instead: %v", err)
 	}
 }
 
@@ -186,6 +189,68 @@ func TestConnectorRunSingle_RejectsMissingEnvelopeWithoutCallingBuEM(t *testing.
 	}
 }
 
+// TestConnectorRunSingle_RejectsMissingWeatherWithoutCallingBuEM mirrors
+// TestConnectorRunSingle_RejectsMissingEnvelopeWithoutCallingBuEM: buem-gateway
+// never resolves weather itself (no weather serve call, no fallback) and
+// never forwards the incomplete request to BuEM either.
+func TestConnectorRunSingle_RejectsMissingWeatherWithoutCallingBuEM(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatal("BuEM must not be called when weather is missing")
+	}))
+	defer upstream.Close()
+
+	host, portStr, _ := strings.Cut(strings.TrimPrefix(upstream.URL, "http://"), ":")
+	port, _ := strconv.Atoi(portStr)
+	cfg := &config.Config{MaxConcurrentSims: 4, BuEM: config.UpstreamService{Host: host, Port: port}}
+	conn := NewConnector(cfg)
+
+	geometry := json.RawMessage(`{"type":"Point","coordinates":[12.5,48.5]}`)
+	buemBlock := json.RawMessage(`{"building":{"building_type":"SFH","country":"DE","envelope":{"elements":[
+		{"id":"Wall_1","type":"wall","area":10.0,"azimuth":0.0,"tilt":90.0,"U":1.5}
+	]}}}`)
+
+	_, err := conn.RunSingle("solo-building", geometry, buemBlock, "2018-01-01T00:00:00Z", "2018-12-31T23:00:00Z", "demo-model", 60)
+	if !errors.Is(err, ErrMissingWeather) {
+		t.Fatalf("RunSingle() error = %v, want ErrMissingWeather", err)
+	}
+}
+
+// TestConnectorRunSingle_RejectsWeatherWithOnlyUnusableVariables confirms a
+// weather block with variables BuEM never reads (e.g. wind, not solar) is
+// treated the same as no weather at all -- matching
+// geojson_processor.py::_weather_from_payload's own column check.
+func TestConnectorRunSingle_RejectsWeatherWithOnlyUnusableVariables(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatal("BuEM must not be called when weather has no usable columns")
+	}))
+	defer upstream.Close()
+
+	host, portStr, _ := strings.Cut(strings.TrimPrefix(upstream.URL, "http://"), ":")
+	port, _ := strconv.Atoi(portStr)
+	cfg := &config.Config{MaxConcurrentSims: 4, BuEM: config.UpstreamService{Host: host, Port: port}}
+	conn := NewConnector(cfg)
+
+	geometry := json.RawMessage(`{"type":"Point","coordinates":[12.5,48.5]}`)
+	buemBlock := json.RawMessage(`{"building":{"building_type":"SFH","country":"DE","envelope":{"elements":[
+		{"id":"Wall_1","type":"wall","area":10.0,"azimuth":0.0,"tilt":90.0,"U":1.5}
+	]}},"weather":{"index":["2018-01-01T00:30:00Z"],"variables":{"WS_10M":[3.0]}}}`)
+
+	_, err := conn.RunSingle("solo-building", geometry, buemBlock, "2018-01-01T00:00:00Z", "2018-12-31T23:00:00Z", "demo-model", 60)
+	if !errors.Is(err, ErrMissingWeather) {
+		t.Fatalf("RunSingle() error = %v, want ErrMissingWeather", err)
+	}
+}
+
+// testWeatherBlock returns a minimal but valid buem.weather block —
+// shape matches weather serve's GET /v1/weather/point?format=json
+// response, required by BuEM since enerplanet/buem#10.
+func testWeatherBlock() map[string]interface{} {
+	return map[string]interface{}{
+		"index":     []string{"2018-01-01T00:30:00Z"},
+		"variables": map[string]interface{}{"T": []float64{1.0}},
+	}
+}
+
 func buildTestTopology(t *testing.T, nodeID string) json.RawMessage {
 	t.Helper()
 	edge := map[string]interface{}{
@@ -194,12 +259,15 @@ func buildTestTopology(t *testing.T, nodeID string) json.RawMessage {
 			"geometry": map[string]interface{}{"type": "Point", "coordinates": []float64{12.5, 48.5}},
 			"properties": map[string]interface{}{
 				"feature_type": "BasePOI",
-				"buem": map[string]interface{}{"building": map[string]interface{}{
-					"building_type": "SFH", "country": "DE",
-					"envelope": map[string]interface{}{"elements": []interface{}{
-						map[string]interface{}{"id": "Wall_1", "type": "wall", "area": 10.0, "azimuth": 0.0, "tilt": 90.0, "U": 1.5},
-					}},
-				}},
+				"buem": map[string]interface{}{
+					"building": map[string]interface{}{
+						"building_type": "SFH", "country": "DE",
+						"envelope": map[string]interface{}{"elements": []interface{}{
+							map[string]interface{}{"id": "Wall_1", "type": "wall", "area": 10.0, "azimuth": 0.0, "tilt": 90.0, "U": 1.5},
+						}},
+					},
+					"weather": testWeatherBlock(),
+				},
 			},
 		},
 		"to": map[string]interface{}{

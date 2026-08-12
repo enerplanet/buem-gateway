@@ -77,6 +77,10 @@ func nodeToTask(rawNode json.RawMessage, startDate, endDate string, resolution i
 		log.Printf("buem-gateway | node=%s skipped: %v", node.ID, err)
 		return Task{}, false
 	}
+	if err := requireWeather(node.Properties.BUEM); err != nil {
+		log.Printf("buem-gateway | node=%s skipped: %v", node.ID, err)
+		return Task{}, false
+	}
 
 	rawFeature, err := buildFeature(node, startDate, endDate, resolution)
 	if err != nil {

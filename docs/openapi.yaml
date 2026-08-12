@@ -111,6 +111,39 @@ paths:
         "422":
           $ref: "#/components/responses/RunFailed"
 
+  /api/v1/buem/validate:
+    post:
+      tags: [Simulation]
+      summary: Pre-flight-check a single-building request
+      description: >
+        Same request body as `/api/v1/buem/building` -- checks that
+        `building.envelope` and `buem.weather` are both present with usable
+        data, without ever calling BuEM. Lets a caller (e.g. the
+        Orchestrator) confirm a request is well-formed before paying for the
+        real run. A `200` here does not itself guarantee BuEM will accept
+        the request -- only that the two things buem-gateway itself checks
+        are present.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BuildingRequest"
+            examples:
+              singleBuilding:
+                $ref: "#/components/examples/SingleBuilding"
+      responses:
+        "200":
+          description: Request is well-formed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidateResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
   /api/v1/buem/topology:
     post:
       tags: [Simulation]
@@ -155,8 +188,9 @@ components:
   responses:
     BadRequest:
       description: >
-        Malformed or incomplete request: unreadable body, missing buem block, or
-        missing building.envelope. Rejected before BuEM is called.
+        Malformed or incomplete request: unreadable body, missing buem block,
+        missing building.envelope, or missing/unusable buem.weather. Rejected
+        before BuEM is called.
       content:
         text/plain:
           schema:
@@ -192,6 +226,14 @@ components:
           example: buem-gateway
       required: [status, service]
 
+    ValidateResponse:
+      type: object
+      properties:
+        valid:
+          type: boolean
+          example: true
+      required: [valid]
+
     Geometry:
       type: object
       description: GeoJSON Point, ordered [longitude, latitude].
@@ -210,9 +252,11 @@ components:
     BuemBlock:
       type: object
       description: >
-        The building's classification, envelope, thermal, and solver data. See
-        `schemas/request_schema.json` in this repo for the full BuEM request
-        contract. Forwarded to BuEM largely as-is; `envelope` is required.
+        The building's classification, envelope, thermal, solver, and weather
+        data. See `schemas/request_schema.json` in this repo for the full
+        BuEM request contract. Forwarded to BuEM largely as-is; `envelope`
+        and `weather` are both required -- buem-gateway resolves neither
+        from any external service, the caller must supply both complete.
       additionalProperties: true
 
     BuildingRequest:
@@ -231,7 +275,7 @@ components:
         start_date:
           type: string
           format: date-time
-          description: Simulation window start; its year selects the weather file.
+          description: Simulation window start.
         end_date:
           type: string
           format: date-time
@@ -323,7 +367,10 @@ components:
       summary: One SFH with a complete envelope
       description: >
         A complete, runnable request. The envelope is given in full because
-        buem-gateway will not derive it from the classification fields.
+        buem-gateway will not derive it from the classification fields, and
+        weather is likewise given in full -- buem-gateway does not resolve
+        it either. In practice the Orchestrator supplies weather here,
+        typically via weather serve's GET /v1/weather/point?format=json.
       value:
         id: demo-building
         geometry:
@@ -365,3 +412,10 @@ components:
             comfortT_ub: { value: 24, unit: degC }
           solver:
             compute_cooling: false
+          weather:
+            index: ["2018-01-01T00:30:00Z", "2018-01-01T01:30:00Z"]
+            variables:
+              T: [0.89, 0.72]
+              GHI: [0.0, 0.0]
+              DNI: [0.0, 0.0]
+              DHI: [0.0, 0.0]
