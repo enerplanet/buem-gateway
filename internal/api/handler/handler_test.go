@@ -99,7 +99,7 @@ func decodeBody(t *testing.T, w *httptest.ResponseRecorder) map[string]interface
 
 func TestHealth(t *testing.T) {
 	h := New(nil)
-	req := httptest.NewRequest(http.MethodGet, "/health", nil)
+	req := httptest.NewRequest(http.MethodGet, "/buem/health", nil)
 	w := httptest.NewRecorder()
 	h.Health(w, req)
 

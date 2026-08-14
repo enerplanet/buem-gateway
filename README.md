@@ -59,7 +59,7 @@ Try it out with pre-built images — no Go toolchain, no conda, no local Caddy i
 ```bash
 cd environment
 docker compose -f docker-compose.quickstart.yml up -d
-curl -sk https://localhost:8443/health
+curl -sk https://localhost:8443/buem/health
 ```
 
 No `.env` needed — every value has a default. The only cost of skipping `caddy trust` is that
@@ -74,7 +74,7 @@ Building from source instead (for testing local code changes):
 | --- | --- | --- |
 | 1 | `cd environment && cp .env.example .env` | Configure `CADDY_DATA_DIR`, ports, weather data path |
 | 2 | `docker compose up -d --build` | Start `buem-model` (the model), `buem-gateway` (this connector), `buem-reverse-proxy` (Caddy) |
-| 3 | `curl -sk https://localhost:8443/health -H "X-Api-Key: <BUEM_API_KEY>"` | Confirm the stack is up |
+| 3 | `curl -sk https://localhost:8443/buem/health -H "X-Api-Key: <BUEM_API_KEY>"` | Confirm the stack is up |
 
 Full setup, endpoint reference, and deployment details: [`docs/getting-started.md`](docs/getting-started.md)
 and [`docs/api.md`](docs/api.md) (or run `mkdocs serve` locally — see below).
@@ -85,11 +85,11 @@ and [`docs/api.md`](docs/api.md) (or run `mkdocs serve` locally — see below).
 
 | Method | Path | Description |
 | --- | --- | --- |
-| `GET` | `/health` | Liveness check |
+| `GET` | `/buem/health` | Liveness check |
 | `POST` | `/api/v1/buem/topology` | Multi-building: topology in, enriched topology out |
 | `POST` | `/api/v1/buem/building` | Single building, no topology wrapper: building in, enriched `buem` block out |
 
-All routes except `/health` require the `X-Api-Key` header, checked by the reverse proxy.
+All routes except `/buem/health` require the `X-Api-Key` header, checked by the reverse proxy.
 
 ---
 

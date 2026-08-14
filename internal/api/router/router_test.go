@@ -11,7 +11,7 @@ import (
 func TestNew_routesHealthRequest(t *testing.T) {
 	h := New(handler.New(nil))
 
-	req := httptest.NewRequest(http.MethodGet, "/health", nil)
+	req := httptest.NewRequest(http.MethodGet, "/buem/health", nil)
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, req)
 
@@ -36,7 +36,7 @@ func TestNew_appliesCORSHeaders(t *testing.T) {
 	t.Setenv("ALLOWED_ORIGINS", "http://localhost:5173")
 	h := New(handler.New(nil))
 
-	req := httptest.NewRequest(http.MethodGet, "/health", nil)
+	req := httptest.NewRequest(http.MethodGet, "/buem/health", nil)
 	req.Header.Set("Origin", "http://localhost:5173")
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, req)

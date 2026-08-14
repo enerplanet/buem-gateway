@@ -15,7 +15,7 @@
 ```bash
 cd environment
 docker compose -f docker-compose.quickstart.yml up -d
-curl -sk https://localhost:8443/health
+curl -sk https://localhost:8443/buem/health
 ```
 
 No `.env` is required. Every `${...}` in that file has a default (`APP_PORT` 8080, `HOST_HTTPS_PORT` 8443, `BUEM_IMAGE_TAG` `latest`).
@@ -101,7 +101,7 @@ docker compose -f docker-compose.prod.yml up -d
 ### 5. Verify
 
 ```bash
-curl -s -o /dev/null -w '%{http_code}\n' https://your-domain/health
+curl -s -o /dev/null -w '%{http_code}\n' https://your-domain/buem/health
 curl -s -o /dev/null -w '%{http_code}\n' https://your-domain/
 curl -s -o /dev/null -w '%{http_code}\n' -H "X-Api-Key: your-key" https://your-domain/
 ```

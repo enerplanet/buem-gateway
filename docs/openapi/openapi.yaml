@@ -65,7 +65,7 @@ security:
   - ApiKeyAuth: []
 
 paths:
-  /health:
+  /buem/health:
     get:
       tags: [Health]
       summary: Liveness check

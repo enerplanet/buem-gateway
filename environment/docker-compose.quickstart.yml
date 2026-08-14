@@ -20,7 +20,7 @@
 # public domain).
 #
 # All requests are gated behind the X-Api-Key header, matched against
-# BUEM_API_KEY in env/proxy.env (see caddy/Caddyfile). /health is the one
+# BUEM_API_KEY in env/proxy.env (see caddy/Caddyfile). /buem/health is the one
 # exemption, so container and uptime checks need no key. The committed
 # BUEM_API_KEY is a local-dev placeholder.
 #
@@ -77,7 +77,7 @@ services:
       buem-model:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:$$APP_PORT/health"]
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:$$APP_PORT/buem/health"]
       interval: 5s
       timeout: 3s
       retries: 5
