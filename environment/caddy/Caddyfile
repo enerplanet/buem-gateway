@@ -1,3 +1,7 @@
+# Site address is `localhost` for local development. A real deployment sets
+# BUEM_SITE_ADDRESS in env/proxy.env to its own domain, or Caddy will
+# neither serve it nor be able to provision a certificate for it.
+
 # Caddy defaults to advertising HTTP/3 (Alt-Svc: h3) on every response. The
 # compose file only publishes the HTTPS port as TCP, so browsers that cache
 # that Alt-Svc header and switch to QUIC on a later request get no response
@@ -9,7 +13,7 @@
 	}
 }
 
-localhost {
+{$BUEM_SITE_ADDRESS:localhost} {
 	# Single source of truth for allowed origins is ALLOWED_ORIGINS in
 	# env/common.env (also read directly by anything that needs to check origins).
 	# ALLOWED_ORIGINS_PATTERN is derived from it at container startup
