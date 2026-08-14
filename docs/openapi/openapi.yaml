@@ -225,10 +225,7 @@ components:
         status:
           type: string
           example: ok
-        service:
-          type: string
-          example: buem-gateway
-      required: [status, service]
+      required: [status]
 
     ValidateResponse:
       type: object
