@@ -1,6 +1,6 @@
 # API reference
 
-The interactive reference below is generated from the OpenAPI spec ([`openapi.yaml`](openapi.yaml)). Download it to generate a client or import it into Postman.
+The interactive reference lives in its own standalone page — [`api/index.html`](api/index.html) — so it can be opened directly without running `mkdocs serve`. It renders [`api/openapi.yaml`](api/openapi.yaml); download that file to generate a client or import it into Postman.
 
 ## Authentication
 
@@ -67,15 +67,10 @@ demand
 
 ## Testing it yourself
 
-The Swagger UI below can call a locally running buem-gateway directly.
+[Open the API reference](api/index.html) and it can call a locally running buem-gateway directly.
 
 1. Start the stack, from `environment/`: `docker compose -f docker-compose.quickstart.yml up -d`. This pulls pre-built images from GHCR, so there is no `.env` and no build step. To test a local code change instead, see [Getting started](getting-started.md).
-2. Serve these docs locally with `mkdocs serve`.
+2. Serve `docs/api/` on `http://127.0.0.1:8000` (`python -m http.server 8000` from that directory works) — the reverse proxy's `ALLOWED_ORIGINS` allows that origin already. Opening the file directly (`file://`) works for reading the reference, but **Try it out** needs an allowed origin.
 3. Open `https://localhost:8443` directly once and click through the untrusted-certificate warning. The quickstart certificate is never added to your trust store (see [Getting started](getting-started.md#try-it-out-no-caddy-setup)), so this is expected rather than a setup mistake.
-4. Click **Authorize** below and enter the API key checked by the reverse proxy (`X-Api-Key`; the prototype default is set in `environment/env/proxy.env`). It applies to every **Try it out** call from then on. `/health` needs no key.
+4. Click **Authorize** and enter the API key checked by the reverse proxy (`X-Api-Key`; the prototype default is set in `environment/env/proxy.env`). It applies to every **Try it out** call from then on. `/health` needs no key.
 5. Expand an endpoint, click **Try it out**, fill in the parameters, then **Execute**.
-
-!!! bug "Swagger UI bug"
-    The Swagger UI sometimes fails to load. Reload the browser page and it should come up correctly.
-
-<swagger-ui src="openapi.yaml"/>

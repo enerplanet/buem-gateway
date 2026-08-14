@@ -40,10 +40,10 @@ No git tag and no GitHub release. A schema bump is tracked entirely in text:
    current version).
 2. Update `CHANGELOG.md` with a plain-language description of what changed and why.
 3. Update the version number in this file's table below and in
-   `docs/openapi.yaml`'s `info.version` field, so all three stay in sync.
+   `docs/api/openapi.yaml`'s `info.version` field, so all three stay in sync.
 4. Run the validation check below. It confirms the schema and its example files are
    consistent, and that the version string in this file, `CHANGELOG.md`, and
-   `docs/openapi.yaml` all agree.
+   `docs/api/openapi.yaml` all agree.
 5. Commit directly. If the change also required a buem-gateway code change (e.g.
    a new field the connector now reads), that code change gets its own git tag as
    a normal software release. See [`docs/getting-started.md`](getting-started.md)
