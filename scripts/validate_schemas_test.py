@@ -30,9 +30,9 @@ def _copy_real_repo_fixtures(dest: Path) -> None:
         dest / "schemas",
         ignore=shutil.ignore_patterns("v1", "v2", "v3", "v4"),
     )
-    (dest / "docs" / "api").mkdir(parents=True)
+    (dest / "docs" / "openapi").mkdir(parents=True)
     shutil.copy(REPO_ROOT / "docs" / "versioning.md", dest / "docs" / "versioning.md")
-    shutil.copy(REPO_ROOT / "docs" / "api" / "openapi.yaml", dest / "docs" / "api" / "openapi.yaml")
+    shutil.copy(REPO_ROOT / "docs" / "openapi" / "openapi.yaml", dest / "docs" / "openapi" / "openapi.yaml")
     shutil.copy(REPO_ROOT / "CHANGELOG.md", dest / "CHANGELOG.md")
 
 
@@ -64,7 +64,7 @@ class TestValidateSchemas(unittest.TestCase):
         """openapi.yaml disagreeing with versioning.md/CHANGELOG.md must
         be reported as a failure -- the exact drift this check exists to
         catch."""
-        openapi_path = self.tmp / "docs" / "api" / "openapi.yaml"
+        openapi_path = self.tmp / "docs" / "openapi" / "openapi.yaml"
         text = openapi_path.read_text()
         self.assertIn("version: 5.0.0", text, "fixture assumption changed, update this test")
         openapi_path.write_text(text.replace("version: 5.0.0", "version: 999.0.0"))

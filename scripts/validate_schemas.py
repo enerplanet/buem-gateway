@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Validates schemas/{request,response}_schema.json against their example
 files, and confirms the current-version string agrees across
-docs/versioning.md, CHANGELOG.md, and docs/api/openapi.yaml.
+docs/versioning.md, CHANGELOG.md, and docs/openapi/openapi.yaml.
 
 Run from anywhere: python scripts/validate_schemas.py
 """
@@ -51,21 +51,21 @@ def _version_from_changelog(root: Path) -> str | None:
 
 
 def _version_from_openapi(root: Path) -> str | None:
-    """info.version in docs/api/openapi.yaml, normalized to a "vX.Y.Z" string."""
-    text = (root / "docs" / "api" / "openapi.yaml").read_text()
+    """info.version in docs/openapi/openapi.yaml, normalized to a "vX.Y.Z" string."""
+    text = (root / "docs" / "openapi" / "openapi.yaml").read_text()
     match = re.search(r"^\s*version:\s*(\d+\.\d+\.\d+)\s*$", text, re.MULTILINE)
     return f"v{match.group(1)}" if match else None
 
 
 def validate_version_sync(root: Path) -> list[str]:
     """Confirm the current-version string agrees across docs/versioning.md,
-    CHANGELOG.md, and docs/api/openapi.yaml -- the exact drift the release
+    CHANGELOG.md, and docs/openapi/openapi.yaml -- the exact drift the release
     procedure otherwise asks a human to prevent by hand.
     """
     sources = {
         "docs/versioning.md": _version_from_versioning_doc(root),
         "CHANGELOG.md": _version_from_changelog(root),
-        "docs/api/openapi.yaml": _version_from_openapi(root),
+        "docs/openapi/openapi.yaml": _version_from_openapi(root),
     }
     failures: list[str] = []
     for path, version in sources.items():
