@@ -68,6 +68,7 @@ paths:
   /buem/health:
     get:
       tags: [Health]
+      operationId: checkHealth
       summary: Liveness check
       security: []
       description: Returns 200 while the connector is running. Does not check BuEM's own health, and does not require an API key.
@@ -82,6 +83,7 @@ paths:
   /api/v1/buem/building:
     post:
       tags: [Simulation]
+      operationId: runBuilding
       summary: Run BuEM for one building
       description: >
         For a caller with exactly one building and no grid to describe, such as
@@ -114,6 +116,7 @@ paths:
   /api/v1/buem/validate:
     post:
       tags: [Simulation]
+      operationId: validateBuilding
       summary: Pre-flight-check a single-building request
       description: >
         Same request body as `/api/v1/buem/building` -- checks that
@@ -147,6 +150,7 @@ paths:
   /api/v1/buem/topology:
     post:
       tags: [Simulation]
+      operationId: runTopology
       summary: Run BuEM for every building in a topology
       description: >
         Buildings are the nodes of a `{from, to}` edge list, the shape
