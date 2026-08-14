@@ -160,5 +160,5 @@ func writeJSON(w http.ResponseWriter, v interface{}) {
 
 // Health handles GET /buem/health.
 func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, map[string]string{"status": "ok", "service": "buem-gateway"})
+	writeJSON(w, map[string]string{"status": "ok"})
 }

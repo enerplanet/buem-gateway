@@ -107,7 +107,7 @@ func TestHealth(t *testing.T) {
 		t.Fatalf("status = %d, want %d", w.Code, http.StatusOK)
 	}
 	body := decodeBody(t, w)
-	if body["status"] != "ok" || body["service"] != "buem-gateway" {
+	if body["status"] != "ok" {
 		t.Errorf("unexpected body: %v", body)
 	}
 }
