@@ -1,12 +1,10 @@
-# Site address is `localhost` for local development. A real deployment sets
-# BUEM_SITE_ADDRESS in env/proxy.env to its own domain, or Caddy will
-# neither serve it nor be able to provision a certificate for it.
+# Site address defaults to localhost for local development. A deployment must
+# set BUEM_SITE_ADDRESS in env/proxy.env to its own domain, otherwise Caddy
+# will not serve it or provision a certificate for it.
 
-# Caddy defaults to advertising HTTP/3 (Alt-Svc: h3) on every response. The
-# compose file only publishes the HTTPS port as TCP, so browsers that cache
-# that Alt-Svc header and switch to QUIC on a later request get no response
-# at all — this looked like intermittent request failures against a healthy
-# backend. h2 over the published TCP port is all that's actually reachable.
+# HTTP/3 is disabled: the compose file publishes the HTTPS port as TCP only,
+# so an advertised Alt-Svc: h3 leads clients to retry over QUIC and get no
+# response. Only h2 over the published TCP port is reachable.
 {
 	servers {
 		protocols h1 h2
@@ -14,30 +12,23 @@
 }
 
 {$BUEM_SITE_ADDRESS:localhost} {
-	# Single source of truth for allowed origins is ALLOWED_ORIGINS in
-	# env/common.env (also read directly by anything that needs to check origins).
-	# ALLOWED_ORIGINS_PATTERN is derived from it at container startup
-	# (see docker-compose.yml's entrypoint) into the regex form this
-	# matcher needs — nothing here is hardcoded per origin.
+	# ALLOWED_ORIGINS_PATTERN is derived from ALLOWED_ORIGINS (env/common.env,
+	# the single source of truth) at container start by the entrypoint in
+	# docker-compose.yml. No origin is hardcoded here.
 	@allowed_origin header_regexp Origin {$ALLOWED_ORIGINS_PATTERN}
 
 	@preflight method OPTIONS
 
-	# Unlike ignis's Caddyfile (which hardcodes this value), the key is read
-	# from BUEM_API_KEY at container start — a real key belongs in
-	# env/proxy.env (untracked in production, see .env.example), not
-	# committed source.
+	# Key is read from BUEM_API_KEY at container start. Real values belong in
+	# env/proxy.env, untracked in production. See .env.example.
 	@authorized header X-Api-Key {$BUEM_API_KEY}
 
-	# `route` keeps these handlers in the order written. Without it Caddy
-	# sorts `handle` blocks by path-matcher specificity, which would move
-	# /buem/health ahead of the preflight block and change which one
-	# answers an OPTIONS /buem/health (see ignis's Caddyfile, which this
-	# mirrors).
+	# `route` preserves the order below. Without it Caddy sorts handle blocks
+	# by path-matcher specificity, which moves /buem/health ahead of the
+	# preflight block and changes which one answers OPTIONS /buem/health.
 	route {
-		# Preflight (OPTIONS): answered here, never forwarded to the app.
-		# X-Api-Key is a proxy-only concept — buem-gateway doesn't know it
-		# exists, and it shouldn't have to.
+		# Preflight is answered here, never forwarded. X-Api-Key is a
+		# proxy-only concept; buem-gateway does not know it exists.
 		handle @preflight {
 			header @allowed_origin Access-Control-Allow-Origin "{http.regexp.allowed_origin.1}"
 			header Access-Control-Allow-Methods "GET, POST, OPTIONS"
@@ -46,25 +37,25 @@
 			respond 204
 		}
 
-		# Deliberately outside the authorised route: container health checks,
-		# orchestrators and uptime monitors must not need the API key. This
-		# path is publicly reachable on any deployment, so keep its response
-		# to liveness only — no version, config or database detail. Nested
-		# under /buem/ (not bare /health) so it doesn't collide with sibling
-		# services' own health checks once this sits behind the shared
-		# Orchestrator (see BuEM/weather's /v1/weather/health for the same
-		# reasoning).
+		# Outside the authorised route so health checks, orchestrators and
+		# uptime monitors do not need the API key. Publicly reachable on any
+		# deployment, so the response must stay liveness only: no version,
+		# config or database detail. Nested under /buem/ rather than /health
+		# to avoid collision with sibling services behind the shared
+		# Orchestrator.
 		handle /buem/health {
 			reverse_proxy buem-gateway:{$APP_PORT:8080}
 		}
 
+		# No CORS header set here: buem-gateway adds Access-Control-Allow-Origin
+		# itself on proxied responses.
 		handle @authorized {
 			reverse_proxy buem-gateway:{$APP_PORT:8080}
 		}
 
-		# Without the CORS header here too, a missing/wrong X-Api-Key shows up
-		# in the browser as an opaque CORS failure instead of this 403 —
-		# indistinguishable from a real CORS misconfiguration during debugging.
+		# CORS header is set on the rejection, which the app never sees.
+		# Without it a bad API key surfaces in the browser as an opaque CORS
+		# error rather than this 403.
 		handle {
 			header @allowed_origin Access-Control-Allow-Origin "{http.regexp.allowed_origin.1}"
 			respond "Forbidden: missing or invalid API key" 403
