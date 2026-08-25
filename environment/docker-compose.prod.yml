@@ -54,7 +54,7 @@ services:
   buem-reverse-proxy:
     image: caddy:2.11-alpine
     container_name: buem-reverse-proxy
-    env_file: env/proxy.env # provides ALLOWED_ORIGINS and BUEM_API_KEY
+    env_file: [env/common.env, env/proxy.env] # provides ALLOWED_ORIGINS and BUEM_API_KEY
     environment:
       - APP_PORT=${APP_PORT}
     depends_on:
