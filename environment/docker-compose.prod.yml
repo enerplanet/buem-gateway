@@ -12,6 +12,7 @@ services:
       - PYTHONPATH=/buem/src
       - BUEM_WEATHER_DIR=/buem/data/weather
       - BUEM_CBC_EXE=/opt/conda/envs/buem_env/bin/cbc
+      - BUEM_WEATHER_FALLBACK=false
       - GUNICORN_WORKERS=${BUEM_WORKERS:-2}
     volumes:
       - ${BUEM_WEATHER_DIR_HOST:-./data/buem-weather}:/buem/data/weather:ro
