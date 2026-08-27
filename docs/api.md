@@ -16,10 +16,12 @@ buem-gateway has no authentication of its own. The `buem-reverse-proxy` in front
 
 BuEM gateway exposes the following endpoints for running building models. It has no concept of a grid or topology — a caller that has one (EnerPlanET's grid model, for example) resolves it down to a flat list of buildings itself before calling either endpoint.
 
-| Endpoint | Payload | Use when |
-|---|---|---|
-| `POST /api/v1/buem/building` | One building, no wrapper | A single building with no batch to describe, for example the Building Configurator. A failed run returns a clear HTTP error. |
-| `POST /api/v1/buem/buildings` | A flat list of buildings, shared `weather` | Several buildings from one caller-side model run. A failed building gets its own `error` entry in the response rather than failing the whole request. |
+| Method | Path | Request | Response |
+| --- | --- | --- | --- |
+| `GET` | `/buem/health` | None | Service status |
+| `POST` | `/api/v1/buem/building` | One building with geometry, envelope, and weather | `buem` block with load profile and model metadata |
+| `POST` | `/api/v1/buem/buildings` | Building list, each with geometry and envelope, plus one shared weather block | One result per building, in request order |
+| `POST` | `/api/v1/buem/validate` | Same body as `/building` | Whether the request is well-formed. BuEM is not called |
 
 ### Buildings share weather, not envelope
 
