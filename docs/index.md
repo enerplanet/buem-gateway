@@ -26,8 +26,8 @@ sequenceDiagram
     Proxy->>App: Forward request
     App->>Model: POST /api/process<br/>one call per building
     Model-->>App: thermal_load_profile
-    App->>Caller: one result per building
     App->>Vol: write heating/cooling/electricity CSVs
+    App->>Caller: one result per building
 ```
 
 A request is a flat list of buildings, each carrying its own `building` block (envelope etc.), plus one `weather` block shared across the whole request. Buildings are run through BuEM concurrently, bounded by `MAX_CONCURRENT_SIMS`; each comes back with its own `buem` result or `error`, independent of the others. buem-gateway has no concept of a grid or topology — a caller with one resolves it down to this flat list itself.
