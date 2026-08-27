@@ -37,7 +37,8 @@ sequenceDiagram
     App->>Model: POST /api/process<br/>one call per building
     Model-->>App: thermal_load_profile
     App->>Vol: write heating/cooling/electricity CSVs
-    App->>Caller: one result per building
+    App-->>Proxy: results list<br/>buem or error per building
+    Proxy-->>Caller: results list<br/>buem or error per building
 ```
 
 Each building carries its own `building` block containing its envelope. One `weather` block is shared across the request. Buildings run concurrently, bounded by `MAX_CONCURRENT_SIMS`, and each returns its own `buem` result or `error` independently of the others.
