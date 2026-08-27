@@ -50,8 +50,8 @@ buem-gateway has no concept of a grid or topology. A caller holding one resolves
 | Method | Path | Description |
 | --- | --- | --- |
 | `GET` | `/buem/health` | Liveness check |
-| `POST` | `/api/v1/buem/building` | Single building in, enriched `buem` block out |
-| `POST` | `/api/v1/buem/buildings` | Buildings list and shared weather in, one result per building out |
+| `POST` | `/api/v1/buem/building` | One building — geometry, envelope, weather — in; enriched `buem` block out |
+| `POST` | `/api/v1/buem/buildings` | Building list — each with geometry + envelope — plus one shared weather block in; results list out |
 | `POST` | `/api/v1/buem/validate` | Pre-flight check of a single-building request, without calling BuEM |
 
 All routes except `/buem/health` require the `X-Api-Key` header, checked by the reverse proxy.
