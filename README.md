@@ -19,28 +19,28 @@ buem-gateway's own release version are numbered independently — see
 
 ---
 
-## What it does
+## Sequence Diagram
+
+Following sequence diagram illustrates the interaction between the components:
 
 ```mermaid
-graph LR
-    CALLER[Caller] -->|POST /api/v1/buem/buildings<br>buildings list + shared weather| PROXY[buem-reverse-proxy<br>Caddy, X-Api-Key auth]
-    CALLER -->|POST /api/v1/buem/building<br>single building| PROXY
-    PROXY --> APP[buem-gateway<br>Go connector]
-    APP -->|POST /api/process<br>one call per building| MODEL[buem-model<br>BuEM Flask]
-    MODEL -->|thermal_load_profile| APP
-    APP -->|one result per building| CALLER
-    APP -->|heating/cooling/electricity CSVs| VOL[(shared volume)]
+sequenceDiagram
+    autonumber
+    participant Caller as Caller<br/>e.g. EnerPlanET backend
+    participant Proxy as buem-reverse-proxy<br/>Caddy, X-Api-Key auth
+    participant App as buem-gateway<br/>Go connector
+    participant Model as buem-model<br/>BuEM Flask
+    participant Vol as shared volume
+
+    Caller->>Proxy: POST /api/v1/buem/buildings<br/>buildings list + shared weather
+    Proxy->>App: Forward request
+    App->>Model: POST /api/process<br/>one call per building
+    Model-->>App: thermal_load_profile
+    App->>Caller: one result per building
+    App->>Vol: write heating/cooling/electricity CSVs
 ```
 
-A caller sends either a **list of buildings**, with one shared `weather` block for the whole
-request, or a **single building**. buem-gateway has no concept of a grid or topology — a caller
-with one resolves it down to a flat list itself. buem-gateway runs each building through BuEM
-concurrently (bounded by `MAX_CONCURRENT_SIMS`), writes the results to CSV, and returns one result
-per building, independent of the others. `buem.building.envelope` and `buem.weather` are both
-required — buem-gateway resolves nothing from any external service; either missing is rejected
-immediately with a clear error (see
-[Envelope is required](docs/api.md#envelope-is-required) and
-[Weather is required](docs/api.md#weather-is-required)).
+A request is a flat list of buildings, each carrying its own `building` block (envelope etc.), plus one `weather` block shared across the whole request. Buildings are run through BuEM concurrently, bounded by `MAX_CONCURRENT_SIMS`; each comes back with its own `buem` result or `error`, independent of the others. buem-gateway has no concept of a grid or topology — a caller with one resolves it down to this flat list itself.
 
 ---
 
