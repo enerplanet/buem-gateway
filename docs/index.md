@@ -9,19 +9,28 @@ It also carries the JSON schema contract that defines BuEM's request and respons
 !!! info "Not the same thing as simulation-engine"
     `enerplanet/simulation-engine` bundles its own BuEM deployment. This is a separate repo with its own container and its own reverse proxy, and nothing here requires simulation-engine to be installed or running.
 
-## What it does
+## Sequence Diagram
+
+Following sequence diagram illustrates the interaction between the components:
 
 ```mermaid
-graph LR
-    CALLER[Caller<br>e.g. EnerPlanET backend] -->|POST /api/v1/buem/topology<br>topology JSON| PROXY[buem-reverse-proxy<br>Caddy, X-Api-Key auth]
-    PROXY --> APP[buem-gateway<br>Go connector]
-    APP -->|POST /api/process<br>one call per building| MODEL[buem-model<br>BuEM Flask]
-    MODEL -->|thermal_load_profile| APP
-    APP -->|enriched topology| CALLER
-    APP -->|heating/cooling/electricity CSVs| VOL[(shared volume)]
+sequenceDiagram
+    autonumber
+    participant Caller as Caller<br/>e.g. EnerPlanET backend
+    participant Proxy as buem-reverse-proxy<br/>Caddy, X-Api-Key auth
+    participant App as buem-gateway<br/>Go connector
+    participant Model as buem-model<br/>BuEM Flask
+    participant Vol as shared volume
+
+    Caller->>Proxy: POST /api/v1/buem/buildings<br/>buildings list + shared weather
+    Proxy->>App: Forward request
+    App->>Model: POST /api/process<br/>one call per building
+    Model-->>App: thermal_load_profile
+    App->>Caller: one result per building
+    App->>Vol: write heating/cooling/electricity CSVs
 ```
 
-A topology is a list of `{from, to}` node pairs, some of which are buildings carrying a `properties.buem` block. Each building's `buem` block comes back enriched with `thermal_load_profile`. Buildings are run through BuEM concurrently, bounded by `MAX_CONCURRENT_SIMS`.
+A request is a flat list of buildings, each carrying its own `building` block (envelope etc.), plus one `weather` block shared across the whole request. Buildings are run through BuEM concurrently, bounded by `MAX_CONCURRENT_SIMS`; each comes back with its own `buem` result or `error`, independent of the others. buem-gateway has no concept of a grid or topology — a caller with one resolves it down to this flat list itself.
 
 ## Documentation
 

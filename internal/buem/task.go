@@ -3,12 +3,11 @@ package buem
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"strconv"
 )
 
-// Task is one building extracted from a request topology, ready to send to
-// the upstream BuEM Flask API.
+// Task is one building extracted from a request, ready to send to the
+// upstream BuEM Flask API.
 type Task struct {
 	NodeID     string
 	Lat, Lon   float64
@@ -17,132 +16,67 @@ type Task struct {
 	RawFeature json.RawMessage
 }
 
-// ExtractTasks walks a topology's edges, finds BasePOI nodes that carry a
-// "buem" block, deduplicates by node ID, and returns one Task per building.
-// A node whose building has no envelope is skipped and logged (see
-// requireEnvelope) — buem-gateway resolves nothing from any external
-// service; the caller must supply a complete envelope.
-func ExtractTasks(rawTopology json.RawMessage, startDate, endDate string, resolution int, modelID string) ([]Task, error) {
-	var rawEdges []json.RawMessage
-	if err := json.Unmarshal(rawTopology, &rawEdges); err != nil {
-		return nil, fmt.Errorf("parse topology edges: %w", err)
-	}
-
-	var tasks []Task
-	seen := make(map[string]bool)
-	for _, rawEdge := range rawEdges {
-		for _, task := range tasksFromEdge(rawEdge, startDate, endDate, resolution, modelID) {
-			if seen[task.NodeID] {
-				continue
-			}
-			seen[task.NodeID] = true
-			tasks = append(tasks, task)
-		}
-	}
-	return tasks, nil
+// BuildingInput is one building's request data — the id/geometry/buem shape
+// shared by /api/v1/buem/building and /api/v1/buem/buildings.
+type BuildingInput struct {
+	ID       string
+	Geometry json.RawMessage
+	BUEM     json.RawMessage
 }
 
-func tasksFromEdge(rawEdge json.RawMessage, startDate, endDate string, resolution int, modelID string) []Task {
-	var edge struct {
-		From json.RawMessage `json:"from"`
-		To   json.RawMessage `json:"to"`
+// TaskFromBuilding validates in's envelope and weather and builds the Task
+// that will be sent to BuEM. Returns ErrMissingEnvelope or ErrMissingWeather
+// (see requireEnvelope/requireWeather) if in isn't ready to run — the
+// caller must supply a complete buem block, buem-gateway resolves nothing
+// from any external service.
+func TaskFromBuilding(in BuildingInput, startDate, endDate string, resolution int, modelID string) (Task, error) {
+	if err := requireEnvelope(in.BUEM); err != nil {
+		return Task{}, err
 	}
-	if err := json.Unmarshal(rawEdge, &edge); err != nil {
-		return nil
+	if err := requireWeather(in.BUEM); err != nil {
+		return Task{}, err
 	}
 
-	var tasks []Task
-	for _, rawNode := range []json.RawMessage{edge.From, edge.To} {
-		if task, ok := nodeToTask(rawNode, startDate, endDate, resolution, modelID); ok {
-			tasks = append(tasks, task)
-		}
+	var geom struct {
+		Coordinates []float64 `json:"coordinates"`
 	}
-	return tasks
-}
-
-// nodeToTask checks whether a topology node is a building with a buem block
-// and, if so, builds the BuEM Feature that will be sent to the service.
-func nodeToTask(rawNode json.RawMessage, startDate, endDate string, resolution int, modelID string) (Task, bool) {
-	node, ok := parseTopologyNode(rawNode)
-	if !ok {
-		return Task{}, false
+	if err := json.Unmarshal(in.Geometry, &geom); err != nil || len(geom.Coordinates) < 2 {
+		return Task{}, fmt.Errorf("geometry.coordinates must be a [lon, lat] pair")
 	}
 
 	year, err := yearFromStartTime(startDate)
 	if err != nil {
-		return Task{}, false
+		return Task{}, err
 	}
 
-	if err := requireEnvelope(node.Properties.BUEM); err != nil {
-		log.Printf("buem-gateway | node=%s skipped: %v", node.ID, err)
-		return Task{}, false
-	}
-	if err := requireWeather(node.Properties.BUEM); err != nil {
-		log.Printf("buem-gateway | node=%s skipped: %v", node.ID, err)
-		return Task{}, false
-	}
-
-	rawFeature, err := buildFeature(node, startDate, endDate, resolution)
+	rawFeature, err := buildFeature(in, startDate, endDate, resolution)
 	if err != nil {
-		return Task{}, false
+		return Task{}, err
 	}
 
 	return Task{
-		NodeID:     node.ID,
-		Lat:        node.Geometry.Coordinates[1],
-		Lon:        node.Geometry.Coordinates[0],
+		NodeID:     in.ID,
+		Lat:        geom.Coordinates[1],
+		Lon:        geom.Coordinates[0],
 		Year:       year,
 		ModelID:    modelID,
 		RawFeature: rawFeature,
-	}, true
+	}, nil
 }
 
-type topologyNode struct {
-	ID       string `json:"id"`
-	Geometry struct {
-		Coordinates []float64 `json:"coordinates"`
-	} `json:"geometry"`
-	Properties struct {
-		FeatureType string          `json:"feature_type"`
-		BUEM        json.RawMessage `json:"buem"`
-	} `json:"properties"`
-}
-
-// parseTopologyNode decodes a raw topology node and reports whether it is a
-// building carrying a non-empty buem block.
-func parseTopologyNode(rawNode json.RawMessage) (topologyNode, bool) {
-	var node topologyNode
-	if err := json.Unmarshal(rawNode, &node); err != nil {
-		return topologyNode{}, false
-	}
-	if node.Properties.FeatureType != "BasePOI" {
-		return topologyNode{}, false
-	}
-	if len(node.Properties.BUEM) == 0 || string(node.Properties.BUEM) == "null" {
-		return topologyNode{}, false
-	}
-	if len(node.Geometry.Coordinates) < 2 {
-		return topologyNode{}, false
-	}
-	return node, true
-}
-
-// buildFeature wraps a topology node's buem block in the GeoJSON Feature
-// shape BuEM's API expects.
-func buildFeature(node topologyNode, startDate, endDate string, resolution int) (json.RawMessage, error) {
+// buildFeature wraps a building input in the GeoJSON Feature shape BuEM's
+// API expects.
+func buildFeature(in BuildingInput, startDate, endDate string, resolution int) (json.RawMessage, error) {
 	return json.Marshal(map[string]interface{}{
-		"type": "Feature",
-		"id":   node.ID,
-		"geometry": map[string]interface{}{
-			"type":        "Point",
-			"coordinates": node.Geometry.Coordinates,
-		},
+		"type":     "Feature",
+		"id":       in.ID,
+		"geometry": in.Geometry,
 		"properties": map[string]interface{}{
 			"start_time":      startDate,
 			"end_time":        endDate,
 			"resolution":      strconv.Itoa(resolution),
 			"resolution_unit": "minutes",
-			"buem":            node.Properties.BUEM,
+			"buem":            in.BUEM,
 		},
 	})
 }

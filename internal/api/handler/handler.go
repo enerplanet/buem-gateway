@@ -20,59 +20,81 @@ func New(connector *buem.Connector) *Handler {
 	return &Handler{connector: connector}
 }
 
-// topologyRequest is the body accepted by POST /api/v1/buem/topology. It is
-// decoded twice on purpose: once into rawFields to read only the handful of
-// top-level scalars this handler needs, and the topology itself is kept as
-// raw JSON so buem.Connector.Run can parse and re-merge it without this
-// handler needing to understand its shape.
-type topologyRequest struct {
-	StartDate  string          `json:"start_date"`
-	EndDate    string          `json:"end_date"`
-	Resolution int             `json:"resolution"`
-	ModelID    string          `json:"model_id"`
-	Topology   json.RawMessage `json:"topology"`
+// buildingsRequest is the body accepted by POST /api/v1/buem/buildings —
+// several buildings, no topology/edge-list wrapper. start_date/end_date/
+// resolution/model_id/weather are shared across the whole batch rather than
+// repeated per building — weather in particular is normally the same
+// timeseries for every building in one model run (one point resolved for
+// the model's whole area), so repeating it per building would mean sending
+// the same hourly-for-a-year arrays once per building for no reason.
+type buildingsRequest struct {
+	StartDate  string             `json:"start_date"`
+	EndDate    string             `json:"end_date"`
+	Resolution int                `json:"resolution"`
+	ModelID    string             `json:"model_id"`
+	Weather    json.RawMessage    `json:"weather"`
+	Buildings  []buildingListItem `json:"buildings"`
 }
 
-// Topology handles POST /api/v1/buem/topology: it fans the request topology's
-// buildings out to BuEM, writes their load profile CSVs, and returns the
-// topology with each building's buem block enriched with the results.
-// Buildings with no buem block are returned unchanged.
-func (h *Handler) Topology(w http.ResponseWriter, r *http.Request) {
+// buildingListItem is one building's own data — geometry and its building
+// block (envelope, building_type, country, ...). No weather here; see
+// buildingsRequest.Weather.
+type buildingListItem struct {
+	ID       string          `json:"id"`
+	Geometry json.RawMessage `json:"geometry"`
+	Building json.RawMessage `json:"building"`
+}
+
+type buildingResultItem struct {
+	ID    string          `json:"id"`
+	BUEM  json.RawMessage `json:"buem,omitempty"`
+	Error string          `json:"error,omitempty"`
+}
+
+// Buildings handles POST /api/v1/buem/buildings: runs BuEM for each building
+// in the request concurrently and returns one result per building, in the
+// same order as the request. A building with an incomplete buem block, or
+// one BuEM itself rejects, gets its own error entry — it never affects any
+// other building's result. The caller owns whatever grid/topology concept
+// ties these buildings together, if any; buem-gateway only sees the flat
+// list. req.Weather is re-attached to each building here, reconstructing
+// the same per-building {building, weather} shape /api/v1/buem/building
+// takes, so every check and code path past this point (envelope/weather
+// validation, task building) is shared with the single-building endpoint.
+func (h *Handler) Buildings(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "can't read body", http.StatusBadRequest)
 		return
 	}
-
-	var rawConfig map[string]json.RawMessage
-	if err := json.Unmarshal(body, &rawConfig); err != nil {
-		http.Error(w, "can't parse request body", http.StatusBadRequest)
-		return
-	}
-	var req topologyRequest
+	var req buildingsRequest
 	if err := json.Unmarshal(body, &req); err != nil {
 		http.Error(w, "can't parse request body", http.StatusBadRequest)
 		return
 	}
 
-	if req.Topology == nil {
-		writeJSON(w, rawConfig)
-		return
+	inputs := make([]buem.BuildingInput, len(req.Buildings))
+	for i, b := range req.Buildings {
+		buemBlock, err := json.Marshal(map[string]json.RawMessage{"building": b.Building, "weather": req.Weather})
+		if err != nil {
+			http.Error(w, "can't build request for building "+b.ID+": "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		inputs[i] = buem.BuildingInput{ID: b.ID, Geometry: b.Geometry, BUEM: buemBlock}
 	}
 
-	enriched, err := h.connector.Run(req.Topology, req.StartDate, req.EndDate, req.ModelID, req.Resolution)
-	if err != nil {
-		http.Error(w, "buem run failed: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
+	results := h.connector.RunBatch(inputs, req.StartDate, req.EndDate, req.ModelID, req.Resolution)
 
-	rawConfig["topology"] = enriched
-	writeJSON(w, rawConfig)
+	items := make([]buildingResultItem, len(results))
+	for i, r := range results {
+		items[i] = buildingResultItem{ID: r.ID, BUEM: r.BUEM, Error: r.Error}
+	}
+	writeJSON(w, items)
 }
 
 // buildingRequest is the body accepted by POST /api/v1/buem/building — one
-// building, no topology/edge-list wrapper. See topologyRequest for the
-// grid-scale multi-building shape.
+// building, no topology/edge-list wrapper. See buildingsRequest for the
+// multi-building shape.
 type buildingRequest struct {
 	ID         string          `json:"id"`
 	Geometry   json.RawMessage `json:"geometry"`

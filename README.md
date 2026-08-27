@@ -2,7 +2,7 @@
 
 [![Go](https://github.com/enerplanet/buem-gateway/actions/workflows/go.yml/badge.svg)](https://github.com/enerplanet/buem-gateway/actions/workflows/go.yml)&nbsp;&nbsp;&nbsp;[![CI](https://github.com/enerplanet/buem-gateway/actions/workflows/ci.yml/badge.svg)](https://github.com/enerplanet/buem-gateway/actions/workflows/ci.yml)&nbsp;&nbsp;&nbsp;[![MkDocs](https://github.com/enerplanet/buem-gateway/actions/workflows/docs.yml/badge.svg)](https://enerplanet.github.io/buem-gateway)&nbsp;&nbsp;&nbsp;[![codecov](https://codecov.io/gh/enerplanet/buem-gateway/branch/main/graph/badge.svg)](https://codecov.io/gh/enerplanet/buem-gateway)&nbsp;&nbsp;&nbsp;[![GitHub release](https://img.shields.io/github/v/release/enerplanet/buem-gateway?include_prereleases&label=release&logo=github)](https://github.com/enerplanet/buem-gateway/releases)
 
-Go connector between **EnerPlanET** and [BuEM](https://github.com/UU-BUEM/buem), the ISO 52016-1 thermal building model. Fans a topology of buildings or a single building, out to BuEM. It writes each one's heating/cooling/electricity load profiles to CSV, and returns the results enriched into the caller's original shape.
+Go connector between **EnerPlanET** and [BuEM](https://github.com/UU-BUEM/buem), the ISO 52016-1 thermal building model. Fans a list of buildings, or a single building, out to BuEM. It writes each one's heating/cooling/electricity load profiles to CSV, and returns one result per building.
 
 buem-gateway also carries the JSON schema contract that defines BuEM's request/response format
 (`schemas/`, [`CHANGELOG.md`](CHANGELOG.md), [`docs/versioning.md`](docs/versioning.md)) and the
@@ -23,22 +23,24 @@ buem-gateway's own release version are numbered independently — see
 
 ```mermaid
 graph LR
-    CALLER[Caller] -->|POST /api/v1/buem/topology<br>topology JSON| PROXY[buem-reverse-proxy<br>Caddy, X-Api-Key auth]
+    CALLER[Caller] -->|POST /api/v1/buem/buildings<br>buildings list + shared weather| PROXY[buem-reverse-proxy<br>Caddy, X-Api-Key auth]
     CALLER -->|POST /api/v1/buem/building<br>single building| PROXY
     PROXY --> APP[buem-gateway<br>Go connector]
     APP -->|POST /api/process<br>one call per building| MODEL[buem-model<br>BuEM Flask]
     MODEL -->|thermal_load_profile| APP
-    APP -->|enriched result| CALLER
+    APP -->|one result per building| CALLER
     APP -->|heating/cooling/electricity CSVs| VOL[(shared volume)]
 ```
 
-A caller sends either a **topology** — a list of `{from, to}` node pairs, some of which are
-buildings carrying a `properties.buem` block — or a **single building**, with no topology wrapper.
-buem-gateway extracts the buildings, runs each one through BuEM concurrently (bounded by
-`MAX_CONCURRENT_SIMS`), writes the results to CSV, and returns the enriched output.
-`buem.building.envelope` is required — buem-gateway resolves nothing from any external service; a
-missing envelope is rejected immediately with a clear error (see
-[Envelope is required](docs/api.md#envelope-is-required)).
+A caller sends either a **list of buildings**, with one shared `weather` block for the whole
+request, or a **single building**. buem-gateway has no concept of a grid or topology — a caller
+with one resolves it down to a flat list itself. buem-gateway runs each building through BuEM
+concurrently (bounded by `MAX_CONCURRENT_SIMS`), writes the results to CSV, and returns one result
+per building, independent of the others. `buem.building.envelope` and `buem.weather` are both
+required — buem-gateway resolves nothing from any external service; either missing is rejected
+immediately with a clear error (see
+[Envelope is required](docs/api.md#envelope-is-required) and
+[Weather is required](docs/api.md#weather-is-required)).
 
 ---
 
@@ -86,8 +88,8 @@ and [`docs/api.md`](docs/api.md) (or run `mkdocs serve` locally — see below).
 | Method | Path | Description |
 | --- | --- | --- |
 | `GET` | `/buem/health` | Liveness check |
-| `POST` | `/api/v1/buem/topology` | Multi-building: topology in, enriched topology out |
-| `POST` | `/api/v1/buem/building` | Single building, no topology wrapper: building in, enriched `buem` block out |
+| `POST` | `/api/v1/buem/buildings` | Multi-building: flat buildings list + shared weather in, one result per building out |
+| `POST` | `/api/v1/buem/building` | Single building: building in, enriched `buem` block out |
 
 All routes except `/buem/health` require the `X-Api-Key` header, checked by the reverse proxy.
 

@@ -349,54 +349,37 @@ func TestBuilding_ConnectorErrorReturnsUnprocessableEntity(t *testing.T) {
 	}
 }
 
-func TestStart_BadJSON(t *testing.T) {
+func TestBuildings_BadJSON(t *testing.T) {
 	h := New(nil)
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/buem/topology", strings.NewReader(`not json`))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/buem/buildings", strings.NewReader(`not json`))
 	w := httptest.NewRecorder()
-	h.Topology(w, req)
+	h.Buildings(w, req)
 
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want %d", w.Code, http.StatusBadRequest)
 	}
 }
 
-func TestStart_NoTopologyEchoesRequestBack(t *testing.T) {
+func TestBuildings_EmptyListReturnsEmptyResults(t *testing.T) {
 	h := New(nil)
-	reqBody := `{"start_date":"2018-01-01T00:00:00Z","model_id":"demo"}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/buem/topology", strings.NewReader(reqBody))
+	reqBody := `{"start_date":"2018-01-01T00:00:00Z","model_id":"demo","buildings":[]}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/buem/buildings", strings.NewReader(reqBody))
 	w := httptest.NewRecorder()
-	h.Topology(w, req)
+	h.Buildings(w, req)
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", w.Code, http.StatusOK)
 	}
-	body := decodeBody(t, w)
-	if body["model_id"] != "demo" {
-		t.Errorf("expected request echoed back unchanged, got %v", body)
+	var results []map[string]interface{}
+	if err := json.Unmarshal(w.Body.Bytes(), &results); err != nil {
+		t.Fatalf("decode response body: %v (body=%s)", err, w.Body.String())
 	}
-	if _, present := body["topology"]; present {
-		t.Errorf("expected no topology key when none was sent, got %v", body)
-	}
-}
-
-func TestStart_MalformedTopologyReturnsInternalServerError(t *testing.T) {
-	upstream := fakeUpstream(t, http.StatusOK)
-	defer upstream.Close()
-	h := newTestHandler(t, upstream)
-
-	// "topology" is present but isn't the edge-list array ExtractTasks
-	// expects — fails before ever reaching the upstream.
-	reqBody := `{"model_id":"demo","topology":"not-an-edge-list"}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/buem/topology", strings.NewReader(reqBody))
-	w := httptest.NewRecorder()
-	h.Topology(w, req)
-
-	if w.Code != http.StatusInternalServerError {
-		t.Fatalf("status = %d, want %d (body=%s)", w.Code, http.StatusInternalServerError, w.Body.String())
+	if len(results) != 0 {
+		t.Errorf("expected an empty results array, got %v", results)
 	}
 }
 
-func TestStart_EnrichesTopologyAndReturnsIt(t *testing.T) {
+func TestBuildings_RunsEachBuildingIndependently(t *testing.T) {
 	upstream := fakeUpstream(t, http.StatusOK)
 	defer upstream.Close()
 	h := newTestHandler(t, upstream)
@@ -406,54 +389,134 @@ func TestStart_EnrichesTopologyAndReturnsIt(t *testing.T) {
 		"end_date": "2018-12-31T23:00:00Z",
 		"resolution": 60,
 		"model_id": "demo",
-		"topology": [{
-			"from": {
+		"weather": {"index":["2018-01-01T00:30:00Z"],"variables":{"T":[1.0]}},
+		"buildings": [
+			{
 				"id": "building-1",
 				"geometry": {"type":"Point","coordinates":[12.5,48.5]},
-				"properties": {
-					"feature_type": "BasePOI",
-					"buem": {"building":{"building_type":"SFH","country":"DE","envelope":{"elements":[
-						{"id":"Wall_1","type":"wall","area":10.0,"azimuth":0.0,"tilt":90.0,"U":1.5}
-					]}},"weather":{"index":["2018-01-01T00:30:00Z"],"variables":{"T":[1.0]}}}
-				}
+				"building": {"building_type":"SFH","country":"DE","envelope":{"elements":[
+					{"id":"Wall_1","type":"wall","area":10.0,"azimuth":0.0,"tilt":90.0,"U":1.5}
+				]}}
+			},
+			{
+				"id": "building-2",
+				"geometry": {"type":"Point","coordinates":[12.6,48.6]},
+				"building": {"building_type":"SFH","country":"DE"}
 			}
-		}]
+		]
 	}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/buem/topology", strings.NewReader(reqBody))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/buem/buildings", strings.NewReader(reqBody))
 	w := httptest.NewRecorder()
-	h.Topology(w, req)
+	h.Buildings(w, req)
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d (body=%s)", w.Code, http.StatusOK, w.Body.String())
 	}
-	body := decodeBody(t, w)
-	if _, present := body["topology"]; !present {
-		t.Fatalf("expected enriched topology in response, got %v", body)
+	var results []map[string]interface{}
+	if err := json.Unmarshal(w.Body.Bytes(), &results); err != nil {
+		t.Fatalf("decode response body: %v (body=%s)", err, w.Body.String())
 	}
-	// Loose "topology key present" alone would still pass even if
-	// building-1 got skipped (missing weather/envelope) -- confirm it was
-	// actually enriched, not just echoed back unchanged.
-	topology, ok := body["topology"].([]interface{})
-	if !ok || len(topology) == 0 {
-		t.Fatalf("expected a non-empty topology array, got %v", body["topology"])
+	if len(results) != 2 {
+		t.Fatalf("expected 2 results, got %v", results)
 	}
-	edge, ok := topology[0].(map[string]interface{})
+
+	if results[0]["id"] != "building-1" {
+		t.Fatalf("expected results[0].id = building-1, got %v", results[0])
+	}
+	buemBlock, ok := results[0]["buem"].(map[string]interface{})
 	if !ok {
-		t.Fatalf("expected topology[0] to be an edge object, got %v", topology[0])
-	}
-	from, ok := edge["from"].(map[string]interface{})
-	if !ok {
-		t.Fatalf("expected edge.from, got %v", edge)
-	}
-	props, ok := from["properties"].(map[string]interface{})
-	if !ok {
-		t.Fatalf("expected edge.from.properties, got %v", from)
-	}
-	buemBlock, ok := props["buem"].(map[string]interface{})
-	if !ok {
-		t.Fatalf("expected edge.from.properties.buem, got %v", props)
+		t.Fatalf("expected building-1 to be enriched with a buem block, got %v", results[0])
 	}
 	if _, present := buemBlock["thermal_load_profile"]; !present {
-		t.Fatalf("expected building-1 to be enriched with thermal_load_profile (not skipped), got %v", buemBlock)
+		t.Fatalf("expected building-1 to carry thermal_load_profile, got %v", buemBlock)
+	}
+
+	if results[1]["id"] != "building-2" {
+		t.Fatalf("expected results[1].id = building-2, got %v", results[1])
+	}
+	if _, present := results[1]["buem"]; present {
+		t.Fatalf("expected building-2 (no envelope) to have no buem block, got %v", results[1])
+	}
+	errMsg, ok := results[1]["error"].(string)
+	if !ok || !strings.Contains(errMsg, "envelope") {
+		t.Fatalf("expected building-2's error to mention envelope, got %v", results[1])
+	}
+}
+
+// TestBuildings_WeatherIsSharedAcrossBuildings confirms the top-level
+// weather field (sent once) reaches every building's run, not just one —
+// the whole point of hoisting it out of the per-building block.
+func TestBuildings_WeatherIsSharedAcrossBuildings(t *testing.T) {
+	upstream := fakeUpstream(t, http.StatusOK)
+	defer upstream.Close()
+	h := newTestHandler(t, upstream)
+
+	reqBody := `{
+		"start_date": "2018-01-01T00:00:00Z",
+		"end_date": "2018-12-31T23:00:00Z",
+		"resolution": 60,
+		"model_id": "demo",
+		"weather": {"index":["2018-01-01T00:30:00Z"],"variables":{"T":[1.0]}},
+		"buildings": [
+			{
+				"id": "building-1",
+				"geometry": {"type":"Point","coordinates":[12.5,48.5]},
+				"building": {"envelope":{"elements":[{"id":"Wall_1","type":"wall","area":10.0,"azimuth":0.0,"tilt":90.0,"U":1.5}]}}
+			},
+			{
+				"id": "building-2",
+				"geometry": {"type":"Point","coordinates":[12.6,48.6]},
+				"building": {"envelope":{"elements":[{"id":"Wall_1","type":"wall","area":10.0,"azimuth":0.0,"tilt":90.0,"U":1.5}]}}
+			}
+		]
+	}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/buem/buildings", strings.NewReader(reqBody))
+	w := httptest.NewRecorder()
+	h.Buildings(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d (body=%s)", w.Code, http.StatusOK, w.Body.String())
+	}
+	var results []map[string]interface{}
+	if err := json.Unmarshal(w.Body.Bytes(), &results); err != nil {
+		t.Fatalf("decode response body: %v (body=%s)", err, w.Body.String())
+	}
+	for _, result := range results {
+		if _, present := result["error"]; present {
+			t.Fatalf("expected every building to resolve using the shared weather, got %v", result)
+		}
+	}
+}
+
+// TestBuildings_MissingTopLevelWeatherFailsEveryBuilding confirms every
+// building needs the shared weather field — omitting it isn't "no weather
+// for one building", it's "no weather for the whole batch".
+func TestBuildings_MissingTopLevelWeatherFailsEveryBuilding(t *testing.T) {
+	h := New(nil)
+	reqBody := `{
+		"start_date": "2018-01-01T00:00:00Z",
+		"model_id": "demo",
+		"buildings": [
+			{
+				"id": "building-1",
+				"geometry": {"type":"Point","coordinates":[12.5,48.5]},
+				"building": {"envelope":{"elements":[{"id":"Wall_1","type":"wall","area":10.0,"azimuth":0.0,"tilt":90.0,"U":1.5}]}}
+			}
+		]
+	}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/buem/buildings", strings.NewReader(reqBody))
+	w := httptest.NewRecorder()
+	h.Buildings(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d (a batch-level problem is still a 200 with per-building errors, body=%s)", w.Code, http.StatusOK, w.Body.String())
+	}
+	var results []map[string]interface{}
+	if err := json.Unmarshal(w.Body.Bytes(), &results); err != nil {
+		t.Fatalf("decode response body: %v (body=%s)", err, w.Body.String())
+	}
+	errMsg, ok := results[0]["error"].(string)
+	if !ok || !strings.Contains(errMsg, "weather") {
+		t.Fatalf("expected building-1's error to mention weather, got %v", results[0])
 	}
 }
