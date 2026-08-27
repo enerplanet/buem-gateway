@@ -47,8 +47,6 @@ buem-gateway has no concept of a grid or topology. A caller holding one resolves
 
 ## Endpoints
 
-## Endpoints
-
 | Method | Path | Request | Response |
 | --- | --- | --- | --- |
 | `GET` | `/buem/health` | None | Service status |
