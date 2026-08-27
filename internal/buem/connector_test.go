@@ -57,7 +57,7 @@ func fakeUpstream(t *testing.T) *httptest.Server {
 	}))
 }
 
-func TestConnectorRun_EnrichesTopologyAndWritesCSV(t *testing.T) {
+func TestConnectorRunBatch_EnrichesBuildingsAndWritesCSV(t *testing.T) {
 	upstream := fakeUpstream(t)
 	defer upstream.Close()
 
@@ -79,14 +79,57 @@ func TestConnectorRun_EnrichesTopologyAndWritesCSV(t *testing.T) {
 	}
 	conn := NewConnector(cfg)
 
-	topology := buildTestTopology(t, "building-1")
-	enriched, err := conn.Run(topology, "2018-01-01T00:00:00Z", "2018-12-31T23:00:00Z", "demo-model", 60)
+	inputs := []BuildingInput{testBuildingInput("building-1")}
+	results := conn.RunBatch(inputs, "2018-01-01T00:00:00Z", "2018-12-31T23:00:00Z", "demo-model", 60)
+
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(results))
+	}
+	assertBuemBlockPresent(t, results[0])
+	assertHeatingCSVWritten(t, dataDir)
+}
+
+// TestConnectorRunBatch_PartialFailureDoesNotAffectOtherBuildings confirms
+// RunBatch's core property: one building with no envelope gets its own
+// error entry, and every other building in the same request still runs and
+// resolves normally — no request-wide failure from one bad building.
+func TestConnectorRunBatch_PartialFailureDoesNotAffectOtherBuildings(t *testing.T) {
+	upstream := fakeUpstream(t)
+	defer upstream.Close()
+
+	host, portStr, ok := strings.Cut(strings.TrimPrefix(upstream.URL, "http://"), ":")
+	if !ok {
+		t.Fatalf("unexpected upstream URL %q", upstream.URL)
+	}
+	port, err := strconv.Atoi(portStr)
 	if err != nil {
-		t.Fatalf("Run() error: %v", err)
+		t.Fatalf("parse upstream port: %v", err)
 	}
 
-	assertBuemBlockMerged(t, enriched)
-	assertHeatingCSVWritten(t, dataDir)
+	dataDir := t.TempDir()
+	cfg := &config.Config{
+		MaxConcurrentSims: 4,
+		BuEM:              config.UpstreamService{Host: host, Port: port},
+		BuemDataDir:       dataDir,
+		BuemResultsDir:    dataDir,
+	}
+	conn := NewConnector(cfg)
+
+	broken := testBuildingInput("building-broken")
+	broken.BUEM = json.RawMessage(`{"building":{"building_type":"SFH","country":"DE"}}`) // no envelope
+
+	inputs := []BuildingInput{testBuildingInput("building-good"), broken}
+	results := conn.RunBatch(inputs, "2018-01-01T00:00:00Z", "2018-12-31T23:00:00Z", "demo-model", 60)
+
+	if len(results) != 2 {
+		t.Fatalf("expected 2 results, got %d", len(results))
+	}
+	if results[0].ID != "building-good" || results[0].Error != "" || results[0].BUEM == nil {
+		t.Errorf("expected building-good to resolve cleanly, got %+v", results[0])
+	}
+	if results[1].ID != "building-broken" || results[1].Error == "" || results[1].BUEM != nil {
+		t.Errorf("expected building-broken to carry its own error, got %+v", results[1])
+	}
 }
 
 func TestConnectorRunSingle_EnrichesOneBuildingNoTopology(t *testing.T) {
@@ -251,61 +294,39 @@ func testWeatherBlock() map[string]interface{} {
 	}
 }
 
-func buildTestTopology(t *testing.T, nodeID string) json.RawMessage {
-	t.Helper()
-	edge := map[string]interface{}{
-		"from": map[string]interface{}{
-			"id":       nodeID,
-			"geometry": map[string]interface{}{"type": "Point", "coordinates": []float64{12.5, 48.5}},
-			"properties": map[string]interface{}{
-				"feature_type": "BasePOI",
-				"buem": map[string]interface{}{
-					"building": map[string]interface{}{
-						"building_type": "SFH", "country": "DE",
-						"envelope": map[string]interface{}{"elements": []interface{}{
-							map[string]interface{}{"id": "Wall_1", "type": "wall", "area": 10.0, "azimuth": 0.0, "tilt": 90.0, "U": 1.5},
-						}},
-					},
-					"weather": testWeatherBlock(),
-				},
-			},
+// testBuildingInput returns a complete BuildingInput (valid envelope and
+// weather) for id, ready to run.
+func testBuildingInput(id string) BuildingInput {
+	buemBlock, _ := json.Marshal(map[string]interface{}{
+		"building": map[string]interface{}{
+			"building_type": "SFH", "country": "DE",
+			"envelope": map[string]interface{}{"elements": []interface{}{
+				map[string]interface{}{"id": "Wall_1", "type": "wall", "area": 10.0, "azimuth": 0.0, "tilt": 90.0, "U": 1.5},
+			}},
 		},
-		"to": map[string]interface{}{
-			"id":         "trafo-1",
-			"geometry":   map[string]interface{}{"type": "Point", "coordinates": []float64{12.6, 48.6}},
-			"properties": map[string]interface{}{"feature_type": "Transformer"},
-		},
-	}
-	raw, err := json.Marshal([]interface{}{edge})
-	if err != nil {
-		t.Fatalf("build test topology: %v", err)
-	}
-	return raw
+		"weather": testWeatherBlock(),
+	})
+	geometry, _ := json.Marshal(map[string]interface{}{"type": "Point", "coordinates": []float64{12.5, 48.5}})
+	return BuildingInput{ID: id, Geometry: geometry, BUEM: buemBlock}
 }
 
-func assertBuemBlockMerged(t *testing.T, enriched json.RawMessage) {
+func assertBuemBlockPresent(t *testing.T, result BuildingResult) {
 	t.Helper()
-	var edges []struct {
-		From struct {
-			Properties struct {
-				BUEM map[string]interface{} `json:"buem"`
-			} `json:"properties"`
-		} `json:"from"`
+	if result.Error != "" {
+		t.Fatalf("expected no error, got %q", result.Error)
 	}
-	if err := json.Unmarshal(enriched, &edges); err != nil {
-		t.Fatalf("unmarshal enriched topology: %v", err)
+	var block map[string]interface{}
+	if err := json.Unmarshal(result.BUEM, &block); err != nil {
+		t.Fatalf("unmarshal result buem block: %v", err)
 	}
-	if len(edges) != 1 {
-		t.Fatalf("expected 1 edge, got %d", len(edges))
-	}
-	tlp, ok := edges[0].From.Properties.BUEM["thermal_load_profile"].(map[string]interface{})
+	tlp, ok := block["thermal_load_profile"].(map[string]interface{})
 	if !ok {
-		t.Fatalf("expected thermal_load_profile in merged buem block, got %v", edges[0].From.Properties.BUEM)
+		t.Fatalf("expected thermal_load_profile in result buem block, got %v", block)
 	}
-	// Run's topology callers read results from the shared volume CSVs — the
-	// inline timeseries should be stripped, unlike RunSingle's response.
+	// RunBatch callers read results from the shared volume CSVs — the inline
+	// timeseries should be stripped, unlike RunSingle's response.
 	if _, present := tlp["timeseries"]; present {
-		t.Fatalf("expected timeseries to be stripped from Run's response, got %v", tlp["timeseries"])
+		t.Fatalf("expected timeseries to be stripped from RunBatch's response, got %v", tlp["timeseries"])
 	}
 }
 

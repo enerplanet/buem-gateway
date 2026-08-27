@@ -12,12 +12,36 @@ buem-gateway has no authentication of its own. The `buem-reverse-proxy` in front
 !!! note "Base URL"
     Local development: `https://localhost:8443` (see `HOST_HTTPS_PORT` in [Getting started](getting-started.md)). Otherwise, whatever host the reverse proxy is published on.
 
-## Two ways to call it
+## Endpoints
 
-| Endpoint | Payload | Use when |
-|---|---|---|
-| `POST /api/v1/buem/building` | One building, no wrapper | A single building with no grid to describe, for example the Building Configurator. A failed run returns a clear HTTP error. |
-| `POST /api/v1/buem/topology` | A topology (`{from, to}` edge list) | Several buildings, possibly alongside non-building grid nodes. A failed building is left unchanged in the response rather than failing the whole request. |
+BuEM gateway exposes the following endpoints for running building models. It has no concept of a grid or topology — a caller that has one (EnerPlanET's grid model, for example) resolves it down to a flat list of buildings itself before calling either endpoint.
+
+| Method | Path | Request | Response |
+| --- | --- | --- | --- |
+| `GET` | `/buem/health` | None | Service status |
+| `POST` | `/api/v1/buem/building` | One building with geometry, envelope, and weather | `buem` block with load profile and model metadata |
+| `POST` | `/api/v1/buem/buildings` | Building list, each with geometry and envelope, plus one shared weather block | One result per building, in request order |
+| `POST` | `/api/v1/buem/validate` | Same body as `/building` | Whether the request is well-formed. BuEM is not called |
+
+### Buildings share weather, not envelope
+
+`POST /api/v1/buem/buildings` takes one `weather` block for the whole request, re-attached to every building server-side, instead of one copy per building. Most callers resolve weather once per model run (one point for the model's whole area) — repeating an hourly-for-a-year timeseries once per building would be pure duplication. `envelope` has no such sharing: it's genuinely different per building, so it stays under each entry's own `building` field.
+
+```json
+{
+  "start_date": "2018-01-01T00:00:00Z",
+  "end_date": "2018-12-31T23:00:00Z",
+  "resolution": 60,
+  "model_id": "demo-model",
+  "weather": {"index": ["2018-01-01T00:30:00Z"], "variables": {"T": [1.0]}},
+  "buildings": [
+    {"id": "111", "geometry": {"type": "Point", "coordinates": [12.5, 48.5]}, "building": {"envelope": {"elements": ["..."]}}},
+    {"id": "222", "geometry": {"type": "Point", "coordinates": [12.6, 48.6]}, "building": {"envelope": {"elements": ["..."]}}}
+  ]
+}
+```
+
+The response is a list in the same order as `buildings`, each entry either `{"id": ..., "buem": {...}}` or `{"id": ..., "error": "..."}`. A `weather` block missing or incomplete at the top level fails every building in the request, each with its own `error` entry — it isn't a per-building concern the way `envelope` is.
 
 ### Pre-flight validation
 
@@ -30,7 +54,7 @@ buem-gateway has no authentication of its own. The `buem-reverse-proxy` in front
 | `envelope` | Behaviour |
 |---|---|
 | Present | Forwarded to BuEM unchanged |
-| Missing or empty | Rejected before BuEM is called. `POST /api/v1/buem/building` returns `400` with the reason in the body. `POST /api/v1/buem/topology` skips that building, leaves it unchanged in the response, and logs the reason server-side. |
+| Missing or empty | Rejected before BuEM is called. `POST /api/v1/buem/building` returns `400` with the reason in the body. `POST /api/v1/buem/buildings` gives that building its own `error` entry; every other building in the request is unaffected. |
 
 To resolve TABULA defaults from classification data, call [ignis](https://github.com/THD-Spatial-AI/ignis) yourself and build a complete `envelope` first: `GET /api/v1/variants/{country}/match?type=...&period=...` then `GET /api/v1/data/{code}`.
 
@@ -44,7 +68,7 @@ To resolve TABULA defaults from classification data, call [ignis](https://github
 | `weather` | Behaviour |
 |---|---|
 | Present, with a usable variable | Forwarded to BuEM unchanged |
-| Missing, or `variables` has none of T/GHI/DNI/DHI (e.g. only wind) | Rejected before BuEM is called. `POST /api/v1/buem/building` returns `400` with the reason in the body. `POST /api/v1/buem/topology` skips that building, leaves it unchanged in the response, and logs the reason server-side. |
+| Missing, or `variables` has none of T/GHI/DNI/DHI (e.g. only wind) | Rejected before BuEM is called. `POST /api/v1/buem/building` returns `400` with the reason in the body. `POST /api/v1/buem/buildings` gives every building in the request its own `error` entry — the top-level `weather` field is shared, so a missing one affects the whole batch, not one building. |
 
 ### CSV output
 

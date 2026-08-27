@@ -1,8 +1,8 @@
-// Package buem implements the connector between EnerPlanET's topology-JSON
-// request format and the upstream BuEM Flask thermal model API: it extracts
-// buildings from a topology, fans requests out to BuEM concurrently, writes
-// the resulting load profiles to CSV, and merges the results back into the
-// topology.
+// Package buem implements the connector to the upstream BuEM Flask thermal
+// model API: it fans a building or a list of buildings out to BuEM
+// concurrently and writes the resulting load profiles to CSV. Callers own
+// their own topology/grid concept, if they have one — buem-gateway only
+// ever sees individual buildings, keyed by whatever id the caller gave them.
 package buem
 
 import (
@@ -40,91 +40,74 @@ func maxConcurrent(cfg *config.Config) int {
 	return cfg.MaxConcurrentSims
 }
 
-// Run extracts buildings from rawTopology, runs them through BuEM
-// concurrently, and returns the topology with each building's buem block
-// enriched with thermal_load_profile. Buildings with no buem block pass
-// through unchanged; a building that fails is left as it was, and its error
-// is logged.
-func (c *Connector) Run(rawTopology json.RawMessage, startDate, endDate, modelID string, resolution int) (json.RawMessage, error) {
-	tasks, err := ExtractTasks(rawTopology, startDate, endDate, resolution, modelID)
-	if err != nil {
-		return nil, fmt.Errorf("parse topology: %w", err)
-	}
-	if len(tasks) == 0 {
-		return rawTopology, nil
-	}
-
-	log.Printf("buem-gateway | model=%s found %d buildings with buem block", modelID, len(tasks))
-	requestStart := time.Now()
-
-	results := c.runTasks(tasks)
-	logBatchSummary(results, time.Since(requestStart))
-
-	return mergeIntoTopology(rawTopology, results)
+// BuildingResult is one building's outcome from RunBatch — either BUEM (its
+// enriched buem block) or Error (why it has no result), never both. Results
+// are independent: one building's error never affects another's result.
+type BuildingResult struct {
+	ID    string
+	BUEM  json.RawMessage
+	Error string
 }
 
-// RunSingle runs BuEM for exactly one building — no topology/edge-list
-// wrapper. For callers with a single building and no grid to describe (e.g.
-// Building Configurator), forcing them to fabricate a topology just to
-// satisfy Run's contract would leak an internal concept they have no use
-// for. Internally this reuses the identical task-extraction and
-// BuEM-calling path Run uses, just skipping the topology-merge step and
-// returning a clear error instead of silently leaving the input unchanged
-// on failure. Unlike Run's per-node log-and-skip (appropriate for a batch,
-// where one bad building shouldn't sink the rest), a missing envelope or
-// weather block here is checked explicitly up front (see ValidateSingle)
-// so the caller gets the specific reason in the HTTP response, not just
-// "not a valid building request".
+// RunBatch runs BuEM for each of inputs concurrently, capped at
+// cfg.MaxConcurrentSims, and returns one BuildingResult per input in the
+// same order. A building with no complete buem block never reaches BuEM at
+// all (see TaskFromBuilding); one that reaches BuEM and fails is reported
+// the same way — both land in that building's own Error, not a request-wide
+// failure.
+func (c *Connector) RunBatch(inputs []BuildingInput, startDate, endDate, modelID string, resolution int) []BuildingResult {
+	tasks := make([]Task, 0, len(inputs))
+	preflightErr := make(map[string]string, len(inputs))
+	for _, in := range inputs {
+		task, err := TaskFromBuilding(in, startDate, endDate, resolution, modelID)
+		if err != nil {
+			preflightErr[in.ID] = err.Error()
+			continue
+		}
+		tasks = append(tasks, task)
+	}
+
+	log.Printf("buem-gateway | model=%s running %d/%d buildings with a complete buem block", modelID, len(tasks), len(inputs))
+	requestStart := time.Now()
+
+	outcomes := c.runTasks(tasks)
+	logBatchSummary(outcomes, time.Since(requestStart))
+
+	results := make([]BuildingResult, len(inputs))
+	for i, in := range inputs {
+		if msg, failed := preflightErr[in.ID]; failed {
+			results[i] = BuildingResult{ID: in.ID, Error: msg}
+			continue
+		}
+		o := outcomes[in.ID]
+		if o.errMsg != "" {
+			results[i] = BuildingResult{ID: in.ID, Error: o.errMsg}
+			continue
+		}
+		results[i] = BuildingResult{ID: in.ID, BUEM: o.buemBlock}
+	}
+	return results
+}
+
+// RunSingle runs BuEM for exactly one building. A missing envelope or
+// weather block is reported as the specific ErrMissingEnvelope/
+// ErrMissingWeather (see TaskFromBuilding) so the caller gets the precise
+// reason, not just a generic failure.
 func (c *Connector) RunSingle(id string, geometry, buemRaw json.RawMessage, startDate, endDate, modelID string, resolution int) (json.RawMessage, error) {
-	if err := ValidateSingle(buemRaw); err != nil {
+	task, err := TaskFromBuilding(BuildingInput{ID: id, Geometry: geometry, BUEM: buemRaw}, startDate, endDate, resolution, modelID)
+	if err != nil {
 		return nil, err
 	}
 
-	topology, err := singleBuildingTopology(id, geometry, buemRaw)
-	if err != nil {
-		return nil, fmt.Errorf("build request: %w", err)
-	}
-
-	tasks, err := ExtractTasks(topology, startDate, endDate, resolution, modelID)
-	if err != nil {
-		return nil, fmt.Errorf("parse request: %w", err)
-	}
-	if len(tasks) == 0 {
-		return nil, fmt.Errorf("not a valid building request — check id, geometry.coordinates, and buem")
-	}
-
-	// keepTimeseries=true: unlike Run's topology callers (which read results
+	// keepTimeseries=true: unlike RunBatch's callers (which read results
 	// from the shared volume), a RunSingle caller (e.g. a browser client) has
 	// no access to that volume — it needs the values inline to do anything
 	// with them.
-	result := c.runOne(tasks[0], true)
+	result := c.runOne(task, true)
 	if result.errMsg != "" {
 		return nil, fmt.Errorf("%s", result.errMsg)
 	}
 	return result.buemBlock, nil
-}
-
-// singleBuildingTopology wraps one building into the same {from, to} edge
-// shape ExtractTasks expects, with no "to" side — ExtractTasks already
-// skips a missing/unparseable side gracefully, since Run's real topologies
-// often have non-building nodes on one side (transformers, etc.) too.
-func singleBuildingTopology(id string, geometry, buemRaw json.RawMessage) (json.RawMessage, error) {
-	node, err := json.Marshal(map[string]interface{}{
-		"id":       id,
-		"geometry": geometry,
-		"properties": map[string]interface{}{
-			"feature_type": "BasePOI",
-			"buem":         buemRaw,
-		},
-	})
-	if err != nil {
-		return nil, err
-	}
-	edge, err := json.Marshal(map[string]interface{}{"from": json.RawMessage(node)})
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal([]json.RawMessage{edge})
 }
 
 // runTasks runs every task concurrently, bounded by c.sem, and collects each
@@ -150,6 +133,14 @@ func (c *Connector) runTasks(tasks []Task) map[string]outcome {
 		results[o.nodeID] = o
 	}
 	return results
+}
+
+// outcome is the result of running one Task, keyed by NodeID.
+type outcome struct {
+	nodeID    string
+	buemBlock json.RawMessage
+	errMsg    string
+	metrics   RunMetrics
 }
 
 // runOne runs a single task against BuEM. keepTimeseries controls whether

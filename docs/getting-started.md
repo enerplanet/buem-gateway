@@ -60,7 +60,7 @@ Weather is supplied per request in the payload's `buem.weather` block (`index` t
 !!! info "No more mounted MERRA-2 archive or synthetic fallback"
     Earlier versions mounted a MERRA-2 archive into `buem-model` (`BUEM_WEATHER_DIR_HOST`) and fell back to synthetic data when a file was missing. buem-gateway now rejects any request missing `buem.weather` with a `400` before it reaches BuEM (see `internal/buem/weather_validate.go`), so no server-side weather resolution happens here at all: the caller must supply a pre-resolved timeseries (see `enerplanet/buem#10`).
 
-`testdata/test_buem_topology_request.json` is a two-building fixture (Germany, one SFH, one MFH, full envelope and thermal data) usable as an envelope-structure template, but it does not include a `weather` block, so posting it as-is now gets a `400`, not a result.
+`testdata/test_buem_buildings_request.json` is a two-building fixture for `POST /api/v1/buem/buildings` (Germany, one SFH, one MFH, full envelope and thermal data) usable as an envelope-structure template, but it does not include a `weather` block, so posting it as-is now gets every building its own `400`-equivalent `error` entry, not a result.
 
 ## Deployment
 
