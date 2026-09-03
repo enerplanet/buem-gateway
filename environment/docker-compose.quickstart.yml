@@ -1,7 +1,7 @@
-# Try-it-out compose file: pulls the pre-built, CI-published buem-gateway and
-# buem-model images from GHCR, so nothing is compiled/built locally and no Go
-# toolchain, conda, source checkout, `caddy` install or `caddy trust` is
-# needed on the host. Needs only Docker, plus this file, the env/ directory
+# Try-it-out compose file: pulls the pre-built buem-gateway (this repo) and
+# buem-model (enerplanet/buem) images from GHCR, so nothing is compiled/built
+# locally and no Go toolchain, conda, source checkout, `caddy` install or
+# `caddy trust` is needed on the host. Needs only Docker, plus this file, the env/ directory
 # and caddy/ in the working directory. No `.env` is required: every ${...}
 # in this file has a default (APP_PORT 8080, HOST_HTTPS_PORT 8443,
 # BUEM_IMAGE_TAG latest).
@@ -40,14 +40,15 @@ name: building-simulation
 services:
   buem-model:
     container_name: buem-model
-    # Pre-built by .github/workflows/docker-publish.yml on each vX.Y.Z tag.
+    # Built and published by enerplanet/buem itself, not this repo.
     # Set BUEM_IMAGE_TAG to pin a version; defaults to `latest`.
     image: ghcr.io/enerplanet/buem-model:${BUEM_IMAGE_TAG:-latest}
     environment:
-      - PYTHONPATH=/buem/src
       - BUEM_CBC_EXE=/opt/conda/envs/buem_env/bin/cbc
       - BUEM_WEATHER_FALLBACK=false
-      - GUNICORN_WORKERS=${BUEM_WORKERS:-2}
+      # Match buem-gateway's BUEM_RESULTS_DIR so the intermediate .json.gz
+      # lands on the shared volume rather than in BuEM's package dir.
+      - BUEM_RESULTS_DIR=/app/results
     volumes:
       - buem-results-data:/app/results
     healthcheck:

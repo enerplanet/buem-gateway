@@ -10,7 +10,7 @@
 
 ## Try it out (no Caddy setup)
 
-`docker-compose.quickstart.yml` pulls the pre-built, CI-published `buem-gateway` and `buem-model` images from GHCR instead of building from source: no Go toolchain, no conda, and no local Caddy install or `caddy trust` needed.
+`docker-compose.quickstart.yml` pulls the pre-built `buem-gateway` (this repo) and `buem-model` (published by `enerplanet/buem`) images from GHCR instead of building from source: no Go toolchain, no conda, and no local Caddy install or `caddy trust` needed.
 
 ```bash
 cd environment
@@ -25,7 +25,7 @@ No `.env` is required. Every `${...}` in that file has a default (`APP_PORT` 808
 
 ## Local dev (building from source)
 
-For testing local code changes to `buem-gateway` or `buem-model` itself:
+For testing local code changes to `buem-gateway`:
 
 ```bash
 cd environment
@@ -33,7 +33,7 @@ cp .env.example .env   # then edit CADDY_DATA_DIR for your machine
 docker compose up -d --build
 ```
 
-This starts three containers: `buem-model` (the actual BuEM Flask model, built by `git clone`-ing `enerplanet/buem` at image build time), `buem-gateway` (this repo's Go connector), and `buem-reverse-proxy` (Caddy, the only one reachable from the host).
+This starts three containers: `buem-gateway` (this repo's Go connector, built from source), `buem-model` (the BuEM Flask model, pulled from `ghcr.io/enerplanet/buem-model` which `enerplanet/buem` builds and publishes), and `buem-reverse-proxy` (Caddy, the only one reachable from the host). Set `BUEM_IMAGE_TAG` to pin a `buem-model` version.
 
 | Variable | File | Purpose |
 |---|---|---|
