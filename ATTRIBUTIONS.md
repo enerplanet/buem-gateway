@@ -11,9 +11,10 @@ This project incorporates data and methodology from the following third-party so
 **License:** MIT
 **Link:** [UU-BUEM/buem](https://github.com/UU-BUEM/buem)
 
-buem-gateway builds a fork ([enerplanet/buem](https://github.com/enerplanet/buem)) that only fixes
-container packaging and the API surface — the model itself is unchanged. Built fresh from source at
-image-build time (`environment/buem.dockerfile`), not vendored into this repository.
+buem-gateway calls a fork ([enerplanet/buem](https://github.com/enerplanet/buem)) that only fixes
+container packaging and the API surface — the model itself is unchanged. Its container image
+(`ghcr.io/enerplanet/buem-model`) is built and published by that repository, not vendored or built
+here.
 
 ---
 

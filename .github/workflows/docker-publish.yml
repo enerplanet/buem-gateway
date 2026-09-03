@@ -18,9 +18,6 @@ jobs:
           - name: buem-gateway
             image: ghcr.io/enerplanet/buem-gateway
             dockerfile: environment/gateway.dockerfile
-          - name: buem-model
-            image: ghcr.io/enerplanet/buem-model
-            dockerfile: environment/buem.dockerfile
 
     steps:
       - uses: actions/checkout@v4
