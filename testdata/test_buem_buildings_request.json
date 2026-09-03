@@ -6,7 +6,7 @@
   "buildings": [
     {
       "id": "building-1",
-      "geometry": {"coordinates": [12.957720, 48.833911]},
+      "geometry": {"type": "Point", "coordinates": [12.957720, 48.833911]},
       "building": {
         "name": "Building 1",
         "building_type": "SFH",
@@ -43,7 +43,7 @@
     },
     {
       "id": "building-2",
-      "geometry": {"coordinates": [12.958071, 48.833847]},
+      "geometry": {"type": "Point", "coordinates": [12.958071, 48.833847]},
       "building": {
         "name": "Building 2",
         "building_type": "MFH",
