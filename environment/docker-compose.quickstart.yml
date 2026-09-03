@@ -46,6 +46,9 @@ services:
     environment:
       - BUEM_CBC_EXE=/opt/conda/envs/buem_env/bin/cbc
       - BUEM_WEATHER_FALLBACK=false
+      # Match buem-gateway's BUEM_RESULTS_DIR so the intermediate .json.gz
+      # lands on the shared volume rather than in BuEM's package dir.
+      - BUEM_RESULTS_DIR=/app/results
     volumes:
       - buem-results-data:/app/results
     healthcheck:

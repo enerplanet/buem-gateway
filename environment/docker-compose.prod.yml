@@ -14,6 +14,9 @@ services:
       # timeseries, and BUEM_WEATHER_FALLBACK=false skips buem-model's
       # module-load default fetch too. See docs/getting-started.md.
       - BUEM_WEATHER_FALLBACK=false
+      # Write intermediate .json.gz onto the shared volume buem-gateway
+      # reads and cleans up; must match buem-gateway's BUEM_RESULTS_DIR.
+      - BUEM_RESULTS_DIR=/app/results
     volumes:
       - buem-results-data:/app/results
     healthcheck:
