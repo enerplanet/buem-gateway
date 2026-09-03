@@ -1,11 +1,27 @@
 # BUEM–EnerPlanET API Schema Changelog
 
+The current contract is **API contract v5**, defined by `schemas/v5/`. See
+[`docs/versioning.md`](docs/versioning.md) for the directory layout and how a
+version is promoted.
+
 ------------------------------------------------------------------------
 
 ## v5.0.0 (2026-08) — Current
 
 **Status:** Current version
 **Compatible with v4.2.0:** No — `building.envelope` is now required.
+
+### 0. Contract frozen, schema aligned with the runtime
+
+Everything below was previously spread across mutable top-level `schemas/*.json`
+files and buem-gateway software patch releases (`weather` required, §3, shipped
+in v5.0.1/v5.0.2 with no entry here). It is now consolidated: `schemas/v5/` is
+the frozen definition of API contract v5, the schema models `weather` (§3) so it
+matches what `requireWeather` enforces, and `scripts/validate_schemas.py` plus a
+Go test keep the hand-written checks and the schema from drifting. The mutable
+top-level `schemas/*.json` files are removed; the next version is developed in
+`schemas/v6-draft/`. buem-gateway stays dependency-free — validation is
+hand-written, the same as MEME.
 
 ### 1. `envelope` is required again (breaking)
 
@@ -35,6 +51,21 @@ which doesn't correspond to anything TABULA actually uses, and class boundaries 
 (each national TABULA dataset drew its own). `construction_period` is classification metadata only
 now (§1 above) — it has no effect on the simulation, which reads geometry and U-values from
 `envelope` directly.
+
+### 3. `weather` is required, as a pre-resolved inline timeseries (breaking)
+
+`buem.weather` is required. It must be a resolved hourly timeseries in the shape weather serve's
+`GET /v1/weather/point?format=json` returns: `{ "index": [ISO 8601 timestamps], "variables": { "T":
+[...], "GHI": [...], "DHI": [...], "DNI": [...] } }`, with at least one of T/GHI/DHI/DNI present.
+Optional `provider` and `year` fields record which archive it came from.
+
+buem-gateway calls no weather service. A `{ "provider": ... }` selector on its own is **not**
+accepted in place of the data — the caller (normally the Orchestrator) resolves weather and embeds
+it. buem-model still reads `provider`/`year` for its own standalone use, but that self-fetch path
+is out of contract for the EnerPlanET route.
+
+This behaviour shipped in buem-gateway v5.0.1/v5.0.2 (`requireWeather`) without a changelog entry;
+recorded here and now expressed in the schema.
 
 ------------------------------------------------------------------------
 

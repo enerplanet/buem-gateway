@@ -65,8 +65,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release upload "${{ github.ref_name }}" \
-            schemas/request_schema.json \
-            schemas/response_schema.json \
-            schemas/example_request.json \
-            schemas/example_response.json \
+            schemas/v5/request_schema.json \
+            schemas/v5/response_schema.json \
+            schemas/v5/example_request.json \
+            schemas/v5/example_response.json \
             --clobber

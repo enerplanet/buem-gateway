@@ -110,6 +110,9 @@ func TestHealth(t *testing.T) {
 	if body["status"] != "ok" {
 		t.Errorf("unexpected body: %v", body)
 	}
+	if body["contract_version"] != buem.APIVersion {
+		t.Errorf("contract_version = %v, want %q", body["contract_version"], buem.APIVersion)
+	}
 }
 
 func TestBuilding_MissingBuemBlock(t *testing.T) {

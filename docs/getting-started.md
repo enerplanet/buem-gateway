@@ -55,10 +55,10 @@ This starts three containers: `buem-model` (the actual BuEM Flask model, built b
 
 ## Weather data
 
-Weather is supplied per request in the payload's `buem.weather` block (`index` timestamps plus `T`/`GHI`/`DHI`/`DNI` variables), not read from a mounted archive. See [API reference: Weather is required](api.md#weather-is-required) for the exact shape and validation rules.
+Weather is supplied per request in the payload's `buem.weather` block (`index` timestamps plus `T`/`GHI`/`DHI`/`DNI` variables), not read from a mounted archive. See [API reference: Weather is required](api.md#weather-is-required) for the exact shape and validation rules. buem-gateway rejects any request missing `buem.weather` with a `400` before it reaches BuEM (see `internal/buem/weather_validate.go`).
 
-!!! info "No more mounted MERRA-2 archive or synthetic fallback"
-    Earlier versions mounted a MERRA-2 archive into `buem-model` (`BUEM_WEATHER_DIR_HOST`) and fell back to synthetic data when a file was missing. buem-gateway now rejects any request missing `buem.weather` with a `400` before it reaches BuEM (see `internal/buem/weather_validate.go`), so no server-side weather resolution happens here at all: the caller must supply a pre-resolved timeseries (see `enerplanet/buem#10`).
+!!! info "No mounted archive, no weather service"
+    `docker-compose.yml` sets `BUEM_WEATHER_FALLBACK=false` on `buem-model`. That makes a request missing `buem.weather` fail loudly rather than have BuEM resolve its own, and it also skips the default-location timeseries `buem-model` would otherwise fetch when its config module loads. The container boots with no weather data of any kind.
 
 `testdata/test_buem_buildings_request.json` is a two-building fixture for `POST /api/v1/buem/buildings` (Germany, one SFH, one MFH, full envelope and thermal data) usable as an envelope-structure template, but it does not include a `weather` block, so posting it as-is now gets every building its own `400`-equivalent `error` entry, not a result.
 

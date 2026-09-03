@@ -11,12 +11,13 @@ services:
       dockerfile: buem.dockerfile
     environment:
       - PYTHONPATH=/buem/src
-      - BUEM_WEATHER_DIR=/buem/data/weather
       - BUEM_CBC_EXE=/opt/conda/envs/buem_env/bin/cbc
+      # No weather archive or service: every request carries its own resolved
+      # timeseries, and BUEM_WEATHER_FALLBACK=false skips buem-model's
+      # module-load default fetch too. See docs/getting-started.md.
       - BUEM_WEATHER_FALLBACK=false
       - GUNICORN_WORKERS=${BUEM_WORKERS:-2}
     volumes:
-      - ${BUEM_WEATHER_DIR_HOST:-./data/buem-weather}:/buem/data/weather:ro
       - buem-results-data:/app/results
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:5000/api/health || exit 1"]

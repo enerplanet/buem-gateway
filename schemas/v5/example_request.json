@@ -19,7 +19,7 @@
         "resolution_unit": "minutes",
         "buem": {
           "building": {
-            "name": "Building 001 · Single-family House",
+            "name": "Building 001 \u00b7 Single-family House",
             "building_type": "SFH",
             "construction_period": "04",
             "country": "NL",
@@ -314,6 +314,37 @@
             "electricity_load_profile": {
               "path": "/data/profiles/electricity_52.4353446_5.3453464_2018.csv",
               "unit": "kWh"
+            }
+          },
+          "weather": {
+            "provider": "era5-land",
+            "year": 2018,
+            "index": [
+              "2018-01-01T00:00:00Z",
+              "2018-01-01T01:00:00Z",
+              "2018-01-01T02:00:00Z"
+            ],
+            "variables": {
+              "T": [
+                3.1,
+                2.8,
+                2.6
+              ],
+              "GHI": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "DHI": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "DNI": [
+                0.0,
+                0.0,
+                0.0
+              ]
             }
           }
         }

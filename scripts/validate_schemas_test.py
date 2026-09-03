@@ -14,7 +14,12 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from validate_schemas import validate_all, validate_schema_examples, validate_version_sync
+from validate_schemas import (
+    CURRENT_VERSION_DIR,
+    validate_all,
+    validate_schema_examples,
+    validate_version_sync,
+)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -22,13 +27,13 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 def _copy_real_repo_fixtures(dest: Path) -> None:
     """Copy the real schemas/ current-version files and version-source
     files into dest, so each test starts from a known-good state and
-    corrupts only what it needs to. Version snapshot folders are not
-    needed by the script and are skipped to keep the copy cheap.
+    corrupts only what it needs to. Only the current frozen version dir is
+    needed by the script; archived and draft dirs are skipped.
     """
     shutil.copytree(
         REPO_ROOT / "schemas",
         dest / "schemas",
-        ignore=shutil.ignore_patterns("v1", "v2", "v3", "v4"),
+        ignore=shutil.ignore_patterns("v1", "v2", "v3", "v4", "v6-draft"),
     )
     (dest / "docs" / "openapi").mkdir(parents=True)
     shutil.copy(REPO_ROOT / "docs" / "versioning.md", dest / "docs" / "versioning.md")
@@ -50,7 +55,7 @@ class TestValidateSchemas(unittest.TestCase):
     def test_invalid_example_fails(self) -> None:
         """A request example missing a required field must be reported as
         a failure, not silently accepted."""
-        example_path = self.tmp / "schemas" / "example_request.json"
+        example_path = self.tmp / "schemas" / CURRENT_VERSION_DIR / "example_request.json"
         example = json.loads(example_path.read_text())
         del example["type"]  # request_schema.json requires "type"
         example_path.write_text(json.dumps(example))

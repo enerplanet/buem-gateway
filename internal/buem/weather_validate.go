@@ -19,6 +19,10 @@ var ErrMissingWeather = errors.New(`buem.weather is required with "index" and at
 // weather (enerplanet/buem#10), but a check here surfaces it as a clear
 // client-input-error 400 instead of a confusing 422 two hops away.
 //
+// This is the hand-written half of the schemas/v5/request_schema.json
+// $defs/weather contract (required index + anyOf T/GHI/DNI/DHI). Keep the
+// two in step; TestValidatorsMatchV5Example fails if they diverge.
+//
 // Shape matches weather serve's GET /v1/weather/point?format=json response
 // exactly: {"index": [...], "variables": {"T": [...], "GHI": [...], ...}}.
 //
