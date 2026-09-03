@@ -4,7 +4,7 @@
 
 Standalone connector between EnerPlanET and [BuEM](https://github.com/enerplanet/buem), the ISO 52016-1 thermal building model.
 
-It also carries the JSON schema contract that defines BuEM's request and response shape (`schemas/`, `CHANGELOG.md`, `VERSIONING.md`), so this repository is both the connector and the authoritative source for that contract.
+It also carries the JSON schema contract that defines BuEM's request and response shape (`schemas/v5/`, `CHANGELOG.md`, [`docs/versioning.md`](versioning.md)), so this repository is both the connector and the authoritative source for that contract.
 
 !!! info "Not the same thing as simulation-engine"
     `enerplanet/simulation-engine` bundles its own BuEM deployment. This is a separate repo with its own container and its own reverse proxy, and nothing here requires simulation-engine to be installed or running.

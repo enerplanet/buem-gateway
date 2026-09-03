@@ -1,83 +1,97 @@
-# BUEM–EnerPlanET Schema Versioning
+# BUEM–EnerPlanET API contract versioning
 
-This file tracks the version of the request and response JSON exchanged between
-EnerPlanET and BUEM. Current version: v5.0.0.
+This repo is the single source of truth for the request and response JSON
+exchanged between EnerPlanET and BUEM. The current contract is **API contract
+v5**, defined by the files in `schemas/v5/`.
 
-This number is unrelated to buem-gateway's own software releases, which are
-git-tagged. The two are chosen independently and any match between them is
-coincidence.
+## Three version lines, none related to each other
 
-------------------------------------------------------------------------
+| Line | Where it lives | Example |
+|---|---|---|
+| API contract version | `schemas/`, this file, `CHANGELOG.md`, `openapi.yaml` `info.version` | v5 (v5.0.0) |
+| buem-gateway software version | git tags on this repo | v6.0.0 |
+| buem-model software version | git tags on the `buem` repo | v5.0.x |
 
-## How a version is communicated
+A match between any two of them is coincidence. Always write the contract
+version qualified — "API contract v5", "schema v5" — never a bare "v5".
 
-Nothing in a request declares which schema version it was built against.
-There is no `schema_version` field, no header, and no URL segment for it.
-The version in this file is a label for what shape the current `schemas/`
-describes, not something negotiated per request.
+## Directory layout is the version status
 
-A request that does not match the current schema is not detected as a
-distinct "wrong version" case. It fails ordinary field validation instead:
-`requireEnvelope`, `requireWeather`, and BuEM's own downstream checks reject
-it with a 400 naming the specific missing or invalid field. There is no
-separate wrong-version error, so to a caller it looks identical to any other
-validation failure.
+| Path | Meaning |
+|---|---|
+| `schemas/v5/` | Current production contract. **Frozen** — never edited after it was cut. |
+| `schemas/v6-draft/` | Next version, under development. Inert: nothing loads, embeds, or validates against it. Edit freely. |
+| `schemas/v1/` … `schemas/v4/` | Archived past versions, read-only. |
 
-One caveat: `internal/buem/types.go` has its own `APIVersion` constant,
-recording what BuEM's own validator was last confirmed to accept. It is
-updated manually when someone re-runs that confirmation, not automatically
-alongside this file.
+There is no mutable "current" directory. To know which contract is current, read
+this file or look for the `schemas/vN/` folder with no `-draft` suffix. To know
+which contract a running buem-gateway enforces, call `GET /buem/health` — it
+reports `contract_version`.
 
-------------------------------------------------------------------------
+## How the contract is enforced
 
-## How to release a new schema version
+buem-gateway has no external Go dependencies and validates by hand, the same way
+MEME does: `requireEnvelope` and `requireWeather` (`internal/buem/`) check the
+parts of `schemas/v5/request_schema.json` a request must satisfy before BuEM is
+called — `building.envelope.elements` non-empty, `buem.weather` present with an
+`index` and at least one of T/GHI/DNI/DHI. A request that fails gets a 400 naming
+the field; there is no separate "wrong version" error.
 
-No git tag and no GitHub release. A schema bump is tracked entirely in text:
+Schema-versus-code drift is caught two ways, not by making the schema the runtime
+check:
 
-0. Breaking change only: copy the current `schemas/` files to `schemas/vN/` before
-   editing anything, where N is the version you are leaving.
-1. Edit the schema files directly in `schemas/` (this folder always holds the
-   current version).
-2. Update `CHANGELOG.md` with a plain-language description of what changed and why.
-3. Update the version number in this file's table below and in
-   `docs/openapi/openapi.yaml`'s `info.version` field, so all three stay in sync.
-4. Run the validation check below. It confirms the schema and its example files are
-   consistent, and that the version string in this file, `CHANGELOG.md`, and
-   `docs/openapi/openapi.yaml` all agree.
-5. Commit directly. If the change also required a buem-gateway code change (e.g.
-   a new field the connector now reads), that code change gets its own git tag as
-   a normal software release. See [`docs/getting-started.md`](getting-started.md)
-   for that process.
+- `python scripts/validate_schemas.py` validates `schemas/v5/example_request.json`
+  against `schemas/v5/request_schema.json` (run in CI).
+- A Go test runs `requireEnvelope`/`requireWeather` against that same example and
+  against envelope-less / weather-less variants, so the hand-written checks stay
+  tied to the frozen schema's own example.
+
+When the schema changes, update both the schema file and the hand-written checks
+in the same change; the tests above fail if they disagree.
+
+`internal/buem/types.go`'s `APIVersion` constant records which contract version
+those checks target, for the health response.
+
+## How buem-model consumes the contract
+
+buem-model keeps a pinned copy of `schemas/v5/{request,response}_schema.json`
+with a header pointing back here, and a CI check that fails if the copy drifts
+from this repo. buem-model does not maintain its own contract definition. See
+the buem repo's own `json_schema/` notes.
+
+## Promoting v6-draft to v6
+
+A contract bump is text and file moves, no git tag, no GitHub release:
+
+1. Breaking or not, `schemas/v6-draft/` becomes `schemas/v6/`.
+2. Set `scripts/validate_schemas.py`'s `CURRENT_VERSION_DIR` to `v6` and
+   `internal/buem/types.go` `APIVersion` to `v6`. Update `requireEnvelope` /
+   `requireWeather` (and any other hand-written checks) to match the new shape.
+3. Add the `CHANGELOG.md` entry; update the current-version line at the top of
+   this file, the released-versions table below, and `openapi.yaml`
+   `info.version`.
+4. Run `python scripts/validate_schemas.py` and `go test ./...` — the first
+   checks the schema against its examples and the version-string sync, the second
+   runs `TestValidatorsMatchV5Example` (rename per version) tying the checks to
+   the example.
+5. Re-sync the buem-model pinned copy.
+6. Commit. A code change that ships alongside (e.g. the connector reading a new
+   field) gets its own buem-gateway software git tag as a normal release.
 
 ```bash
 python scripts/validate_schemas.py
 ```
 
-------------------------------------------------------------------------
-
-## Where are old versions stored?
-
-| Location | Contents |
-|---|---|
-| `schemas/` | Current version, edit here |
-| `schemas/v1/`, `schemas/v2/`, `schemas/v3/`, `schemas/v4/` | Read-only snapshots of past major versions |
-
-The `v5.x` line (`v5.0.0` → current) has no separate snapshot folder yet. It's the
-line currently in `schemas/` at the repo root. A `schemas/v5/` snapshot gets cut only
-when a future breaking change moves the current schema to `v6.0.0`.
-
-------------------------------------------------------------------------
-
 ## Released versions
 
 | Version | Date | Status | What changed |
 |---|---|---|---|
-| v5.0.0 | 2026-08 | Current | `envelope` required again, v4.x TABULA fallback removed (see `CHANGELOG.md`) |
+| v5.0.0 | 2026-08 | Current | `envelope` required again (v4.x TABULA fallback removed); `weather` required as a pre-resolved inline timeseries; contract frozen into `schemas/v5/` and enforced by embedded-schema validation. See `CHANGELOG.md`. |
 | v4.2.0 | 2026-06 | Unsupported | Optional `model_id` on the request `FeatureCollection`, used by the gateway to namespace CSV output per model |
-| v4.1.0 | 2026-04 | Unsupported | Optional `name` field on `building` and `envelope_element`, for display purposes only |
-| v4.0.0 | 2026-03 | Unsupported | `solver.compute_cooling` (opt-in cooling), file-path electricity input, `envelope` now optional (TABULA fallback), `phi_int`/`q_w_nd` configurable |
-| v3.0.0 | 2026-03 | Unsupported | `buem` split into `building` (classification, envelope, thermal) and `solver`; thermal properties on each surface element directly; every physical quantity carries its unit |
-| v2.0.0 | 2026-02 | Unsupported | Structured building attributes; nested component model introduced |
-| v1.0.0 | 2025-11 | Unsupported | Initial format, minimal structure |
+| v4.1.0 | 2026-04 | Unsupported | Optional `name` field on `building` and `envelope_element`, display only |
+| v4.0.0 | 2026-03 | Unsupported | `solver.compute_cooling` (opt-in cooling), file-path electricity input, `envelope` optional (TABULA fallback), `phi_int`/`q_w_nd` configurable |
+| v3.0.0 | 2026-03 | Unsupported | `buem` split into `building` and `solver`; per-surface thermal properties; every quantity carries its unit |
+| v2.0.0 | 2026-02 | Unsupported | Structured building attributes; nested component model |
+| v1.0.0 | 2025-11 | Unsupported | Initial format |
 
 See `CHANGELOG.md` for full detail on each version.

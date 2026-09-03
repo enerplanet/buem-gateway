@@ -180,7 +180,9 @@ func writeJSON(w http.ResponseWriter, v interface{}) {
 	json.NewEncoder(w).Encode(v)
 }
 
-// Health handles GET /buem/health.
+// Health handles GET /buem/health. contract_version is the BUEM-EnerPlanET
+// API contract this instance enforces (schemas/<contract_version>/), separate
+// from buem-gateway's own software version.
 func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, map[string]string{"status": "ok"})
+	writeJSON(w, map[string]string{"status": "ok", "contract_version": buem.APIVersion})
 }

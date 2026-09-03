@@ -13,7 +13,7 @@ info:
 
     ## Versioning
 
-    The `version` field is the BuEM/EnerPlanET data-contract version. It matches the v5 schemas in `schemas/request_schema.json` and `schemas/response_schema.json`, tracked in [CHANGELOG.md](https://github.com/enerplanet/buem-gateway/blob/main/CHANGELOG.md) and [versioning.md](https://github.com/enerplanet/buem-gateway/blob/main/docs/versioning.md).
+    The `version` field is the BuEM/EnerPlanET data-contract version (API contract v5). It matches the frozen schemas in `schemas/v5/request_schema.json` and `schemas/v5/response_schema.json`, tracked in [CHANGELOG.md](https://github.com/enerplanet/buem-gateway/blob/main/CHANGELOG.md) and [versioning.md](https://github.com/enerplanet/buem-gateway/blob/main/docs/versioning.md).
 
     buem-gateway's own service releases use separate, independent numbering and are the only versions carrying a git tag. See
     [GitHub Releases](https://github.com/enerplanet/buem-gateway/releases).
@@ -208,7 +208,14 @@ components:
         status:
           type: string
           example: ok
-      required: [status]
+        contract_version:
+          type: string
+          description: >
+            The BUEM-EnerPlanET API contract this instance enforces
+            (schemas/<contract_version>/). Independent of buem-gateway's own
+            software version.
+          example: v5
+      required: [status, contract_version]
 
     ValidateResponse:
       type: object
@@ -236,7 +243,7 @@ components:
     BuemBlock:
       type: object
       description: >
-        The building's classification, envelope, thermal, solver, and weather data. See `schemas/request_schema.json` in this repo for the full BuEM request contract. Forwarded to BuEM largely as-is; `envelope` and `weather` are both required -- buem-gateway resolves neither from any external service, the caller must supply both complete.
+        The building's classification, envelope, thermal, solver, and weather data. See `schemas/v5/request_schema.json` in this repo for the full BuEM request contract. Forwarded to BuEM largely as-is; `envelope` and `weather` are both required -- buem-gateway resolves neither from any external service, the caller must supply both complete.
       additionalProperties: true
 
     BuildingRequest:
@@ -305,7 +312,7 @@ components:
       description: >
         One building's classification, envelope, and thermal data -- the same
         content as `BuemBlock.building`, without `weather` (see
-        `BuildingsRequest.weather`, shared across the whole request instead of repeated per building). See `schemas/request_schema.json` in this repo for the full field set. `envelope` is required -- buem-gateway resolves it from nothing and calls no external service.
+        `BuildingsRequest.weather`, shared across the whole request instead of repeated per building). See `schemas/v5/request_schema.json` in this repo for the full field set. `envelope` is required -- buem-gateway resolves it from nothing and calls no external service.
       additionalProperties: true
 
     BuildingListItem:

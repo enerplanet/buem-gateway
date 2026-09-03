@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://buem.energy/schemas/v4/response",
-  "title": "BUEM GeoJSON Response Schema v4",
-  "description": "Response schema for the BUEM building energy model. Echoes the full v4 request structure and adds thermal_load_profile and model_metadata to each feature's buem node. All output quantities carry explicit unit fields. Timeseries arrays declare their unit once at the array level.",
+  "$id": "https://buem.energy/schemas/contract/v5/response",
+  "title": "BUEM GeoJSON Response Schema (API contract v5)",
+  "description": "Response schema for the BUEM building energy model. Echoes the request structure and adds thermal_load_profile and model_metadata to each feature's buem node. All output quantities carry explicit unit fields. Timeseries arrays declare their unit once at the array level.",
   "type": "object",
   "required": ["type", "features"],
   "properties": {
@@ -120,11 +120,12 @@
     "buem": {
       "type": "object",
       "required": ["building", "thermal_load_profile"],
-      "description": "Echoes the request buem node (building, solver, inputs) and appends thermal_load_profile and model_metadata",
+      "description": "Echoes the request buem node (building, solver, inputs, weather) and appends thermal_load_profile and model_metadata",
       "properties": {
         "building":             { "type": "object", "description": "Echoed from request — contains name (optional display label), envelope, thermal, and all classification fields" },
         "solver":               { "type": "object", "description": "Echoed from request" },
         "inputs":               { "type": "object", "description": "Echoed from request — user-provided timeseries inputs, if any were supplied" },
+        "weather":              { "type": "object", "description": "Echoed from request when present — the resolved hourly timeseries the model ran against" },
         "thermal_load_profile": { "$ref": "#/$defs/thermal_load_profile" },
         "model_metadata":       { "$ref": "#/$defs/model_metadata" }
       }

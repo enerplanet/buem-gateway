@@ -13,7 +13,11 @@ import (
 var ErrMissingEnvelope = errors.New("building.envelope is required with at least one element — buem-gateway does not resolve missing geometry from any external service, the caller must supply a complete envelope")
 
 // requireEnvelope reports ErrMissingEnvelope if the buem block's building
-// has no envelope. buem-gateway resolves nothing from any external
+// has no envelope. This is the hand-written half of the
+// schemas/v5/request_schema.json contract (building.envelope.elements,
+// minItems 1); TestValidatorsMatchV5Example fails if they diverge.
+//
+// buem-gateway resolves nothing from any external
 // service — an earlier version called ignis to derive TABULA defaults when
 // envelope was omitted, but that made buem-gateway's own "standalone,
 // independently deployable" claim false (it silently needed a second

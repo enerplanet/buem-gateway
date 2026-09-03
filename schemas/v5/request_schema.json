@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://buem.energy/schemas/v4/request",
-  "title": "BUEM GeoJSON Request Schema v4",
-  "description": "Request schema for the BUEM building energy model. Each feature represents one building. The buem object contains two concerns: building (complete physical description — classification, geometry, and thermal performance) and solver (execution settings). All measurable quantities carry an explicit unit field. SI units are assumed when unit is omitted. Dimensionless ratios use unit: '-'.",
+  "$id": "https://buem.energy/schemas/contract/v5/request",
+  "title": "BUEM GeoJSON Request Schema (API contract v5)",
+  "description": "Request schema for the BUEM building energy model. Each feature represents one building. The buem object carries building (complete physical description — classification, geometry, and thermal performance), solver (execution settings), inputs (optional timeseries overrides), and weather (a pre-resolved hourly timeseries — buem-gateway resolves it from no external service). All measurable quantities carry an explicit unit field. SI units are assumed when unit is omitted. Dimensionless ratios use unit: '-'.",
   "type": "object",
   "required": ["type", "features"],
   "properties": {
@@ -65,12 +65,51 @@
 
     "buem": {
       "type": "object",
-      "required": ["building"],
-      "description": "BUEM model input. building contains the complete physical description of the building. solver contains execution settings. inputs contains optional user-provided timeseries that override model-generated values.",
+      "required": ["building", "weather"],
+      "description": "BUEM model input. building is the complete physical description. solver is execution settings. inputs is optional user-provided timeseries that override model-generated values. weather is the pre-resolved hourly timeseries for the building's location — required, because buem-gateway resolves weather from no external service (see enerplanet/buem#10).",
       "properties": {
         "building": { "$ref": "#/$defs/building" },
         "solver":   { "$ref": "#/$defs/solver" },
-        "inputs":   { "$ref": "#/$defs/inputs" }
+        "inputs":   { "$ref": "#/$defs/inputs" },
+        "weather":  { "$ref": "#/$defs/weather" }
+      }
+    },
+
+    "weather": {
+      "type": "object",
+      "required": ["index", "variables"],
+      "description": "A pre-resolved hourly weather timeseries for the building's location, in the shape weather serve's GET /v1/weather/point?format=json returns. The caller (normally the Orchestrator) resolves it and embeds it here; buem-gateway calls no weather service and does not accept a provider/year selector in place of the data. provider and year are optional metadata recording which archive the timeseries came from.",
+      "properties": {
+        "index": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "format": "date-time" },
+          "description": "Hourly timestamps, ISO 8601. Length must match every array under variables."
+        },
+        "variables": {
+          "type": "object",
+          "description": "Per-variable hourly value arrays, each the same length as index. null marks a gap. BuEM reads T (air temperature, degC) and the solar components GHI/DHI/DNI (W/m2); at least one must be present.",
+          "properties": {
+            "T":   { "type": "array", "items": { "type": ["number", "null"] } },
+            "GHI": { "type": "array", "items": { "type": ["number", "null"] } },
+            "DHI": { "type": "array", "items": { "type": ["number", "null"] } },
+            "DNI": { "type": "array", "items": { "type": ["number", "null"] } }
+          },
+          "anyOf": [
+            { "required": ["T"] },
+            { "required": ["GHI"] },
+            { "required": ["DHI"] },
+            { "required": ["DNI"] }
+          ]
+        },
+        "provider": {
+          "type": "string",
+          "description": "Metadata only: which processed archive the timeseries was resolved from (e.g. era5-land, cosmo-rea6, merra-2)."
+        },
+        "year": {
+          "type": "integer",
+          "description": "Metadata only: the calendar year the archive data covers."
+        }
       }
     },
 

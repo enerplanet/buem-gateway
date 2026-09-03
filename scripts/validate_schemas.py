@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
-"""Validates schemas/{request,response}_schema.json against their example
+"""Validates schemas/v5/{request,response}_schema.json against their example
 files, and confirms the current-version string agrees across
 docs/versioning.md, CHANGELOG.md, and docs/openapi/openapi.yaml.
+
+CURRENT_VERSION_DIR is the frozen directory for the current contract; bump it
+when a new version is promoted out of schemas/v6-draft/.
 
 Run from anywhere: python scripts/validate_schemas.py
 """
@@ -16,17 +19,19 @@ from pathlib import Path
 from jsonschema import Draft202012Validator
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+CURRENT_VERSION_DIR = "v5"
 
 
 def validate_schema_examples(root: Path) -> list[str]:
-    """Validate schemas/{request,response}_schema.json against their
-    example files under root. Returns failure messages, empty if both
-    validate cleanly.
+    """Validate schemas/<CURRENT_VERSION_DIR>/{request,response}_schema.json
+    against their example files under root. Returns failure messages, empty
+    if both validate cleanly.
     """
     failures: list[str] = []
+    current = root / "schemas" / CURRENT_VERSION_DIR
     for name in ("request", "response"):
-        schema = json.loads((root / "schemas" / f"{name}_schema.json").read_text())
-        example = json.loads((root / "schemas" / f"example_{name}.json").read_text())
+        schema = json.loads((current / f"{name}_schema.json").read_text())
+        example = json.loads((current / f"example_{name}.json").read_text())
         errors = list(Draft202012Validator(schema).iter_errors(example))
         if errors:
             for error in errors:

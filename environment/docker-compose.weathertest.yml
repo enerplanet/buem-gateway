@@ -1,0 +1,11 @@
+# Overlay: exercise buem-model's module-load weather fetch against a local
+# archive. The base compose sets BUEM_WEATHER_FALLBACK=false, which skips that
+# fetch; this turns it back on and mounts a processed archive for it.
+services:
+  buem-model:
+    environment:
+      - BUEM_WEATHER_FALLBACK=true
+      - BUEM_DEFAULT_WEATHER_PROVIDER=merra-2
+      - WEATHER_DATA_DIR=/weather-data
+    volumes:
+      - ../../weather/data/merra2/austria/output:/weather-data/merra2/output:ro

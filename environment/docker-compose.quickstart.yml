@@ -24,11 +24,10 @@
 # exemption, so container and uptime checks need no key. The committed
 # BUEM_API_KEY is a local-dev placeholder.
 #
-# Weather data: BUEM_WEATHER_DIR_HOST defaults to ./data/buem-weather, which
-# doesn't exist in a fresh clone. Without it, buem-model still starts and
-# reports healthy, but falls back to a synthetic zero-filled weather profile
-# — fine for confirming the pipeline works end-to-end, not for a real number.
-# See docs/getting-started.md for the real MERRA-2 directory layout.
+# Weather: none needed. Each request carries its own resolved timeseries, and
+# BUEM_WEATHER_FALLBACK=false skips buem-model's module-load default fetch.
+# The weathertest overlay adds a local archive for testing that fetch path.
+# See docs/getting-started.md.
 #
 # Deliberately standalone rather than a partial override merged with
 # docker-compose.yml — see that file's header for the reasoning. The volume
@@ -46,12 +45,10 @@ services:
     image: ghcr.io/enerplanet/buem-model:${BUEM_IMAGE_TAG:-latest}
     environment:
       - PYTHONPATH=/buem/src
-      - BUEM_WEATHER_DIR=/buem/data/weather
       - BUEM_CBC_EXE=/opt/conda/envs/buem_env/bin/cbc
       - BUEM_WEATHER_FALLBACK=false
       - GUNICORN_WORKERS=${BUEM_WORKERS:-2}
     volumes:
-      - ${BUEM_WEATHER_DIR_HOST:-./data/buem-weather}:/buem/data/weather:ro
       - buem-results-data:/app/results
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:5000/api/health || exit 1"]
