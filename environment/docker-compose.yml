@@ -3,20 +3,16 @@ name: building-simulation
 
 # Container naming convention: <service>-<role>, where role is one of reverse-proxy | app | model. Matches ignis's <service>-app / <service>-db / <service>-reverse-proxy shape. buem-model is the "app" role's backing service, the way a db would be for ignis.
 services:
-  # The actual BuEM thermal model (Flask/Gunicorn, Python). Not reachable from the host or from outside this network — only buem-gateway calls it.
+  # The actual BuEM thermal model (Flask/Gunicorn, Python). Not reachable from the host or from outside this network — only buem-gateway calls it. The image is built and published by enerplanet/buem itself; this repo does not build it.
   buem-model:
     container_name: buem-model
-    build:
-      context: .
-      dockerfile: buem.dockerfile
+    image: ghcr.io/enerplanet/buem-model:${BUEM_IMAGE_TAG:-latest}
     environment:
-      - PYTHONPATH=/buem/src
       - BUEM_CBC_EXE=/opt/conda/envs/buem_env/bin/cbc
       # No weather archive or service: every request carries its own resolved
       # timeseries, and BUEM_WEATHER_FALLBACK=false skips buem-model's
       # module-load default fetch too. See docs/getting-started.md.
       - BUEM_WEATHER_FALLBACK=false
-      - GUNICORN_WORKERS=${BUEM_WORKERS:-2}
     volumes:
       - buem-results-data:/app/results
     healthcheck:

@@ -9,13 +9,11 @@ services:
     image: ghcr.io/enerplanet/buem-model:${BUEM_IMAGE_TAG:-latest}
     env_file: env/common.env
     environment:
-      - PYTHONPATH=/buem/src
       - BUEM_CBC_EXE=/opt/conda/envs/buem_env/bin/cbc
       # No weather archive or service: every request carries its own resolved
       # timeseries, and BUEM_WEATHER_FALLBACK=false skips buem-model's
       # module-load default fetch too. See docs/getting-started.md.
       - BUEM_WEATHER_FALLBACK=false
-      - GUNICORN_WORKERS=${BUEM_WORKERS:-2}
     volumes:
       - buem-results-data:/app/results
     healthcheck:
