@@ -21,7 +21,7 @@ This repository holds two things:
 
 The schema-contract version and buem-gateway's release version are numbered independently. See [`docs/versioning.md`](docs/versioning.md) and [`CHANGELOG.md`](CHANGELOG.md).
 
-## Architecture
+## Workflow
 
 ```mermaid
 sequenceDiagram
