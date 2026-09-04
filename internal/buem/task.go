@@ -38,10 +38,16 @@ func TaskFromBuilding(in BuildingInput, startDate, endDate string, resolution in
 	}
 
 	var geom struct {
+		Type        string    `json:"type"`
 		Coordinates []float64 `json:"coordinates"`
 	}
 	if err := json.Unmarshal(in.Geometry, &geom); err != nil || len(geom.Coordinates) < 2 {
 		return Task{}, fmt.Errorf("geometry.coordinates must be a [lon, lat] pair")
+	}
+	// BuEM's schema fixes geometry.type to "Point"; without it BuEM rejects
+	// the feature with a generic "Invalid GeoJSON payload" that names no field.
+	if geom.Type != "Point" {
+		return Task{}, fmt.Errorf("geometry.type must be \"Point\", got %q", geom.Type)
 	}
 
 	year, err := yearFromStartTime(startDate)

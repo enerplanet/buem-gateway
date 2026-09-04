@@ -284,6 +284,30 @@ func TestConnectorRunSingle_RejectsWeatherWithOnlyUnusableVariables(t *testing.T
 	}
 }
 
+// TestTaskFromBuilding_RejectsGeometryWithoutPointType covers the geometry.type
+// guard. BuEM's schema fixes geometry.type to "Point"; a geometry with
+// coordinates but no type, or a non-Point type, is rejected before BuEM is
+// called, with an error naming the field rather than BuEM's generic
+// "Invalid GeoJSON payload".
+func TestTaskFromBuilding_RejectsGeometryWithoutPointType(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		geom string
+	}{
+		{"no type", `{"coordinates":[12.5,48.5]}`},
+		{"wrong type", `{"type":"Polygon","coordinates":[12.5,48.5]}`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			in := testBuildingInput("b1")
+			in.Geometry = json.RawMessage(tc.geom)
+			_, err := TaskFromBuilding(in, "2018-01-01T00:00:00Z", "2018-12-31T23:00:00Z", 60, "m")
+			if err == nil || !strings.Contains(err.Error(), "geometry.type") {
+				t.Fatalf("TaskFromBuilding() error = %v, want one naming geometry.type", err)
+			}
+		})
+	}
+}
+
 // testWeatherBlock returns a minimal but valid buem.weather block —
 // shape matches weather serve's GET /v1/weather/point?format=json
 // response, required by BuEM since enerplanet/buem#10.
