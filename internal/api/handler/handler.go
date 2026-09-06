@@ -132,7 +132,7 @@ func (h *Handler) Building(w http.ResponseWriter, r *http.Request) {
 	}
 
 	enriched, err := h.connector.RunSingle(id, req.Geometry, req.BUEM, req.StartDate, req.EndDate, req.ModelID, req.Resolution)
-	if errors.Is(err, buem.ErrMissingEnvelope) || errors.Is(err, buem.ErrMissingWeather) {
+	if errors.Is(err, buem.ErrInvalidRequest) {
 		// Rejected before ever calling BuEM — an incomplete request, not a
 		// run that was attempted and failed. 400, not 422.
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -146,11 +146,11 @@ func (h *Handler) Building(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]interface{}{"id": id, "buem": json.RawMessage(enriched)})
 }
 
-// Validate handles POST /api/v1/buem/validate: checks that a single-building
-// request (same body shape as /api/v1/buem/building) has a complete
-// envelope and weather block, without ever calling BuEM. Lets a caller
-// (e.g. the Orchestrator) confirm a request is well-formed before paying
-// for the real run.
+// Validate handles POST /api/v1/buem/validate: runs the same pre-flight as
+// the /api/v1/buem/building run path (envelope, weather, geometry,
+// start_date) without ever calling BuEM, so the two endpoints can never
+// disagree on whether a request is well-formed. Lets a caller (e.g. the
+// Orchestrator) confirm a request before paying for the real run.
 func (h *Handler) Validate(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -167,7 +167,8 @@ func (h *Handler) Validate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := buem.ValidateSingle(req.BUEM); err != nil {
+	in := buem.BuildingInput{ID: req.ID, Geometry: req.Geometry, BUEM: req.BUEM}
+	if err := buem.ValidateSingle(in, req.StartDate, req.EndDate, req.Resolution); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
