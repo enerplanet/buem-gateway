@@ -116,14 +116,14 @@
                 "std":    { "value": 0.38,   "unit": "kW"  }
               },
               "kitchen": {
-                "total":  { "value": 386.1,  "unit": "kWh" },
-                "max":    { "value": 1.1,    "unit": "kW"  },
-                "min":    { "value": 0.0,    "unit": "kW"  },
-                "mean":   { "value": 0.044,  "unit": "kW"  },
-                "median": { "value": 0.0,    "unit": "kW"  },
-                "std":    { "value": 0.09,   "unit": "kW"  }
+                "total":  { "value": 386.1,  "unit": "kWh_gas" },
+                "max":    { "value": 1.1,    "unit": "kW_gas"  },
+                "min":    { "value": 0.0,    "unit": "kW_gas"  },
+                "mean":   { "value": 0.044,  "unit": "kW_gas"  },
+                "median": { "value": 0.0,    "unit": "kW_gas"  },
+                "std":    { "value": 0.09,   "unit": "kW_gas"  }
               },
-              "total_energy_demand": { "value": 7240.9, "unit": "kWh"    },
+              "total_energy_demand": { "value": 9081.1, "unit": "kWh"    },
               "peak_heating_load":   { "value": 7.8,    "unit": "kW"     },
               "peak_cooling_load":   { "value": 2.1,    "unit": "kW"     },
               "energy_intensity":    { "value": 72.4,   "unit": "kWh/m2" }
