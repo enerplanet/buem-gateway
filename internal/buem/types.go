@@ -72,6 +72,8 @@ type ThermalSummary struct {
 	Heating           LoadStats  `json:"heating"`
 	Cooling           *LoadStats `json:"cooling,omitempty"`     // absent when compute_cooling=false (v4+)
 	Electricity       *LoadStats `json:"electricity,omitempty"` // absent when not computed
+	HotWater          *LoadStats `json:"hot_water,omitempty"`   // absent when not computed (v6-draft)
+	Kitchen           *LoadStats `json:"kitchen,omitempty"`     // gas energy (kWh_gas/kW_gas units), absent when not computed (v6-draft)
 	EnergyIntensity   *Quantity  `json:"energy_intensity,omitempty"`
 	PeakHeatingLoad   *Quantity  `json:"peak_heating_load,omitempty"`
 	PeakCoolingLoad   *Quantity  `json:"peak_cooling_load,omitempty"`
@@ -96,6 +98,11 @@ type Timeseries struct {
 	Heating     []float64 `json:"heating"`
 	Cooling     []float64 `json:"cooling,omitempty"`
 	Electricity []float64 `json:"electricity,omitempty"`
+	HotWater    []float64 `json:"hot_water,omitempty"` // v6-draft, absent when not computed
+	// Kitchen is gas power, not the electric/thermal power Unit describes
+	// for every other array here — v6-draft has no dedicated unit field for
+	// it yet (see schemas/v6-draft/response_schema.json load_timeseries).
+	Kitchen []float64 `json:"kitchen,omitempty"`
 }
 
 // ModelMetadata describes how the simulation was executed.
