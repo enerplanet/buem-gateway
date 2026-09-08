@@ -166,22 +166,22 @@
     "load_summary": {
       "type": "object",
       "required": ["heating", "electricity"],
-      "description": "Aggregated statistics over the full simulation period. heating and electricity are always present. cooling is present only when compute_cooling was true in the request solver. hot_water and kitchen are present only when the model computed them (draft — buem-core wiring pending, see v6-draft-contract-backlog).",
+      "description": "Aggregated statistics over the full simulation period. heating and electricity are always present. cooling is present only when compute_cooling was true in the request solver. hot_water and kitchen are present only when the model computed them.",
       "properties": {
         "heating":     { "$ref": "#/$defs/energy_summary" },
         "cooling":     { "$ref": "#/$defs/energy_summary" },
         "electricity": { "$ref": "#/$defs/energy_summary" },
         "hot_water": {
           "allOf": [{ "$ref": "#/$defs/energy_summary" }],
-          "description": "Domestic hot water useful-heat energy — same carrier as heating (thermal), not electricity. NOT currently included in total_energy_demand below; whether it should be is an open question for this draft."
+          "description": "Domestic hot water useful-heat DEMAND — fuel-agnostic (what the building's systems must deliver, same family as heating/cooling), not literal delivered energy of any one carrier. Included in total_energy_demand below."
         },
         "kitchen": {
-          "allOf": [{ "$ref": "#/$defs/energy_summary" }],
-          "description": "Cooking energy, estimated as GAS demand (a national heating:cooking ratio proxy, not a metered or physically modelled gas-hob load) — a different fuel carrier from electricity and from heating/cooling/hot_water's thermal energy. NOT currently included in total_energy_demand below; folding a gas quantity into an otherwise all-thermal/electric total is an open question for this draft, not yet decided."
+          "allOf": [{ "$ref": "#/$defs/gas_energy_summary" }],
+          "description": "Estimated cooking GAS energy — literal delivered gas (a national heating:cooking ratio proxy, not metered or physically modelled), not a fuel-agnostic demand figure like hot_water. A different fuel carrier from every other field in this summary, marked with its own kWh_gas/kW_gas units for that reason. NOT included in total_energy_demand below — folding a gas quantity into an otherwise thermal/electric total remains an open question."
         },
         "total_energy_demand": {
           "allOf": [{ "$ref": "#/$defs/energy_qty" }],
-          "description": "Total heating + cooling + electricity demand over the simulation period. Does not include hot_water or kitchen — see their own descriptions."
+          "description": "Total heating + cooling + electricity + hot_water demand over the simulation period. Does not include kitchen — see its own description."
         },
         "peak_heating_load": {
           "allOf": [{ "$ref": "#/$defs/power_qty" }],
@@ -230,16 +230,54 @@
       }
     },
 
+    "gas_energy_summary": {
+      "type": "object",
+      "required": ["total", "max", "min", "mean"],
+      "description": "Statistical summary for a GAS energy carrier over the simulation period — same shape as energy_summary, but the quantities carry gas-specific units (kWh_gas/kW_gas) so a consumer can never mistake this for electric or thermal energy.",
+      "properties": {
+        "total": {
+          "allOf": [{ "$ref": "#/$defs/gas_energy_qty" }],
+          "description": "Total gas energy over the simulation period"
+        },
+        "max": {
+          "allOf": [{ "$ref": "#/$defs/gas_power_qty" }],
+          "description": "Peak instantaneous gas power"
+        },
+        "min": {
+          "allOf": [{ "$ref": "#/$defs/gas_power_qty" }],
+          "description": "Minimum instantaneous gas power"
+        },
+        "mean": {
+          "allOf": [{ "$ref": "#/$defs/gas_power_qty" }],
+          "description": "Mean gas power over the simulation period"
+        },
+        "median": {
+          "allOf": [{ "$ref": "#/$defs/gas_power_qty" }],
+          "description": "Median gas power over the simulation period"
+        },
+        "std": {
+          "allOf": [{ "$ref": "#/$defs/gas_power_qty" }],
+          "description": "Standard deviation of gas power over the simulation period"
+        }
+      }
+    },
+
     "load_timeseries": {
       "type": "object",
       "required": ["unit", "timestamps", "heating", "electricity"],
-      "description": "Hourly timeseries arrays — only present when ?include_timeseries=true is passed to the endpoint. Unit applies to all load arrays. cooling, hot_water, and kitchen are present only when the model computed them.",
+      "description": "Hourly timeseries arrays — only present when ?include_timeseries=true is passed to the endpoint. unit applies to every array except kitchen, which is gas and carries its own kitchen_unit (same electric/thermal-vs-gas split as load_summary's energy_summary vs gas_energy_summary). cooling, hot_water, and kitchen are present only when the model computed them.",
       "properties": {
         "unit": {
           "type": "string",
           "enum": ["kW", "W", "MW"],
           "default": "kW",
-          "description": "Unit for all load arrays (heating, cooling, electricity, hot_water, kitchen)"
+          "description": "Unit for the heating, cooling, electricity, and hot_water arrays"
+        },
+        "kitchen_unit": {
+          "type": "string",
+          "enum": ["kW_gas", "W_gas", "MW_gas"],
+          "default": "kW_gas",
+          "description": "Unit for the kitchen array specifically — gas, never electric or thermal. Present whenever kitchen is."
         },
         "timestamps": {
           "type": "array",
@@ -269,7 +307,7 @@
         "kitchen": {
           "type": "array",
           "items": { "type": "number" },
-          "description": "Estimated gas-cooking energy at each time step — see load_summary.kitchen"
+          "description": "Estimated gas-cooking power at each time step — see kitchen_unit above, not unit."
         }
       }
     },
@@ -342,6 +380,23 @@
       "allOf": [{ "$ref": "#/$defs/measurement" }],
       "properties": {
         "unit": { "enum": ["kW", "W", "MW"], "default": "kW" }
+      }
+    },
+
+    "gas_energy_qty": {
+      "allOf": [{ "$ref": "#/$defs/measurement" }],
+      "description": "Same as energy_qty but explicitly the gas fuel carrier, never electric or thermal.",
+      "properties": {
+        "value": { "minimum": 0 },
+        "unit":  { "enum": ["kWh_gas", "MWh_gas", "Wh_gas"], "default": "kWh_gas" }
+      }
+    },
+
+    "gas_power_qty": {
+      "allOf": [{ "$ref": "#/$defs/measurement" }],
+      "description": "Same as power_qty but explicitly the gas fuel carrier, never electric or thermal.",
+      "properties": {
+        "unit": { "enum": ["kW_gas", "W_gas", "MW_gas"], "default": "kW_gas" }
       }
     },
 

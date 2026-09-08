@@ -57,6 +57,86 @@ func fakeUpstream(t *testing.T) *httptest.Server {
 	}))
 }
 
+// TestConnectorRunBatch_PassesThroughHotWaterAndKitchen confirms BuEM's
+// hot_water/kitchen summary stats (v6-draft) survive the round trip through
+// the connector's typed structs rather than being silently dropped, the way
+// they were before ThermalSummary had fields for them.
+func TestConnectorRunBatch_PassesThroughHotWaterAndKitchen(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req FeatureCollection
+		json.NewDecoder(r.Body).Decode(&req)
+		var feature struct {
+			ID string `json:"id"`
+		}
+		json.Unmarshal(req.Features[0], &feature)
+
+		resp := ResponseFeatureCollection{
+			Type:     "FeatureCollection",
+			Metadata: CollectionMetadata{TotalFeatures: 1, SuccessfulFeatures: 1},
+			Features: []ResponseFeature{{
+				Type: "Feature",
+				ID:   feature.ID,
+				Properties: ResponseProperties{BUEM: ResponseBlock{
+					ThermalLoadProfile: ThermalLoadProfile{
+						StartTime:  "2018-01-01T00:00:00Z",
+						EndTime:    "2018-12-31T23:00:00Z",
+						Resolution: "60",
+						Summary: ThermalSummary{
+							Heating:  LoadStats{Total: Quantity{Value: 1000, Unit: "kWh"}},
+							HotWater: &LoadStats{Total: Quantity{Value: 1840.2, Unit: "kWh"}},
+							Kitchen:  &LoadStats{Total: Quantity{Value: 386.1, Unit: "kWh_gas"}},
+						},
+						Timeseries: &Timeseries{
+							Unit:    "kW",
+							Heating: []float64{0.114, 0.223},
+						},
+					},
+					ModelMetadata: ModelMetadata{ProcessingTime: Quantity{Value: 1.2, Unit: "s"}},
+				}},
+			}},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer upstream.Close()
+
+	host, portStr, _ := strings.Cut(strings.TrimPrefix(upstream.URL, "http://"), ":")
+	port, _ := strconv.Atoi(portStr)
+	dataDir := t.TempDir()
+	cfg := &config.Config{
+		MaxConcurrentSims: 4,
+		BuEM:              config.UpstreamService{Host: host, Port: port},
+		BuemDataDir:       dataDir,
+		BuemResultsDir:    dataDir,
+	}
+	conn := NewConnector(cfg)
+
+	results := conn.RunBatch([]BuildingInput{testBuildingInput("building-1")}, "2018-01-01T00:00:00Z", "2018-12-31T23:00:00Z", "demo-model", 60)
+
+	if len(results) != 1 || results[0].Error != "" {
+		t.Fatalf("expected 1 clean result, got %+v", results)
+	}
+
+	var block struct {
+		ThermalLoadProfile struct {
+			Summary struct {
+				HotWater struct{ Total Quantity } `json:"hot_water"`
+				Kitchen  struct{ Total Quantity } `json:"kitchen"`
+			} `json:"summary"`
+		} `json:"thermal_load_profile"`
+	}
+	if err := json.Unmarshal(results[0].BUEM, &block); err != nil {
+		t.Fatalf("unmarshal result buem block: %v", err)
+	}
+	summary := block.ThermalLoadProfile.Summary
+	if summary.HotWater.Total != (Quantity{Value: 1840.2, Unit: "kWh"}) {
+		t.Errorf("expected summary.hot_water.total {1840.2 kWh}, got %+v", summary.HotWater.Total)
+	}
+	if summary.Kitchen.Total != (Quantity{Value: 386.1, Unit: "kWh_gas"}) {
+		t.Errorf("expected summary.kitchen.total {386.1 kWh_gas}, got %+v", summary.Kitchen.Total)
+	}
+}
+
 func TestConnectorRunBatch_EnrichesBuildingsAndWritesCSV(t *testing.T) {
 	upstream := fakeUpstream(t)
 	defer upstream.Close()
