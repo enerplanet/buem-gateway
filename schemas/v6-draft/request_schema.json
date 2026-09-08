@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://buem.energy/schemas/contract/v5/request",
-  "title": "BUEM GeoJSON Request Schema (API contract v5)",
-  "description": "Request schema for the BUEM building energy model. Each feature represents one building. The buem object carries building (complete physical description — classification, geometry, and thermal performance), solver (execution settings), inputs (optional timeseries overrides), and weather (a pre-resolved hourly timeseries — buem-gateway resolves it from no external service). All measurable quantities carry an explicit unit field. SI units are assumed when unit is omitted. Dimensionless ratios use unit: '-'.",
+  "$id": "https://buem.energy/schemas/contract/v6-draft/request",
+  "title": "BUEM GeoJSON Request Schema (API contract v6-draft)",
+  "description": "Request schema for the BUEM building energy model. Each feature represents one building. The buem object carries building (complete physical description — classification, geometry, and thermal performance), solver (execution settings), inputs (optional timeseries overrides), and weather (a pre-resolved hourly timeseries — buem-gateway resolves it from no external service). All measurable quantities carry an explicit unit field. SI units are assumed when unit is omitted. Dimensionless ratios use unit: '-'. Draft, not yet promoted.",
   "type": "object",
   "required": ["type", "features"],
   "properties": {
@@ -163,6 +163,17 @@
           "type": "string",
           "enum": ["B_Alone", "B_N1", "B_N2"],
           "description": "Attached neighbours: B_Alone detached, B_N1 one shared wall, B_N2 two shared walls"
+        },
+        "cooking_carrier": {
+          "type": "string",
+          "enum": ["electric", "gas", "none"],
+          "default": "electric",
+          "description": "Energy carrier the household cooks with. 'electric' (default) leaves modelled cooking energy inside electricity — correct for induction/electric hobs and never double-counts. 'gas' reports it separately as thermal_load_profile.summary.kitchen (gas energy, kWh_gas) instead. 'none' drops the cooking term entirely. Case-insensitive."
+        },
+        "include_dhw": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether to report domestic hot water energy alongside space heating, as thermal_load_profile.summary.hot_water. false suppresses it without affecting the space-heating solve — for a caller whose DHW is met by a separate system it accounts for itself."
         },
         "envelope": { "$ref": "#/$defs/envelope" },
         "thermal":  { "$ref": "#/$defs/thermal" }

@@ -35,6 +35,8 @@
             "neighbour_status": "B_Alone",
             "attic_condition": "N",
             "cellar_condition": "N",
+            "cooking_carrier": "gas",
+            "include_dhw": true,
             "envelope": {
               "elements": [
                 {
