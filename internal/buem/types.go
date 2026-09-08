@@ -99,10 +99,10 @@ type Timeseries struct {
 	Cooling     []float64 `json:"cooling,omitempty"`
 	Electricity []float64 `json:"electricity,omitempty"`
 	HotWater    []float64 `json:"hot_water,omitempty"` // v6-draft, absent when not computed
-	// Kitchen is gas power, not the electric/thermal power Unit describes
-	// for every other array here — v6-draft has no dedicated unit field for
-	// it yet (see schemas/v6-draft/response_schema.json load_timeseries).
-	Kitchen []float64 `json:"kitchen,omitempty"`
+	// Kitchen is gas power (kW_gas etc, see KitchenUnit), not the
+	// electric/thermal power Unit describes for every other array here.
+	Kitchen     []float64 `json:"kitchen,omitempty"`
+	KitchenUnit string    `json:"kitchen_unit,omitempty"` // unit for Kitchen specifically; present whenever Kitchen is
 }
 
 // ModelMetadata describes how the simulation was executed.

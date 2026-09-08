@@ -265,13 +265,19 @@
     "load_timeseries": {
       "type": "object",
       "required": ["unit", "timestamps", "heating", "electricity"],
-      "description": "Hourly timeseries arrays — only present when ?include_timeseries=true is passed to the endpoint. Unit applies to all load arrays. cooling, hot_water, and kitchen are present only when the model computed them.",
+      "description": "Hourly timeseries arrays — only present when ?include_timeseries=true is passed to the endpoint. unit applies to every array except kitchen, which is gas and carries its own kitchen_unit (same electric/thermal-vs-gas split as load_summary's energy_summary vs gas_energy_summary). cooling, hot_water, and kitchen are present only when the model computed them.",
       "properties": {
         "unit": {
           "type": "string",
           "enum": ["kW", "W", "MW"],
           "default": "kW",
-          "description": "Unit for all load arrays (heating, cooling, electricity, hot_water, kitchen)"
+          "description": "Unit for the heating, cooling, electricity, and hot_water arrays"
+        },
+        "kitchen_unit": {
+          "type": "string",
+          "enum": ["kW_gas", "W_gas", "MW_gas"],
+          "default": "kW_gas",
+          "description": "Unit for the kitchen array specifically — gas, never electric or thermal. Present whenever kitchen is."
         },
         "timestamps": {
           "type": "array",
@@ -301,7 +307,7 @@
         "kitchen": {
           "type": "array",
           "items": { "type": "number" },
-          "description": "Estimated gas-cooking energy at each time step, in gas power (see load_summary.kitchen for the carrier distinction) — NOTE: this array's values are gas, not the electric/thermal power the top-level unit field otherwise describes for heating/cooling/electricity/hot_water. load_timeseries has one shared unit for all arrays; a dedicated gas unit field for this array specifically is unresolved for this draft."
+          "description": "Estimated gas-cooking power at each time step — see kitchen_unit above, not unit."
         }
       }
     },
