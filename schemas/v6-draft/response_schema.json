@@ -173,11 +173,11 @@
         "electricity": { "$ref": "#/$defs/energy_summary" },
         "hot_water": {
           "allOf": [{ "$ref": "#/$defs/energy_summary" }],
-          "description": "Domestic hot water useful-heat DEMAND — fuel-agnostic (what the building's systems must deliver, same family as heating/cooling), not literal delivered energy of any one carrier. Included in total_energy_demand below."
+          "description": "Domestic hot water useful-heat DEMAND — fuel-agnostic (what the building's systems must deliver, same family as heating/cooling), not literal delivered energy of any one carrier. Included in total_energy_demand below. All-zero for a service building_type (bakery, clinic, hotel, office, restaurant, school, supermarket, warehouse) — BuEM has no hot water model for service buildings, regardless of include_dhw."
         },
         "kitchen": {
           "allOf": [{ "$ref": "#/$defs/gas_energy_summary" }],
-          "description": "Estimated cooking GAS energy — literal delivered gas (a national heating:cooking ratio proxy, not metered or physically modelled), not a fuel-agnostic demand figure like hot_water. A different fuel carrier from every other field in this summary, marked with its own kWh_gas/kW_gas units for that reason. NOT included in total_energy_demand below — folding a gas quantity into an otherwise thermal/electric total remains an open question."
+          "description": "Estimated cooking GAS energy — literal delivered gas (a national heating:cooking ratio proxy, not metered or physically modelled), not a fuel-agnostic demand figure like hot_water. A different fuel carrier from every other field in this summary, marked with its own kWh_gas/kW_gas units for that reason. NOT included in total_energy_demand below — folding a gas quantity into an otherwise thermal/electric total remains an open question. All-zero for a service building_type (bakery, clinic, hotel, office, restaurant, school, supermarket, warehouse) — BuEM has no cooking model for service buildings, regardless of cooking_carrier."
         },
         "total_energy_demand": {
           "allOf": [{ "$ref": "#/$defs/energy_qty" }],
@@ -302,12 +302,12 @@
         "hot_water": {
           "type": "array",
           "items": { "type": "number" },
-          "description": "Domestic hot water useful-heat energy at each time step"
+          "description": "Domestic hot water useful-heat energy at each time step. All-zero for a service building_type — see load_summary.hot_water."
         },
         "kitchen": {
           "type": "array",
           "items": { "type": "number" },
-          "description": "Estimated gas-cooking power at each time step — see kitchen_unit above, not unit."
+          "description": "Estimated gas-cooking power at each time step — see kitchen_unit above, not unit. All-zero for a service building_type — see load_summary.kitchen."
         }
       }
     },

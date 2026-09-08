@@ -139,7 +139,11 @@
         },
         "building_type": {
           "type": "string",
-          "description": "Building type code (e.g. SFH single-family, MFH multi-family, AB apartment block, TH terraced house)"
+          "enum": [
+            "SFH", "MFH", "TH", "AB",
+            "bakery", "clinic", "hotel", "office", "restaurant", "school", "supermarket", "warehouse"
+          ],
+          "description": "Building type code. Residential: SFH single-family, MFH multi-family, AB apartment block, TH terraced house — occupancy is driven by num_persons/archetype/equipment. Service: bakery, clinic, hotel, office, restaurant, school, supermarket, warehouse — occupancy is driven by capacity instead, and BuEM has no hot water or cooking model for these, so thermal_load_profile.summary.hot_water/kitchen come back all-zero regardless of cooking_carrier/include_dhw. Re-added as an enum in v6-draft; the v5 migration dropped this check."
         },
         "construction_period": {
           "type": "string",
@@ -174,6 +178,63 @@
           "type": "boolean",
           "default": true,
           "description": "Whether to report domestic hot water energy alongside space heating, as thermal_load_profile.summary.hot_water. false suppresses it without affecting the space-heating solve — for a caller whose DHW is met by a separate system it accounts for itself."
+        },
+        "residential_units": {
+          "type": "number",
+          "minimum": 1,
+          "default": 1,
+          "description": "Number of dwellings in the building. Scales internal gains, electricity, hot water and cooking from one dwelling to the whole building. Applies to every building_type."
+        },
+        "num_persons": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Occupants per dwelling. Residential building_type only. Omitted resolves a per-type statistical value."
+        },
+        "archetype": {
+          "type": "string",
+          "enum": ["generic", "working_couple", "family_with_children", "retired_single", "student_shared"],
+          "description": "Household composition driving the occupancy schedule. Residential building_type only. Omitted resolves a per-type default."
+        },
+        "equipment": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Per-appliance ownership override, keyed by household equipment id. Residential building_type only, ignored for service types. true forces owned, false excludes, an omitted key uses the archetype default.",
+          "properties": {
+            "answer_machine":       { "type": "boolean" },
+            "cassette_cd_player":   { "type": "boolean" },
+            "chest_freezer":        { "type": "boolean" },
+            "clock":                { "type": "boolean" },
+            "cordless_telephone":   { "type": "boolean" },
+            "dish_washer":          { "type": "boolean" },
+            "fax":                  { "type": "boolean" },
+            "fridge_freezer":       { "type": "boolean" },
+            "hi_fi":                { "type": "boolean" },
+            "hob":                  { "type": "boolean" },
+            "iron":                 { "type": "boolean" },
+            "kettle":               { "type": "boolean" },
+            "lighting":             { "type": "boolean" },
+            "microwave":            { "type": "boolean" },
+            "oven":                 { "type": "boolean" },
+            "personal_computer":    { "type": "boolean" },
+            "printer":              { "type": "boolean" },
+            "refrigerator":         { "type": "boolean" },
+            "small_cooking_group":  { "type": "boolean" },
+            "tumble_dryer":         { "type": "boolean" },
+            "tv_1":                 { "type": "boolean" },
+            "tv_2":                 { "type": "boolean" },
+            "tv_3":                 { "type": "boolean" },
+            "tv_receiver_box":      { "type": "boolean" },
+            "upright_freezer":      { "type": "boolean" },
+            "vacuum":               { "type": "boolean" },
+            "vcr_dvd":              { "type": "boolean" },
+            "washer_dryer":         { "type": "boolean" },
+            "washing_machine":      { "type": "boolean" }
+          }
+        },
+        "capacity": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Occupant count. Service building_type only. Omitted derives it from A_ref using a per-type floor-area density."
         },
         "envelope": { "$ref": "#/$defs/envelope" },
         "thermal":  { "$ref": "#/$defs/thermal" }

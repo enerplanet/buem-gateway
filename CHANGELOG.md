@@ -6,6 +6,34 @@ version is promoted.
 
 ------------------------------------------------------------------------
 
+## Unreleased
+
+Changes staged in `schemas/v6-draft/`, the in-development next contract.
+`schemas/v5/` is unaffected by any of this; see `schemas/v6-draft/DRAFT.md`.
+
+- `thermal_load_profile.summary.hot_water` and `.kitchen`, and the matching
+  `load_timeseries` arrays, report domestic hot water and cooking energy.
+  `kitchen` is gas energy (`gas_energy_summary`, `kWh_gas`/`kW_gas` units,
+  its own `kitchen_unit` on `load_timeseries`) — a different fuel carrier
+  from every other field, deliberately excluded from `total_energy_demand`.
+  `hot_water` is fuel-agnostic demand and is included.
+- `building.cooking_carrier` (`electric` default, `gas`, `none`) and
+  `building.include_dhw` (default `true`) select what `kitchen`/`hot_water`
+  report.
+- `building.building_type` is an enum again — `SFH`, `MFH`, `TH`, `AB`, plus
+  eight service ids: `bakery`, `clinic`, `hotel`, `office`, `restaurant`,
+  `school`, `supermarket`, `warehouse`. The v5 migration dropped this check;
+  v6-draft re-adds it with the service ids BuEM already routes to its
+  service occupancy profile.
+- `building.residential_units`, `.num_persons`, `.archetype`, `.equipment`
+  (29 household equipment ids, boolean ownership overrides) and `.capacity`
+  document the occupancy inputs BuEM already accepts — `num_persons`,
+  `archetype`, and `equipment` apply to residential types; `capacity` to
+  service types; `residential_units` to both.
+- For a service `building_type`, `hot_water` and `kitchen` come back with
+  all-zero statistics — BuEM has no hot water or cooking model for service
+  buildings. Heating, cooling and electricity are unaffected.
+
 ## v5.0.0 (2026-08) — Current
 
 **Status:** Current version
