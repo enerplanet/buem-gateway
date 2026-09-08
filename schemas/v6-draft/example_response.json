@@ -107,6 +107,22 @@
                 "median": { "value": 0.18,   "unit": "kW"  },
                 "std":    { "value": 0.29,   "unit": "kW"  }
               },
+              "hot_water": {
+                "total":  { "value": 1840.2, "unit": "kWh" },
+                "max":    { "value": 3.2,    "unit": "kW"  },
+                "min":    { "value": 0.0,    "unit": "kW"  },
+                "mean":   { "value": 0.21,   "unit": "kW"  },
+                "median": { "value": 0.05,   "unit": "kW"  },
+                "std":    { "value": 0.38,   "unit": "kW"  }
+              },
+              "kitchen": {
+                "total":  { "value": 386.1,  "unit": "kWh" },
+                "max":    { "value": 1.1,    "unit": "kW"  },
+                "min":    { "value": 0.0,    "unit": "kW"  },
+                "mean":   { "value": 0.044,  "unit": "kW"  },
+                "median": { "value": 0.0,    "unit": "kW"  },
+                "std":    { "value": 0.09,   "unit": "kW"  }
+              },
               "total_energy_demand": { "value": 7240.9, "unit": "kWh"    },
               "peak_heating_load":   { "value": 7.8,    "unit": "kW"     },
               "peak_cooling_load":   { "value": 2.1,    "unit": "kW"     },
@@ -118,7 +134,7 @@
             "solver_used":            "scipy-sparse",
             "processing_time":        { "value": 3.12, "unit": "s" },
             "weather_year":           2018,
-            "simulations_run":        ["heating", "cooling", "electricity"],
+            "simulations_run":        ["heating", "cooling", "electricity", "hot_water", "kitchen"],
             "electricity_source":     "client_provided",
             "parallel_thermal":       true,
             "use_chunked_processing": true,
