@@ -345,6 +345,16 @@ components:
           example: 60
         weather:
           $ref: "#/components/schemas/WeatherBlock"
+        keep_timeseries:
+          type: boolean
+          default: false
+          description: >
+            Return each building's hourly values in `thermal_load_profile.timeseries`
+            as well as writing them to CSV. Off by default: the response carries summary
+            figures and CSV paths only. Roughly 300 KB of extra JSON per building for a
+            year of hourly values, so a batch of several hundred buildings returns a
+            response in the hundreds of megabytes.
+          example: false
         buildings:
           type: array
           items:

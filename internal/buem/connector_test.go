@@ -112,7 +112,7 @@ func TestConnectorRunBatch_PassesThroughHotWaterAndKitchen(t *testing.T) {
 	}
 	conn := NewConnector(cfg)
 
-	results := conn.RunBatch([]BuildingInput{testBuildingInput("building-1")}, "2018-01-01T00:00:00Z", "2018-12-31T23:00:00Z", "demo-model", 60)
+	results := conn.RunBatch([]BuildingInput{testBuildingInput("building-1")}, "2018-01-01T00:00:00Z", "2018-12-31T23:00:00Z", "demo-model", 60, false)
 
 	if len(results) != 1 || results[0].Error != "" {
 		t.Fatalf("expected 1 clean result, got %+v", results)
@@ -161,7 +161,7 @@ func TestConnectorRunBatch_EnrichesBuildingsAndWritesCSV(t *testing.T) {
 	conn := NewConnector(cfg)
 
 	inputs := []BuildingInput{testBuildingInput("building-1")}
-	results := conn.RunBatch(inputs, "2018-01-01T00:00:00Z", "2018-12-31T23:00:00Z", "demo-model", 60)
+	results := conn.RunBatch(inputs, "2018-01-01T00:00:00Z", "2018-12-31T23:00:00Z", "demo-model", 60, false)
 
 	if len(results) != 1 {
 		t.Fatalf("expected 1 result, got %d", len(results))
@@ -200,7 +200,7 @@ func TestConnectorRunBatch_PartialFailureDoesNotAffectOtherBuildings(t *testing.
 	broken.BUEM = json.RawMessage(`{"building":{"building_type":"SFH","country":"DE"}}`) // no envelope
 
 	inputs := []BuildingInput{testBuildingInput("building-good"), broken}
-	results := conn.RunBatch(inputs, "2018-01-01T00:00:00Z", "2018-12-31T23:00:00Z", "demo-model", 60)
+	results := conn.RunBatch(inputs, "2018-01-01T00:00:00Z", "2018-12-31T23:00:00Z", "demo-model", 60, false)
 
 	if len(results) != 2 {
 		t.Fatalf("expected 2 results, got %d", len(results))
@@ -489,4 +489,54 @@ func TestTaskFromBuilding_ForwardsBuildingLevelWindowFields(t *testing.T) {
 			t.Errorf("forwarded building.%s = %v, want %v", k, got, v)
 		}
 	}
+}
+
+// TestConnectorRunBatch_KeepTimeseriesReturnsInlineSeries covers the opt-in
+// a caller with no access to the shared volume needs: the hourly values come
+// back in the response instead of only the CSV paths. The default stays
+// false - TestConnectorRunBatch_EnrichesBuildingsAndWritesCSV pins that side.
+func TestConnectorRunBatch_KeepTimeseriesReturnsInlineSeries(t *testing.T) {
+	upstream := fakeUpstream(t)
+	defer upstream.Close()
+
+	host, portStr, _ := strings.Cut(strings.TrimPrefix(upstream.URL, "http://"), ":")
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		t.Fatalf("parse upstream port: %v", err)
+	}
+	dataDir := t.TempDir()
+	cfg := &config.Config{
+		MaxConcurrentSims: 4,
+		BuEM:              config.UpstreamService{Host: host, Port: port},
+		BuemDataDir:       dataDir,
+		BuemResultsDir:    dataDir,
+	}
+	conn := NewConnector(cfg)
+
+	results := conn.RunBatch([]BuildingInput{testBuildingInput("building-1")}, "2018-01-01T00:00:00Z", "2018-12-31T23:00:00Z", "demo-model", 60, true)
+
+	if len(results) != 1 || results[0].Error != "" {
+		t.Fatalf("expected 1 clean result, got %+v", results)
+	}
+	var block struct {
+		ThermalLoadProfile struct {
+			Timeseries *struct {
+				Unit    string    `json:"unit"`
+				Heating []float64 `json:"heating"`
+			} `json:"timeseries"`
+		} `json:"thermal_load_profile"`
+	}
+	if err := json.Unmarshal(results[0].BUEM, &block); err != nil {
+		t.Fatalf("unmarshal result buem block: %v", err)
+	}
+	ts := block.ThermalLoadProfile.Timeseries
+	if ts == nil {
+		t.Fatalf("expected timeseries in the response with keepTimeseries=true, got none")
+	}
+	if !reflect.DeepEqual(ts.Heating, []float64{0.114, 0.223}) {
+		t.Errorf("timeseries.heating = %v, want [0.114 0.223]", ts.Heating)
+	}
+	// The CSVs are still written either way - the flag adds the inline copy,
+	// it does not turn off the volume output other callers read.
+	assertHeatingCSVWritten(t, dataDir)
 }

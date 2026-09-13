@@ -34,6 +34,11 @@ type buildingsRequest struct {
 	ModelID    string             `json:"model_id"`
 	Weather    json.RawMessage    `json:"weather"`
 	Buildings  []buildingListItem `json:"buildings"`
+
+	// KeepTimeseries returns the hourly values inline instead of only the
+	// CSV paths, for a caller with no access to the shared volume. Roughly
+	// 300 KB of JSON per building for a year of hourly values.
+	KeepTimeseries bool `json:"keep_timeseries"`
 }
 
 // buildingListItem is one building's own data — geometry and its building
@@ -83,7 +88,7 @@ func (h *Handler) Buildings(w http.ResponseWriter, r *http.Request) {
 		inputs[i] = buem.BuildingInput{ID: b.ID, Geometry: b.Geometry, BUEM: buemBlock}
 	}
 
-	results := h.connector.RunBatch(inputs, req.StartDate, req.EndDate, req.ModelID, req.Resolution)
+	results := h.connector.RunBatch(inputs, req.StartDate, req.EndDate, req.ModelID, req.Resolution, req.KeepTimeseries)
 
 	items := make([]buildingResultItem, len(results))
 	for i, r := range results {

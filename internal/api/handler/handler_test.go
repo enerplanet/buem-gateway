@@ -523,3 +523,70 @@ func TestBuildings_MissingTopLevelWeatherFailsEveryBuilding(t *testing.T) {
 		t.Fatalf("expected building-1's error to mention weather, got %v", results[0])
 	}
 }
+
+// TestBuildings_KeepTimeseriesFieldBindsFromJSON pins the request field name
+// itself, which the connector-level test cannot: a rename of the JSON tag
+// would leave every Go test passing while silently ignoring what the caller
+// sent. Absent and false must behave identically, since existing callers
+// send neither.
+func TestBuildings_KeepTimeseriesFieldBindsFromJSON(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		field      string
+		wantInline bool
+	}{
+		{"absent", "", false},
+		{"explicit false", `"keep_timeseries": false,`, false},
+		{"explicit true", `"keep_timeseries": true,`, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			upstream := fakeUpstream(t, http.StatusOK)
+			defer upstream.Close()
+			h := newTestHandler(t, upstream)
+
+			reqBody := `{
+				"start_date": "2018-01-01T00:00:00Z",
+				"end_date": "2018-12-31T23:00:00Z",
+				"resolution": 60,
+				"model_id": "demo",
+				` + tc.field + `
+				"weather": {"index":["2018-01-01T00:30:00Z"],"variables":{"T":[1.0]}},
+				"buildings": [
+					{
+						"id": "building-1",
+						"geometry": {"type":"Point","coordinates":[12.5,48.5]},
+						"building": {"building_type":"SFH","country":"DE","envelope":{"elements":[
+							{"id":"Wall_1","type":"wall","area":10.0,"azimuth":0.0,"tilt":90.0,"U":1.5}
+						]}}
+					}
+				]
+			}`
+			req := httptest.NewRequest(http.MethodPost, "/api/v1/buem/buildings", strings.NewReader(reqBody))
+			w := httptest.NewRecorder()
+			h.Buildings(w, req)
+
+			if w.Code != http.StatusOK {
+				t.Fatalf("status = %d, want %d (body=%s)", w.Code, http.StatusOK, w.Body.String())
+			}
+			var results []map[string]interface{}
+			if err := json.Unmarshal(w.Body.Bytes(), &results); err != nil {
+				t.Fatalf("decode response body: %v (body=%s)", err, w.Body.String())
+			}
+			if len(results) != 1 {
+				t.Fatalf("expected 1 result, got %v", results)
+			}
+			buemBlock, ok := results[0]["buem"].(map[string]interface{})
+			if !ok {
+				t.Fatalf("expected an enriched buem block, got %v", results[0])
+			}
+			tlp, ok := buemBlock["thermal_load_profile"].(map[string]interface{})
+			if !ok {
+				t.Fatalf("expected thermal_load_profile, got %v", buemBlock)
+			}
+			_, inline := tlp["timeseries"]
+			if inline != tc.wantInline {
+				t.Errorf("timeseries present = %v, want %v (body=%s)", inline, tc.wantInline, w.Body.String())
+			}
+		})
+	}
+}

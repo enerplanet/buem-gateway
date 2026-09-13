@@ -43,6 +43,15 @@ BuEM gateway exposes the following endpoints for running building models. It has
 
 The response is a list in the same order as `buildings`, each entry either `{"id": ..., "buem": {...}}` or `{"id": ..., "error": "..."}`. A `weather` block missing or incomplete at the top level fails every building in the request, each with its own `error` entry — it isn't a per-building concern the way `envelope` is.
 
+### Hourly values in the batch response
+
+By default `POST /api/v1/buem/buildings` returns summary figures and CSV paths, not hourly values. Send `"keep_timeseries": true` to get `thermal_load_profile.timeseries` populated for every building that ran, the same arrays `POST /api/v1/buem/building` returns. The CSVs are still written either way.
+
+Use it when the caller has no access to the shared volume. A caller that reads the CSVs should leave it off.
+
+!!! warning "Response size"
+    A year of hourly values is roughly 300 KB of JSON per building. A batch of several hundred buildings with `keep_timeseries` set returns a response in the hundreds of megabytes.
+
 ### Pre-flight validation
 
 `POST /api/v1/buem/validate` takes the same body as `POST /api/v1/buem/building` and checks that `envelope` and `weather` are both present with usable data, without ever calling BuEM. Returns `{"valid": true}` on success, the same `400` shape described below otherwise. Useful for a caller (the Orchestrator) confirming a request is well-formed before paying for the real run -- a `200` here doesn't guarantee BuEM will accept the request, only that the two things buem-gateway itself checks are present.

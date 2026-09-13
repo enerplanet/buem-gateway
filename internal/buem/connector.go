@@ -55,7 +55,11 @@ type BuildingResult struct {
 // all (see TaskFromBuilding); one that reaches BuEM and fails is reported
 // the same way — both land in that building's own Error, not a request-wide
 // failure.
-func (c *Connector) RunBatch(inputs []BuildingInput, startDate, endDate, modelID string, resolution int) []BuildingResult {
+//
+// keepTimeseries carries the hourly values back in each result instead of
+// only the CSV paths, for a caller with no access to the shared volume. It
+// costs roughly 300 KB of JSON per building for a year of hourly values.
+func (c *Connector) RunBatch(inputs []BuildingInput, startDate, endDate, modelID string, resolution int, keepTimeseries bool) []BuildingResult {
 	tasks := make([]Task, 0, len(inputs))
 	preflightErr := make(map[string]string, len(inputs))
 	for _, in := range inputs {
@@ -70,7 +74,7 @@ func (c *Connector) RunBatch(inputs []BuildingInput, startDate, endDate, modelID
 	log.Printf("buem-gateway | model=%s running %d/%d buildings with a complete buem block", modelID, len(tasks), len(inputs))
 	requestStart := time.Now()
 
-	outcomes := c.runTasks(tasks)
+	outcomes := c.runTasks(tasks, keepTimeseries)
 	logBatchSummary(outcomes, time.Since(requestStart))
 
 	results := make([]BuildingResult, len(inputs))
@@ -99,10 +103,9 @@ func (c *Connector) RunSingle(id string, geometry, buemRaw json.RawMessage, star
 		return nil, err
 	}
 
-	// keepTimeseries=true: unlike RunBatch's callers (which read results
-	// from the shared volume), a RunSingle caller (e.g. a browser client) has
-	// no access to that volume — it needs the values inline to do anything
-	// with them.
+	// keepTimeseries=true: a RunSingle caller (e.g. a browser client) has no
+	// access to the shared volume — it needs the values inline to do anything
+	// with them. A RunBatch caller chooses per request.
 	result := c.runOne(task, true)
 	if result.errMsg != "" {
 		return nil, fmt.Errorf("%s", result.errMsg)
@@ -112,7 +115,7 @@ func (c *Connector) RunSingle(id string, geometry, buemRaw json.RawMessage, star
 
 // runTasks runs every task concurrently, bounded by c.sem, and collects each
 // outcome keyed by node ID.
-func (c *Connector) runTasks(tasks []Task) map[string]outcome {
+func (c *Connector) runTasks(tasks []Task, keepTimeseries bool) map[string]outcome {
 	ch := make(chan outcome, len(tasks))
 	var wg sync.WaitGroup
 
@@ -122,7 +125,7 @@ func (c *Connector) runTasks(tasks []Task) map[string]outcome {
 			defer wg.Done()
 			c.sem <- struct{}{}
 			defer func() { <-c.sem }()
-			ch <- c.runOne(t, false)
+			ch <- c.runOne(t, keepTimeseries)
 		}(task)
 	}
 	wg.Wait()
