@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
 	"testing"
@@ -446,5 +447,46 @@ func assertHeatingCSVWritten(t *testing.T, dataDir string) {
 	}
 	if !strings.HasPrefix(string(content), "demand\n0.114\n0.223\n") {
 		t.Fatalf("unexpected heating CSV content: %q", content)
+	}
+}
+
+// TestTaskFromBuilding_ForwardsBuildingLevelWindowFields confirms the
+// building block reaches BuEM verbatim: the v6-draft building-level window
+// and door fields are neither validated nor stripped on the way through.
+func TestTaskFromBuilding_ForwardsBuildingLevelWindowFields(t *testing.T) {
+	in := testBuildingInput("b1")
+	var block map[string]interface{}
+	if err := json.Unmarshal(in.BUEM, &block); err != nil {
+		t.Fatalf("unmarshal test buem block: %v", err)
+	}
+	want := map[string]interface{}{
+		"window_to_wall_ratio": 0.25,
+		"window_U":             map[string]interface{}{"value": 1.8, "unit": "W/(m2K)"},
+		"window_g_gl":          0.5,
+		"door_U":               map[string]interface{}{"value": 2.0, "unit": "W/(m2K)"},
+	}
+	for k, v := range want {
+		block["building"].(map[string]interface{})[k] = v
+	}
+	in.BUEM, _ = json.Marshal(block)
+
+	task, err := TaskFromBuilding(in, "2018-01-01T00:00:00Z", "2018-12-31T23:00:00Z", 60, "m")
+	if err != nil {
+		t.Fatalf("TaskFromBuilding() error = %v", err)
+	}
+	var feature struct {
+		Properties struct {
+			BUEM struct {
+				Building map[string]interface{} `json:"building"`
+			} `json:"buem"`
+		} `json:"properties"`
+	}
+	if err := json.Unmarshal(task.RawFeature, &feature); err != nil {
+		t.Fatalf("unmarshal forwarded feature: %v", err)
+	}
+	for k, v := range want {
+		if got := feature.Properties.BUEM.Building[k]; !reflect.DeepEqual(got, v) {
+			t.Errorf("forwarded building.%s = %v, want %v", k, got, v)
+		}
 	}
 }

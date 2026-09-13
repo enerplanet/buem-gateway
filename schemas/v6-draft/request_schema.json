@@ -168,6 +168,26 @@
           "enum": ["B_Alone", "B_N1", "B_N2"],
           "description": "Attached neighbours: B_Alone detached, B_N1 one shared wall, B_N2 two shared walls"
         },
+        "window_to_wall_ratio": {
+          "type": "number",
+          "minimum": 0,
+          "exclusiveMaximum": 1,
+          "description": "Fraction of each exposed wall's area that BuEM glazes when the request has no window elements, applied uniformly to every exposed wall. Ignored when envelope.elements contains a window. Omitted resolves BuEM's default ratio."
+        },
+        "window_U": {
+          "allOf": [{ "$ref": "#/$defs/u_value_qty" }],
+          "description": "U-value of the windows BuEM synthesises when the request has no window elements, replacing the archetype value. Explicit window elements carry their own U."
+        },
+        "window_g_gl": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Solar heat gain coefficient of the windows BuEM synthesises when the request has no window elements, replacing the archetype value. Explicit window elements carry their own g_gl."
+        },
+        "door_U": {
+          "allOf": [{ "$ref": "#/$defs/u_value_qty" }],
+          "description": "U-value of the doors BuEM synthesises when the request has no door elements, replacing the archetype value. Explicit door elements carry their own U."
+        },
         "cooking_carrier": {
           "type": "string",
           "enum": ["electric", "gas", "none"],
@@ -250,7 +270,7 @@
           "type": "array",
           "minItems": 1,
           "items": { "$ref": "#/$defs/envelope_element" },
-          "description": "List of all building surfaces. The id must be unique within the feature."
+          "description": "List of all building surfaces. The id must be unique within the feature. Wall areas are used as sent: BuEM does not subtract explicit window or door elements from their parent wall, so a request listing explicit windows or doors must give net opaque wall areas. Without explicit openings, wall areas are gross and BuEM synthesises openings from them (see building.window_to_wall_ratio)."
         }
       }
     },
