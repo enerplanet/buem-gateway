@@ -33,6 +33,12 @@ Changes staged in `schemas/v6-draft/`, the in-development next contract.
 - For a service `building_type`, `hot_water` and `kitchen` come back with
   all-zero statistics — BuEM has no hot water or cooking model for service
   buildings. Heating, cooling and electricity are unaffected.
+- `building.window_to_wall_ratio`, `.window_U`, `.window_g_gl` and `.door_U`
+  size and parameterise the windows and doors BuEM synthesises when the
+  request has no explicit window or door elements. `window_to_wall_ratio`
+  was already honoured by BuEM but absent from every schema. BuEM does not
+  subtract explicit window elements from wall areas, so a caller sending
+  explicit windows must send net opaque wall areas.
 
 ## v5.0.0 (2026-08) — Current
 
