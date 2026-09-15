@@ -1,0 +1,70 @@
+# Same stack as docker-compose.yml in this directory, but builds buem-gateway
+# from the source tree in this repository instead of pulling the published
+# image. Use it to run a local code change:
+#
+#   cd environment/http && docker compose -f docker-compose.build.yml up -d --build
+#
+# Read docker-compose.yml's header first. Everything it says about TLS being a
+# deployment choice, about the host port rather than CORS being what restricts
+# access, and about buem-model never publishing a port, applies here too and is
+# not repeated.
+#
+# The build context reaches the repository root two levels up, and the
+# dockerfile stays at environment/gateway.dockerfile rather than being copied
+# into this directory. CI builds the published image from that one path
+# (.github/workflows/docker-publish.yml), and the image is identical whichever
+# transport it is run behind, so a per-directory copy would give CI two files
+# with no correct one to choose and they would drift apart.
+#
+# Standalone rather than an override merged onto docker-compose.yml: compose
+# appends `volumes:` lists rather than replacing them, so overrides in this
+# stack have produced stacked mounts at one path before now.
+name: building-simulation
+
+services:
+  buem-model:
+    container_name: buem-model
+    image: ghcr.io/enerplanet/buem-model:${BUEM_IMAGE_TAG:-latest}
+    environment:
+      - BUEM_CBC_EXE=/opt/conda/envs/buem_env/bin/cbc
+      - BUEM_WEATHER_FALLBACK=false
+      - BUEM_RESULTS_DIR=/app/results
+    volumes:
+      - buem-results-data:/app/results
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:5000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 5
+    # No `ports:` mapping. See docker-compose.yml.
+
+  buem-gateway:
+    container_name: buem-gateway
+    build:
+      context: ./../..
+      dockerfile: environment/gateway.dockerfile
+    env_file: ../env/common.env
+    environment:
+      - APP_PORT=${APP_PORT:-8080}
+      - BUEM_SERVICE_HOST=buem-model
+      - BUEM_SERVICE_PORT=5000
+      - BUEM_DATA_DIR=/app/data
+      - BUEM_RESULTS_DIR=/app/results
+    volumes:
+      - buem-csv-data:/app/data
+      - buem-results-data:/app/results
+    depends_on:
+      buem-model:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:$$APP_PORT/buem/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    ports:
+      - "${HOST_BIND:-127.0.0.1}:${HOST_PORT:-8080}:${APP_PORT:-8080}"
+
+volumes:
+  buem-csv-data:
+  buem-results-data:

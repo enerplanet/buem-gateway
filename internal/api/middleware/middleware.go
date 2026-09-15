@@ -11,12 +11,12 @@ import (
 // CORS sets CORS headers for browser clients, mirroring ignis's identical
 // middleware (github.com/thd-spatial-ai/ignis, internal/api/middleware).
 //
-// Caddy's reverse proxy already answers CORS preflight (OPTIONS) before a
-// request reaches this server — see environment/caddy/Caddyfile. But a browser's
-// CORS check also applies to the *actual* response, and Caddy's Caddyfile
-// only sets Access-Control-Allow-Origin on the preflight response, not on
-// real GET/POST responses. Without this middleware, every real request
-// succeeds server-side but is rejected by the browser as a failed fetch.
+// This is the only CORS implementation the service depends on. The optional
+// TLS proxy (environment/https/caddy/Caddyfile) also answers preflight when it
+// is in front, but it sets Access-Control-Allow-Origin on the preflight
+// response only, never on real GET/POST responses, and the HTTP environment
+// runs with no proxy at all. Without this middleware a real request succeeds
+// server-side and is then rejected by the browser as a failed fetch.
 //
 // Allowed origins come from the ALLOWED_ORIGINS environment variable as a
 // comma-separated list (e.g. "http://localhost:5173,https://app.example.com").
@@ -29,7 +29,7 @@ func CORS(next http.Handler) http.Handler {
 		if origin != "" && isAllowed(origin, allowed) {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-Api-Key")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 			w.Header().Set("Vary", "Origin")
 		}
 

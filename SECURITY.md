@@ -23,21 +23,26 @@ coordinate disclosure timing before anything is made public.
 A few things about buem-gateway's design that are **intentional, documented limitations**, not
 vulnerabilities to report:
 
-- **The `X-Api-Key` header is a prototype-stage credential**, checked by the Caddy reverse proxy
-  in front of the `buem-gateway` container (see [`environment/caddy/Caddyfile`](environment/caddy/Caddyfile)).
-  It is not a substitute for real authentication and must not be relied on in a production
-  deployment — see the orchestration-layer decision note referenced from the docs for the intended
-  long-term replacement.
-- **Neither backing container authenticates on its own.** `buem-gateway` (the Go connector) and
-  `buem-model` (the BuEM Flask model it calls) publish no port and are only reachable through the
-  reverse proxy on the shared `building-simulation` Docker network — see
-  [`docs/getting-started.md`](docs/getting-started.md). Deploying either container with a
-  published port, bypassing the proxy, is a misconfiguration, not a vulnerability in buem-gateway
-  itself.
-- **The BuEM model (`buem-model`) trusts its caller.** It performs a real physics
-  simulation on the input it's given and is not designed to be exposed directly — it is only ever
-  called by `buem-gateway` on the internal Docker network.
+- **The service authenticates nothing, by design.** `buem-gateway` checks no credential, and
+  neither does anything shipped in front of it. Access is controlled by the network the service is
+  published on: it is intended to run on a network whose access you control, with callers already
+  authenticated by the EnerPlanET platform before they reach it. An earlier prototype
+  checked a static `X-Api-Key` header at the reverse proxy; that has been removed rather than
+  relied on, because it was never a substitute for real authentication.
+- **`buem-gateway` publishes a host port in the HTTP environment, deliberately.**
+  [`environment/http`](environment/http) runs the connector with no proxy in front of it and maps
+  its port, bound to loopback by default so it is reachable only from that machine. Widening that
+  bind, or publishing the service on a network whose access is not controlled, exposes an unauthenticated
+  API. That is a deployment decision and its consequences are the deployer's, not a vulnerability
+  in buem-gateway. [`environment/https`](environment/https) instead publishes only Caddy, which
+  terminates TLS and performs no authentication either.
+- **`buem-model` publishes no port in any environment.** The BuEM Flask model is reachable only
+  from `buem-gateway`, by service name on the compose network. It trusts its caller completely: it
+  performs a real physics simulation on whatever input it is handed and is not built to face a
+  caller directly. Giving it a published port is a misconfiguration, not a vulnerability in
+  buem-gateway.
 
-If you find a genuine issue within that design — for example, a way to bypass the reverse proxy's
-checks, an injection vulnerability, a way to access another caller's data, or a way to reach
-`buem-model` directly from outside the Docker network — please report it as above.
+If you find a genuine issue within that design, please report it as above. For example: a way to
+reach `buem-model` from outside the compose network, an injection vulnerability, a way to read
+another caller's results off the shared volume, or a way to make `buem-gateway` act on a URL or a
+credential supplied in a request rather than in its own configuration.
