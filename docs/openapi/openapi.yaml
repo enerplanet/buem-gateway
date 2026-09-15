@@ -20,9 +20,9 @@ info:
 
     ## Authentication
 
-    buem-gateway performs no authentication. It runs behind a Caddy reverse proxy, which is the only route to it. Callers send a valid `X-Api-Key` header; the proxy rejects anything else with `403` before the request reaches buem-gateway.
+    None. buem-gateway authenticates no request and checks no credential, and neither does anything in front of it.
 
-    The key must not be exposed outside a trusted server-side caller. Replacing it with short-lived tokens or mutual TLS would not change the contract below.
+    Access is controlled by the network the service is published on: deploy it only on a network whose access you control, with callers authenticated by the EnerPlanET platform before they reach it. Do not deploy it anywhere that is not gated that way.
   license:
     name: MIT
     url: https://github.com/enerplanet/buem-gateway/blob/main/LICENSE
@@ -31,14 +31,16 @@ info:
     url: https://github.com/enerplanet/buem-gateway
 
 servers:
+  - url: http://localhost:8080
+    description: Local development, the service published directly (environment/http)
   - url: https://localhost:8443
-    description: Local development, via the reverse proxy (buem-reverse-proxy)
+    description: Local development behind the bundled TLS proxy (environment/https)
   - url: https://{host}
     description: Deployed behind the platform's reverse proxy
     variables:
       host:
         default: buem-gateway.example.org
-        description: The public host the reverse proxy is published on
+        description: The public host the service is published on
 
 tags:
   - name: Health
@@ -46,8 +48,8 @@ tags:
   - name: Simulation
     description: Run BuEM and retrieve load profiles
 
-security:
-  - ApiKeyAuth: []
+# Empty on purpose: no operation requires a credential. See Authentication above.
+security: []
 
 paths:
   /buem/health:
@@ -55,10 +57,9 @@ paths:
       tags: [Health]
       operationId: checkHealth
       summary: Liveness check
-      security: []
       description: >
         Returns 200 while the connector is running. Does not check BuEM's
-        availability. No API key required.
+        availability.
       responses:
         "200":
           description: Server is up
@@ -94,8 +95,6 @@ paths:
                 $ref: "#/components/schemas/BuildingResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
-        "403":
-          $ref: "#/components/responses/Forbidden"
         "422":
           $ref: "#/components/responses/RunFailed"
 
@@ -127,8 +126,6 @@ paths:
                 $ref: "#/components/schemas/ValidateResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
-        "403":
-          $ref: "#/components/responses/Forbidden"
 
   /api/v1/buem/buildings:
     post:
@@ -164,18 +161,8 @@ paths:
                 $ref: "#/components/schemas/BuildingsResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
-        "403":
-          $ref: "#/components/responses/Forbidden"
 
 components:
-  securitySchemes:
-    ApiKeyAuth:
-      type: apiKey
-      in: header
-      name: X-Api-Key
-      description: >
-        Static key checked by the reverse proxy. Sent by the trusted caller, not by an end user's browser. A request without a valid key is rejected with 403 before it reaches buem-gateway.
-
   responses:
     BadRequest:
       description: >
@@ -185,13 +172,6 @@ components:
           schema:
             type: string
           example: "buem block is required"
-    Forbidden:
-      description: Missing or invalid API key (enforced by the reverse proxy)
-      content:
-        text/plain:
-          schema:
-            type: string
-          example: "Forbidden: missing or invalid API key"
     RunFailed:
       description: >
         BuEM rejected the request or failed to process it after buem-gateway forwarded it, for example on invalid parameter values. Distinct from 400 in that the request reached BuEM before failing.

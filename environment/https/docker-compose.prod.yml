@@ -1,0 +1,91 @@
+# A real deployment: pre-built images, a real domain, and a certificate your
+# clients already trust. Needs no source tree on the target machine.
+#
+#   cd environment/https
+#   cp .env.example .env    # then set BUEM_SITE_ADDRESS and CADDY_DATA_DIR
+#   docker compose -f docker-compose.prod.yml pull
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# Copy across: this file, .env, the ../env/ directory and caddy/.
+#
+# Difference from docker-compose.yml in this directory, which is the whole
+# reason both exist: Caddy's certificate authority is a host bind mount here
+# rather than a Docker-managed volume, so the containerised Caddy reuses an
+# authority the host already trusts instead of generating one nobody does.
+#
+# No API key. Callers reaching this stack are authenticated by the EnerPlanET
+# platform beforehand, and the services sit on a network the operator controls,
+# so the network is the trust boundary. Do not publish this on an interface
+# whose access is not controlled: nothing in this stack checks who is calling.
+name: building-simulation
+
+services:
+  buem-model:
+    container_name: buem-model
+    image: ghcr.io/enerplanet/buem-model:${BUEM_IMAGE_TAG:-latest}
+    env_file: ../env/common.env
+    environment:
+      - BUEM_CBC_EXE=/opt/conda/envs/buem_env/bin/cbc
+      # No weather archive or service: every request carries its own resolved
+      # timeseries, and BUEM_WEATHER_FALLBACK=false skips buem-model's
+      # module-load default fetch too.
+      - BUEM_WEATHER_FALLBACK=false
+      - BUEM_RESULTS_DIR=/app/results
+    volumes:
+      - buem-results-data:/app/results
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:5000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 5
+    # No `ports:` mapping, in this environment or any other.
+
+  buem-gateway:
+    container_name: buem-gateway
+    image: ghcr.io/enerplanet/buem-gateway:${BUEM_IMAGE_TAG:-latest}
+    env_file: ../env/common.env
+    environment:
+      - APP_PORT=${APP_PORT:-8080}
+      - BUEM_SERVICE_HOST=buem-model
+      - BUEM_SERVICE_PORT=5000
+      - BUEM_DATA_DIR=/app/data
+      - BUEM_RESULTS_DIR=/app/results
+    volumes:
+      - buem-csv-data:/app/data
+      - buem-results-data:/app/results
+    depends_on:
+      buem-model:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:$$APP_PORT/buem/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    # No `ports:` mapping in this environment: the proxy is the way in.
+
+  buem-reverse-proxy:
+    image: caddy:2.11-alpine
+    container_name: buem-reverse-proxy
+    environment:
+      - APP_PORT=${APP_PORT:-8080}
+      # No default: a deployment that leaves this as localhost gets a
+      # certificate for localhost and serves nothing at its own domain.
+      - BUEM_SITE_ADDRESS=${BUEM_SITE_ADDRESS:?set your domain in .env}
+    depends_on:
+      buem-gateway:
+        condition: service_healthy
+    ports:
+      # Caddy's default ACME challenge validates against port 443 specifically,
+      # so a publicly trusted certificate for a real domain needs 443 here.
+      - "${HOST_HTTPS_PORT:-443}:443"
+    volumes:
+      - ./caddy:/etc/caddy:ro
+      # Reuse the host's already-trusted local certificate authority. Guarded
+      # rather than defaulted: an unset value would otherwise fail later and
+      # less clearly, as a mount of the wrong path.
+      - ${CADDY_DATA_DIR:?set the host Caddy data directory in .env}:/data/caddy
+
+volumes:
+  buem-csv-data:
+  buem-results-data:

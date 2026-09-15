@@ -1,0 +1,101 @@
+# buem-gateway behind Caddy, terminating TLS. Pulls pre-built images, so this
+# needs Docker and nothing else:
+#
+#   cd environment/https && docker compose up -d
+#
+# No .env and no host `caddy` install: every value has a default and Caddy's
+# local certificate authority lives in a Docker-managed volume. That authority
+# is never added to your operating system or browser trust store, so
+# https://localhost:8443 shows an untrusted-certificate warning. That is
+# expected here. Click through it, or pass -k to curl, --no-check-certificate
+# to wget, or the equivalent in Postman. For a real trust chain or a public
+# domain use docker-compose.prod.yml in this directory.
+#
+# For plain HTTP with no proxy at all, which is usually what local development
+# wants, use ../http/.
+#
+# No API key. Callers reaching this stack are authenticated by the EnerPlanET
+# platform beforehand, and the services sit on a network the operator controls,
+# so the network is the trust boundary. Caddy's job here is TLS and nothing
+# else.
+#
+# The compose project name is the concern this stack belongs to. ignis and buem
+# are both building-simulation concerns and share this namespace, so bringing
+# either stack up from its own repo puts every container on the same
+# `building-simulation_default` network without either repo depending on the
+# other. See THD-Spatial-AI/ignis's own compose file.
+name: building-simulation
+
+services:
+  # The BuEM thermal model (Flask/Gunicorn, Python). Built and published by
+  # enerplanet/buem, not this repo. Set BUEM_IMAGE_TAG to pin a version.
+  buem-model:
+    container_name: buem-model
+    image: ghcr.io/enerplanet/buem-model:${BUEM_IMAGE_TAG:-latest}
+    environment:
+      - BUEM_CBC_EXE=/opt/conda/envs/buem_env/bin/cbc
+      - BUEM_WEATHER_FALLBACK=false
+      # Match buem-gateway's BUEM_RESULTS_DIR so the intermediate .json.gz
+      # lands on the shared volume rather than in BuEM's package directory.
+      - BUEM_RESULTS_DIR=/app/results
+    volumes:
+      - buem-results-data:/app/results
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:5000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 5
+    # No `ports:` mapping, in this environment or any other. buem-model is
+    # called only by buem-gateway, over the compose network, by service name.
+
+  buem-gateway:
+    container_name: buem-gateway
+    image: ghcr.io/enerplanet/buem-gateway:${BUEM_IMAGE_TAG:-latest}
+    env_file: ../env/common.env
+    environment:
+      - APP_PORT=${APP_PORT:-8080}
+      - BUEM_SERVICE_HOST=buem-model
+      - BUEM_SERVICE_PORT=5000
+      - BUEM_DATA_DIR=/app/data
+      - BUEM_RESULTS_DIR=/app/results
+    volumes:
+      - buem-csv-data:/app/data
+      - buem-results-data:/app/results
+    depends_on:
+      buem-model:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:$$APP_PORT/buem/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    # No `ports:` mapping in this environment: the proxy is the way in. The
+    # HTTP environment publishes the gateway directly instead.
+
+  buem-reverse-proxy:
+    image: caddy:2.11-alpine
+    container_name: buem-reverse-proxy
+    environment:
+      - APP_PORT=${APP_PORT:-8080}
+      # The site address Caddy serves. Keep localhost for local use; a real
+      # deployment sets its own domain, or Caddy will neither serve it nor
+      # provision a certificate for it. See docker-compose.prod.yml.
+      - BUEM_SITE_ADDRESS=${BUEM_SITE_ADDRESS:-localhost}
+    depends_on:
+      buem-gateway:
+        condition: service_healthy
+    ports:
+      # Host side assignable per service, so it does not collide with ignis's
+      # own reverse proxy.
+      - "${HOST_HTTPS_PORT:-8443}:443"
+    volumes:
+      # Directory mount, not per-file: a single-file bind mount silently serves
+      # stale content after an edit.
+      - ./caddy:/etc/caddy:ro
+      - caddy-data:/data/caddy
+
+volumes:
+  buem-csv-data:
+  buem-results-data:
+  caddy-data:
