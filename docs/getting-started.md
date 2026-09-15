@@ -66,7 +66,7 @@ The dockerfile stays at `environment/gateway.dockerfile` rather than being copie
 | `APP_PORT` | either `.env` | Internal port `buem-gateway` listens on |
 | `BUEM_SITE_ADDRESS` | `https/.env` | Domain Caddy serves and provisions a certificate for |
 | `CADDY_DATA_DIR` | `https/.env` | Host path to Caddy's trusted local CA. Run `caddy trust` once on the host, then point this at where that created the CA |
-| `ALLOWED_ORIGINS` | `env/common.env` | CORS origins accepted from browser pages. Shared by both environments |
+| `ALLOWED_ORIGINS` | `environment/env/common.env` | CORS origins accepted from browser pages. Shared by both environments |
 
 !!! note "buem-model is never reachable from the host"
     It publishes no port in either environment and is called only by `buem-gateway`, by service name on the compose network. `buem-gateway` itself does publish a port in `environment/http`; that is the point of that directory.
