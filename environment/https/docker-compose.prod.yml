@@ -67,7 +67,6 @@ services:
   buem-reverse-proxy:
     image: caddy:2.11-alpine
     container_name: buem-reverse-proxy
-    env_file: ../env/common.env # provides ALLOWED_ORIGINS
     environment:
       - APP_PORT=${APP_PORT:-8080}
       # No default: a deployment that leaves this as localhost gets a
@@ -86,12 +85,6 @@ services:
       # rather than defaulted: an unset value would otherwise fail later and
       # less clearly, as a mount of the wrong path.
       - ${CADDY_DATA_DIR:?set the host Caddy data directory in .env}:/data/caddy
-    entrypoint:
-      - sh
-      - -c
-      - >
-        export ALLOWED_ORIGINS_PATTERN="^($$(echo "$$ALLOWED_ORIGINS" | sed -e 's/[.]/\\./g' -e 's/,/|/g'))$$" &&
-        exec caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
 
 volumes:
   buem-csv-data:

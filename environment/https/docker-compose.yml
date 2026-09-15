@@ -76,7 +76,6 @@ services:
   buem-reverse-proxy:
     image: caddy:2.11-alpine
     container_name: buem-reverse-proxy
-    env_file: ../env/common.env # provides ALLOWED_ORIGINS
     environment:
       - APP_PORT=${APP_PORT:-8080}
       # The site address Caddy serves. Keep localhost for local use; a real
@@ -95,14 +94,6 @@ services:
       # stale content after an edit.
       - ./caddy:/etc/caddy:ro
       - caddy-data:/data/caddy
-    # Derives the preflight origin matcher from ALLOWED_ORIGINS at start, so no
-    # origin is hardcoded in the Caddyfile. Same derivation as ignis's proxy.
-    entrypoint:
-      - sh
-      - -c
-      - >
-        export ALLOWED_ORIGINS_PATTERN="^($$(echo "$$ALLOWED_ORIGINS" | sed -e 's/[.]/\\./g' -e 's/,/|/g'))$$" &&
-        exec caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
 
 volumes:
   buem-csv-data:

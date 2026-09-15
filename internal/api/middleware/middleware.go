@@ -11,11 +11,10 @@ import (
 // CORS sets CORS headers for browser clients, mirroring ignis's identical
 // middleware (github.com/thd-spatial-ai/ignis, internal/api/middleware).
 //
-// This is the only CORS implementation the service depends on. The optional
-// TLS proxy (environment/https/caddy/Caddyfile) also answers preflight when it
-// is in front, but it sets Access-Control-Allow-Origin on the preflight
-// response only, never on real GET/POST responses, and the HTTP environment
-// runs with no proxy at all. Without this middleware a real request succeeds
+// This is the only CORS implementation in the stack. The optional TLS proxy
+// (environment/https/caddy/Caddyfile) forwards every request, preflight
+// included, and sets no CORS headers of its own, and the HTTP environment runs
+// with no proxy at all. Without this middleware a real request succeeds
 // server-side and is then rejected by the browser as a failed fetch.
 //
 // Allowed origins come from the ALLOWED_ORIGINS environment variable as a
