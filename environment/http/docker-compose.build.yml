@@ -63,11 +63,12 @@ services:
       timeout: 3s
       retries: 5
     ports:
-    # 8081, not 8080: ignis publishes its own HTTP environment on 8080 and both
-    # repos share the building-simulation project name, so identical defaults
-    # mean the second stack started fails to bind. This mirrors the HTTPS split,
-    # where ignis holds 443 and this service takes 8443, so the same service
-    # carries the offset in both environments. Do not "tidy" this back to 8080.
+    # 8081, and not 8080 for two separate reasons. The platform's Keycloak binds
+    # 0.0.0.0:8080 on any host running the EnerPlanET stack, and binding every
+    # interface takes loopback with it, so HOST_BIND does not rescue it. ignis
+    # also publishes an HTTP environment and shares the building-simulation
+    # project name with this one, so the two must differ from each other as
+    # well; it uses 8088. Do not unify them or move either back to 8080.
       - "${HOST_BIND:-127.0.0.1}:${HOST_PORT:-8081}:${APP_PORT:-8080}"
 
 volumes:
