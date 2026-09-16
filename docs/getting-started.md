@@ -85,8 +85,11 @@ The two transports are separate projects from each other for the same reason. Th
     A stack still running from before these names changed belongs to the old `building-simulation` project and is invisible to `docker compose down` here. Remove its containers by name:
 
     ```bash
-    docker rm -f buem-gateway buem-model buem-reverse-proxy
+    docker stop buem-gateway buem-model buem-reverse-proxy
+    docker rm   buem-gateway buem-model buem-reverse-proxy
     ```
+
+    `stop` before `rm` rather than `rm -f`, so the connector finishes any CSV it is part way through writing instead of taking a SIGKILL mid-file.
 
     Do **not** use `docker compose -p building-simulation down` for this. That project was shared with [ignis](https://github.com/THD-Spatial-AI/ignis), so it would also remove `ignis-app`, `ignis-db` and `ignis-reverse-proxy`, which is the exact cross-repository deletion these separate project names exist to prevent. Naming the containers cannot reach anything but this service. Volumes are untouched either way.
 
@@ -94,6 +97,9 @@ The two transports are separate projects from each other for the same reason. Th
     `buem-csv-data` and `buem-results-data` pin their own names rather than taking the project prefix, so both transports mount the same data and switching between them keeps your results. The pinned names carry the old project prefix, which is kept only so the rename does not orphan existing volumes.
 
     `caddy-data` is not pinned. It holds a self-signed authority that is never added to a trust store, so losing it costs one click through a certificate warning.
+
+!!! warning "Compose warns about the pinned volumes. Ignore the suggested fix"
+    `docker compose up` reports that each pinned volume was created for a different project and suggests `external: true`. Do not take it. An external volume must already exist before `up`, so a clean checkout would fail rather than create one, which defeats the point of these directories. The warning is inherent to one volume serving two projects: whichever project did not create it is always the one compose complains about, and that stays true on a clean machine after the first transport switch.
 
 ## Weather data
 

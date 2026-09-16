@@ -105,6 +105,14 @@ volumes:
   # get its own copy, so switching between them would silently present an empty
   # volume every time. The prefix predates the per-repository project names and
   # is kept only so the rename does not orphan existing data.
+  #
+  # `docker compose up` warns that these were created for another project and
+  # suggests `external: true`. Do not take the suggestion. An external volume
+  # must already exist, so a clean machine would fail instead of creating it,
+  # which is the one thing these directories exist to make work. The warning is
+  # inherent to one volume serving two projects: whichever project did not
+  # create it is always the one compose complains about, on a clean machine as
+  # much as on this one.
   buem-csv-data:
     name: building-simulation_buem-csv-data
   buem-results-data:
