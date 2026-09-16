@@ -71,14 +71,29 @@ The dockerfile stays at `environment/gateway.dockerfile` rather than being copie
 !!! note "buem-model is never reachable from the host"
     It publishes no port in either environment and is called only by `buem-gateway`, by service name on the compose network. `buem-gateway` itself does publish a port in `environment/http`; that is the point of that directory.
 
-## The `building-simulation` namespace
+## Compose project names
 
-Every compose file here declares `name: building-simulation`, the same project name the standalone `ignis` repo's compose file uses. Bringing both stacks up, from their own repos and independently, puts every container on the same `building-simulation_default` Docker network. This is purely for co-location: grouping the two services conceptually and avoiding host port collisions. **Nothing on either side calls across it.** buem-gateway does not reach ignis, and ignis does not reach buem-gateway.
+Each directory is its own compose project: `buem-gateway-http` and `buem-gateway-https`.
 
-!!! warning "Do not share this project name with anything else"
-    Compose tracks ownership by `(project name, service key)`, not `container_name`. Sharing `building-simulation` with a compose file that happens to reuse a service key, `buem-model` for instance, will cause `docker compose up` in one repo to silently recreate the other's container using its own definition. This happened once during development against `simulation-engine`'s bundled deployment; that deployment intentionally does **not** share this namespace as a result.
+A compose project is not a label for related things. It is the unit compose takes destructive action against, and the two are easy to confuse. These files previously shared one project name, `building-simulation`, with the [ignis](https://github.com/THD-Spatial-AI/ignis) repository, on the reasoning that both belong to the same modelling concern. That grouping was real but the mechanism was the wrong place to express it: it put a cross-repository delete behind `--remove-orphans`, a flag people pass casually, and neither service ever resolved anything belonging to the other, so the shared network carried nothing.
 
-    The same ownership rule makes `--remove-orphans` destructive across repositories. Bringing up either stack reports the other's containers as orphans of this project, because they are not in the file you passed. Compose leaves them alone unless you ask, so never pass that flag here: it would delete the other service's running containers.
+The two transports are separate projects from each other for the same reason. Their containers are alternatives rather than companions, so neither should be able to act on the other's.
+
+!!! warning "Only one transport at a time, and bring the old one down first"
+    Container names are fixed and unique across the host, so `buem-gateway` cannot exist twice. Starting one transport while the other is running fails on the container name. Run `docker compose down` in the directory you are leaving before bringing up the other.
+
+    A stack still running from before these names changed belongs to the old `building-simulation` project and is invisible to `docker compose down` here. Remove its containers by name:
+
+    ```bash
+    docker rm -f buem-gateway buem-model buem-reverse-proxy
+    ```
+
+    Do **not** use `docker compose -p building-simulation down` for this. That project was shared with [ignis](https://github.com/THD-Spatial-AI/ignis), so it would also remove `ignis-app`, `ignis-db` and `ignis-reverse-proxy`, which is the exact cross-repository deletion these separate project names exist to prevent. Naming the containers cannot reach anything but this service. Volumes are untouched either way.
+
+!!! info "Data volumes are shared across the transports on purpose"
+    `buem-csv-data` and `buem-results-data` pin their own names rather than taking the project prefix, so both transports mount the same data and switching between them keeps your results. The pinned names carry the old project prefix, which is kept only so the rename does not orphan existing volumes.
+
+    `caddy-data` is not pinned. It holds a self-signed authority that is never added to a trust store, so losing it costs one click through a certificate warning.
 
 ## Weather data
 
@@ -94,7 +109,7 @@ Weather is supplied per request in the payload's `buem.weather` block (`index` t
 !!! danger "Neither service authenticates anything"
     Run the stack only on a network that already controls who can reach it. `buem-model` publishes no port in any environment; `buem-gateway` publishes one in `environment/http`, and Caddy publishes one in `environment/https`. Neither checks a credential.
 
-For a shared host running both `ignis` and `buem-gateway`, bring each stack up from its own repo independently, as described in [The `building-simulation` namespace](#the-building-simulation-namespace). If both terminate TLS, `HOST_HTTPS_PORT` must differ between them.
+For a shared host running both `ignis` and `buem-gateway`, bring each stack up from its own repository independently. They share nothing but the host, so the only thing that has to differ is the ports they publish. If both terminate TLS, `HOST_HTTPS_PORT` must differ between them.
 
 ### Behind an upstream proxy
 

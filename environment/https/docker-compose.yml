@@ -19,12 +19,17 @@
 # so the network is the trust boundary. Caddy's job here is TLS and nothing
 # else.
 #
-# The compose project name is the concern this stack belongs to. ignis and buem
-# are both building-simulation concerns and share this namespace, so bringing
-# either stack up from its own repo puts every container on the same
-# `building-simulation_default` network without either repo depending on the
-# other. See THD-Spatial-AI/ignis's own compose file.
-name: building-simulation
+# The compose project name is scoped to this repository and this transport. A
+# compose project is not a label for related things: it is the unit compose
+# takes destructive action against. Sharing one across repositories put a
+# cross-repository delete behind `--remove-orphans`, a flag people pass
+# casually, and the two stacks never needed it because neither resolves
+# anything belonging to the other.
+#
+# The two transports are separate projects because their containers are
+# alternatives, not companions. The data volumes below are pinned so they stay
+# shared across both anyway.
+name: buem-gateway-https
 
 services:
   # The BuEM thermal model (Flask/Gunicorn, Python). Built and published by
@@ -96,6 +101,12 @@ services:
       - caddy-data:/data/caddy
 
 volumes:
+  # Names pinned rather than project-scoped. Without this each transport would
+  # get its own copy, so switching between them would silently present an empty
+  # volume every time. The prefix predates the per-repository project names and
+  # is kept only so the rename does not orphan existing data.
   buem-csv-data:
+    name: building-simulation_buem-csv-data
   buem-results-data:
+    name: building-simulation_buem-results-data
   caddy-data:
