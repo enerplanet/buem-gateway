@@ -78,6 +78,8 @@ Every compose file here declares `name: building-simulation`, the same project n
 !!! warning "Do not share this project name with anything else"
     Compose tracks ownership by `(project name, service key)`, not `container_name`. Sharing `building-simulation` with a compose file that happens to reuse a service key, `buem-model` for instance, will cause `docker compose up` in one repo to silently recreate the other's container using its own definition. This happened once during development against `simulation-engine`'s bundled deployment; that deployment intentionally does **not** share this namespace as a result.
 
+    The same ownership rule makes `--remove-orphans` destructive across repositories. Bringing up either stack reports the other's containers as orphans of this project, because they are not in the file you passed. Compose leaves them alone unless you ask, so never pass that flag here: it would delete the other service's running containers.
+
 ## Weather data
 
 Weather is supplied per request in the payload's `buem.weather` block (`index` timestamps plus `T`/`GHI`/`DHI`/`DNI` variables), not read from a mounted archive. See [API reference: Weather is required](api.md#weather-is-required) for the exact shape and validation rules. buem-gateway rejects any request missing `buem.weather` with a `400` before it reaches BuEM (see `internal/buem/weather_validate.go`).
