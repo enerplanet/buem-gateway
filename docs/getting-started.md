@@ -14,7 +14,7 @@
 
 | Directory | What runs | Reach it at |
 |---|---|---|
-| `environment/http` | `buem-gateway` and `buem-model` | `http://localhost:8080` |
+| `environment/http` | `buem-gateway` and `buem-model` | `http://localhost:8081` |
 | `environment/https` | the same, plus Caddy terminating TLS | `https://localhost:8443` |
 
 TLS is a deployment choice rather than a property of this service. In the deployment these are written for, transport security and access control sit upstream, so `environment/http` is the one local development usually wants.
@@ -29,7 +29,7 @@ Pre-built images from GHCR, so no Go toolchain, no conda and no local Caddy inst
 ```bash
 cd environment/http
 docker compose up -d
-curl -s http://localhost:8080/buem/health
+curl -s http://localhost:8081/buem/health
 ```
 
 The port is published on loopback, so the service answers on your machine and nowhere else. Set `HOST_BIND=0.0.0.0` in a `.env` only where something upstream controls access and has to reach the container from another host.
@@ -61,7 +61,7 @@ The dockerfile stays at `environment/gateway.dockerfile` rather than being copie
 | Variable | File | Purpose |
 |---|---|---|
 | `HOST_BIND` | `http/.env` | Host interface the gateway is published on (default `127.0.0.1`) |
-| `HOST_PORT` | `http/.env` | Host port the gateway is published on (default `8080`) |
+| `HOST_PORT` | `http/.env` | Host port the gateway is published on (default `8081`, not `8080`, so it does not collide with ignis's own HTTP environment on the same host) |
 | `HOST_HTTPS_PORT` | `https/.env` | Host port the reverse proxy publishes (default `8443`, not `443`, so it does not collide with ignis's own reverse proxy on the same host) |
 | `APP_PORT` | either `.env` | Internal port `buem-gateway` listens on |
 | `BUEM_SITE_ADDRESS` | `https/.env` | Domain Caddy serves and provisions a certificate for |

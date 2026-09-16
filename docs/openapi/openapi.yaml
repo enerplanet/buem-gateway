@@ -31,7 +31,7 @@ info:
     url: https://github.com/enerplanet/buem-gateway
 
 servers:
-  - url: http://localhost:8080
+  - url: http://localhost:8081
     description: Local development, the service published directly (environment/http)
   - url: https://localhost:8443
     description: Local development behind the bundled TLS proxy (environment/https)

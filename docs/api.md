@@ -10,7 +10,7 @@ None. buem-gateway authenticates no request and checks no credential, and neithe
     Deploy buem-gateway only where something else already decides who can reach it: a network whose access you control, with callers authenticated by the EnerPlanET platform first. Anyone who can open a connection can run a simulation.
 
 !!! note "Base URL"
-    Local development: `http://localhost:8080` running `environment/http`, or `https://localhost:8443` running `environment/https`. Otherwise, whatever host the service is published on. See [Getting started](getting-started.md).
+    Local development: `http://localhost:8081` running `environment/http`, or `https://localhost:8443` running `environment/https`. Otherwise, whatever host the service is published on. See [Getting started](getting-started.md).
 
 ## Endpoints
 
@@ -104,7 +104,7 @@ demand
 
 1. Start the stack, from `environment/http`: `docker compose up -d`. This pulls pre-built images from GHCR, so there is no `.env` and no build step. To test a local code change instead, see [Getting started](getting-started.md).
 2. Serve `docs/openapi/` on `http://127.0.0.1:8000` (`python -m http.server 8000` from that directory works), since `ALLOWED_ORIGINS` allows that origin already. Opening the file directly (`file://`) works for reading the reference, but **Try it out** needs an allowed origin.
-3. Pick the `http://localhost:8080` server in the **Servers** dropdown, which matches the stack you just started.
+3. Pick the `http://localhost:8081` server in the **Servers** dropdown, which matches the stack you just started.
 4. Expand an endpoint, click **Try it out**, fill in the parameters, then **Execute**. No credential is needed; nothing in the stack checks one.
 
 To do the same against the TLS environment, start `environment/https` instead, choose the `https://localhost:8443` server, and first open `https://localhost:8443` in a browser tab and click through the untrusted-certificate warning. That certificate authority is never added to your trust store, so the warning is expected rather than a setup mistake.

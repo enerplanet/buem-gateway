@@ -72,7 +72,7 @@ Pick a transport. `environment/http` runs the service directly, `environment/htt
 ```bash
 cd environment/http
 docker compose up -d
-curl -s http://localhost:8080/buem/health
+curl -s http://localhost:8081/buem/health
 ```
 
 The port is published on loopback only, so the service is reachable from your machine and nowhere else. For TLS instead:
@@ -91,7 +91,7 @@ curl -sk https://localhost:8443/buem/health
 | --- | --- | --- |
 | 1 | `cd environment/http` | No `.env` needed; every value has a default |
 | 2 | `docker compose -f docker-compose.build.yml up -d --build` | Build the connector from this source tree, then start `buem-model` and `buem-gateway` |
-| 3 | `curl -s http://localhost:8080/buem/health` | Confirm the stack is up |
+| 3 | `curl -s http://localhost:8081/buem/health` | Confirm the stack is up |
 
 Full setup and deployment details: [`docs/getting-started.md`](docs/getting-started.md).
 
