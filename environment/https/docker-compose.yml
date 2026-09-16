@@ -23,8 +23,13 @@
 # compose project is not a label for related things: it is the unit compose
 # takes destructive action against. Sharing one across repositories put a
 # cross-repository delete behind `--remove-orphans`, a flag people pass
-# casually, and the two stacks never needed it because neither resolves
+# casually, and it bought these two repositories nothing: neither resolves
 # anything belonging to the other.
+#
+# It was not unused by everyone. A project's default network is named after the
+# project, so anything joining it couples itself to this directory's name with
+# no signal when that changes. A cross-project caller should attach to a
+# purpose-named network instead. See docs/getting-started.md.
 #
 # The two transports are separate projects because their containers are
 # alternatives, not companions. The data volumes below are pinned so they stay
