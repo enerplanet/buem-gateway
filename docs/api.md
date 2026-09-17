@@ -4,13 +4,13 @@ The interactive reference lives in its own standalone page, [`openapi/index.html
 
 ## Authentication
 
-buem-gateway has no authentication of its own. The `buem-reverse-proxy` in front of it is the only way in: callers send a valid `X-Api-Key` header, and the proxy rejects anything else with `403` before the request reaches the connector.
+None. buem-gateway authenticates no request and checks no credential, and neither does anything shipped in front of it. Send no key; there is nothing to send.
 
-!!! warning "Call it server-side only"
-    The API key must not be visible outside the calling service. Call buem-gateway from a trusted server-side caller such as the EnerPlanET backend, never directly from a browser or an end user's client.
+!!! danger "The network is the only thing controlling access"
+    Deploy buem-gateway only where something else already decides who can reach it: a network whose access you control, with callers authenticated by the EnerPlanET platform first. Anyone who can open a connection can run a simulation.
 
 !!! note "Base URL"
-    Local development: `https://localhost:8443` (see `HOST_HTTPS_PORT` in [Getting started](getting-started.md)). Otherwise, whatever host the reverse proxy is published on.
+    Local development: `http://localhost:8081` running `environment/http`, or `https://localhost:8443` running `environment/https`. Otherwise, whatever host the service is published on. See [Getting started](getting-started.md).
 
 ## Endpoints
 
@@ -102,8 +102,9 @@ demand
 
 [Open the API reference](openapi/index.html), which can call a locally running buem-gateway directly.
 
-1. Start the stack, from `environment/`: `docker compose -f docker-compose.quickstart.yml up -d`. This pulls pre-built images from GHCR, so there is no `.env` and no build step. To test a local code change instead, see [Getting started](getting-started.md).
-2. Serve `docs/openapi/` on `http://127.0.0.1:8000` (`python -m http.server 8000` from that directory works), since the reverse proxy's `ALLOWED_ORIGINS` allows that origin already. Opening the file directly (`file://`) works for reading the reference, but **Try it out** needs an allowed origin.
-3. Open `https://localhost:8443` directly once and click through the untrusted-certificate warning. The quickstart certificate is never added to your trust store (see [Getting started](getting-started.md#try-it-out-no-caddy-setup)), so this is expected rather than a setup mistake.
-4. Click **Authorize** and enter the API key checked by the reverse proxy (`X-Api-Key`; the prototype default is set in `environment/env/proxy.env`). It applies to every **Try it out** call from then on. `/buem/health` needs no key.
-5. Expand an endpoint, click **Try it out**, fill in the parameters, then **Execute**.
+1. Start the stack, from `environment/http`: `docker compose up -d`. This pulls pre-built images from GHCR, so there is no `.env` and no build step. To test a local code change instead, see [Getting started](getting-started.md).
+2. Serve `docs/openapi/` on `http://127.0.0.1:8000` (`python -m http.server 8000` from that directory works), since `ALLOWED_ORIGINS` allows that origin already. Opening the file directly (`file://`) works for reading the reference, but **Try it out** needs an allowed origin.
+3. Pick the `http://localhost:8081` server in the **Servers** dropdown, which matches the stack you just started.
+4. Expand an endpoint, click **Try it out**, fill in the parameters, then **Execute**. No credential is needed; nothing in the stack checks one.
+
+To do the same against the TLS environment, start `environment/https` instead, choose the `https://localhost:8443` server, and first open `https://localhost:8443` in a browser tab and click through the untrusted-certificate warning. That certificate authority is never added to your trust store, so the warning is expected rather than a setup mistake.

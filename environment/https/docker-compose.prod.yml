@@ -1,0 +1,68 @@
+# Production Docker Compose configuration for the BuEM gateway with HTTPS.
+name: buem-gateway-https
+
+services:
+  buem-model:
+    container_name: buem-model
+    image: ghcr.io/enerplanet/buem-model:${BUEM_IMAGE_TAG:-latest}
+    env_file: ../env/common.env
+    environment:
+      - BUEM_CBC_EXE=/opt/conda/envs/buem_env/bin/cbc
+      # Disable the weather fallback to ensure only provided weather data is used.
+      - BUEM_WEATHER_FALLBACK=false
+      - BUEM_RESULTS_DIR=/app/results
+    volumes:
+      - buem-results-data:/app/results
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:5000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 5
+
+  buem-gateway:
+    container_name: buem-gateway
+    image: ghcr.io/enerplanet/buem-gateway:${BUEM_IMAGE_TAG:-latest}
+    env_file: ../env/common.env
+    environment:
+      - APP_PORT=${APP_PORT:-8080}
+      - BUEM_SERVICE_HOST=buem-model
+      - BUEM_SERVICE_PORT=5000
+      - BUEM_DATA_DIR=/app/data
+      - BUEM_RESULTS_DIR=/app/results
+    volumes:
+      - buem-csv-data:/app/data
+      - buem-results-data:/app/results
+    depends_on:
+      buem-model:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:$$APP_PORT/buem/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  buem-reverse-proxy:
+    image: caddy:2.11-alpine
+    container_name: buem-reverse-proxy
+    environment:
+      - APP_PORT=${APP_PORT:-8080}
+      # The domain name for the BuEM gateway, used by Caddy to obtain a certificate.
+      - BUEM_SITE_ADDRESS=${BUEM_SITE_ADDRESS:?set your domain in .env}
+    depends_on:
+      buem-gateway:
+        condition: service_healthy
+    ports:
+      # Map the host's HTTPS port to the container's HTTPS port.
+      - "${HOST_HTTPS_PORT:-443}:443"
+    volumes:
+      - ./caddy:/etc/caddy:ro
+      # Mount the host's Caddy data directory to allow the containerised Caddy to reuse the host's trusted local certificate authority.
+      - ${CADDY_DATA_DIR:?set the host Caddy data directory in .env}:/data/caddy
+
+volumes:
+  # Named volumes for persistent data storage.
+  buem-csv-data:
+    name: building-simulation_buem-csv-data
+  buem-results-data:
+    name: building-simulation_buem-results-data

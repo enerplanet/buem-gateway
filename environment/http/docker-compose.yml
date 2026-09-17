@@ -1,0 +1,55 @@
+# Docker Compose configuration for the BuEM gateway's HTTP environment.
+name: buem-gateway-http
+
+services:
+  buem-model:
+    container_name: buem-model
+    image: ghcr.io/enerplanet/buem-model:${BUEM_IMAGE_TAG:-latest}
+    environment:
+      - BUEM_CBC_EXE=/opt/conda/envs/buem_env/bin/cbc
+      # No weather archive or service: every request carries its own resolved timeseries, and BUEM_WEATHER_FALLBACK=false skips buem-model's module-load default fetch too. See docs/getting-started.md.
+      - BUEM_WEATHER_FALLBACK=false
+      # Write the intermediate .json.gz onto the shared volume, where buem-gateway reads and deletes it. Must match buem-gateway's ownBUEM_RESULTS_DIR. Without this BuEM writes into its package directory.
+      - BUEM_RESULTS_DIR=/app/results
+    volumes:
+      - buem-results-data:/app/results
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:5000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 5
+
+  # The Go connector. See ../../internal/buem.
+  buem-gateway:
+    container_name: buem-gateway
+    image: ghcr.io/enerplanet/buem-gateway:${BUEM_IMAGE_TAG:-latest}
+    env_file: ../env/common.env
+    environment:
+      - APP_PORT=${APP_PORT:-8080}
+      - BUEM_SERVICE_HOST=buem-model
+      - BUEM_SERVICE_PORT=5000
+      - BUEM_DATA_DIR=/app/data
+      - BUEM_RESULTS_DIR=/app/results
+    volumes:
+      - buem-csv-data:/app/data
+      - buem-results-data:/app/results
+    depends_on:
+      buem-model:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:$$APP_PORT/buem/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+    ports:
+      # Map the host's HOST_PORT to the container's APP_PORT, binding to HOST_BIND.
+      - "${HOST_BIND:-127.0.0.1}:${HOST_PORT:-8081}:${APP_PORT:-8080}"
+
+volumes:
+  # Named volumes for persistent data storage.
+  buem-csv-data:
+    name: building-simulation_buem-csv-data
+  buem-results-data:
+    name: building-simulation_buem-results-data

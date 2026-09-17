@@ -1,0 +1,16 @@
+# Caddyfile for the BuEM reverse proxy.
+#
+# This proxy terminates TLS and forwards requests to the buem-gateway service.
+# The site address defaults to localhost for local use. A deployment must set
+# BUEM_SITE_ADDRESS to its own domain, otherwise Caddy will neither serve it
+# nor provision a certificate for it. See docker-compose.prod.yml.
+{
+	servers {
+		protocols h1 h2
+	}
+}
+
+{$BUEM_SITE_ADDRESS:localhost} {
+	# Forward all requests to the buem-gateway service.
+	reverse_proxy buem-gateway:{$APP_PORT:8080}
+}

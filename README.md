@@ -27,7 +27,7 @@ The schema-contract version and buem-gateway's release version are numbered inde
 sequenceDiagram
     autonumber
     participant Caller as Caller<br/>e.g. EnerPlanET backend
-    participant Proxy as buem-reverse-proxy<br/>Caddy, X-Api-Key auth
+    participant Proxy as buem-reverse-proxy<br/>Caddy, TLS only, optional
     participant App as buem-gateway<br/>Go connector
     participant Model as buem-model<br/>BuEM Flask
     participant Vol as shared volume
@@ -54,7 +54,7 @@ buem-gateway has no concept of a grid or topology. A caller holding one resolves
 | `POST` | `/api/v1/buem/buildings` | Building list, each with geometry and envelope, plus one shared weather block | One result per building, in request order |
 | `POST` | `/api/v1/buem/validate` | Same body as `/building` | Whether the request is well-formed. BuEM is not called |
 
-All routes except `/buem/health` require the `X-Api-Key` header, checked by the reverse proxy.
+No route requires a credential. Access is controlled by the network the service is published on, not by the service itself. See [`SECURITY.md`](SECURITY.md).
 
 Full reference: [`docs/api.md`](docs/api.md).
 
@@ -67,23 +67,31 @@ Full reference: [`docs/api.md`](docs/api.md).
 
 ## Quick start
 
-Pre-built images, no Go toolchain and no local Caddy install required:
+Pick a transport. `environment/http` runs the service directly, `environment/https` puts Caddy in front of it to terminate TLS. Both use pre-built images and need no `.env`, no Go toolchain and no local Caddy install.
 
 ```bash
-cd environment
-docker compose -f docker-compose.quickstart.yml up -d
+cd environment/http
+docker compose up -d
+curl -s http://localhost:8081/buem/health
+```
+
+The port is published on loopback only, so the service is reachable from your machine and nowhere else. For TLS instead:
+
+```bash
+cd environment/https
+docker compose up -d
 curl -sk https://localhost:8443/buem/health
 ```
 
-No `.env` file is needed; every value has a default. Without `caddy trust`, `https://localhost:8443` presents an untrusted certificate, so `curl -k` is required. See [`docs/getting-started.md`](docs/getting-started.md#try-it-out-no-caddy-setup) for how this differs from a real deployment.
+`curl -k` is needed there because the bundled certificate authority is not in your trust store. See [`docs/getting-started.md`](docs/getting-started.md) for how that differs from a real deployment.
 
 ## Building from source
 
 | Step | Command | Description |
 | --- | --- | --- |
-| 1 | `cd environment && cp .env.example .env` | Configure `CADDY_DATA_DIR`, ports, weather data path |
-| 2 | `docker compose up -d --build` | Start `buem-model`, `buem-gateway`, and `buem-reverse-proxy` |
-| 3 | `curl -sk https://localhost:8443/buem/health -H "X-Api-Key: <BUEM_API_KEY>"` | Confirm the stack is up |
+| 1 | `cd environment/http` | No `.env` needed; every value has a default |
+| 2 | `docker compose -f docker-compose.build.yml up -d --build` | Build the connector from this source tree, then start `buem-model` and `buem-gateway` |
+| 3 | `curl -s http://localhost:8081/buem/health` | Confirm the stack is up |
 
 Full setup and deployment details: [`docs/getting-started.md`](docs/getting-started.md).
 

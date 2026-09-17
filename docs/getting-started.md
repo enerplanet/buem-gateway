@@ -6,104 +6,153 @@
 |---|---|
 | Docker + Compose plugin | any recent |
 | Go | 1.26+ (only needed to build or test outside Docker) |
-| Caddy (host, optional) | for `caddy trust`, see below |
+| Caddy (host) | only for a deployment with a trusted certificate, see [Deployment](#deployment) |
 
-## Try it out (no Caddy setup)
+## Choose an environment
 
-`docker-compose.quickstart.yml` pulls the pre-built `buem-gateway` (this repo) and `buem-model` (published by `enerplanet/buem`) images from GHCR instead of building from source: no Go toolchain, no conda, and no local Caddy install or `caddy trust` needed.
+`environment/` holds two, and you pick one. Neither needs a `.env` file and neither checks a credential.
+
+| Directory | What runs | Reach it at |
+|---|---|---|
+| `environment/http` | `buem-gateway` and `buem-model` | `http://localhost:8081` |
+| `environment/https` | the same, plus Caddy terminating TLS | `https://localhost:8443` |
+
+TLS is a deployment choice rather than a property of this service. In the deployment these are written for, transport security and access control sit upstream, so `environment/http` is the one local development usually wants.
+
+!!! danger "Nothing in either environment authenticates a caller"
+    There is no API key and no other credential. What restricts who can reach the service is the network it is published on. See [`SECURITY.md`](https://github.com/enerplanet/buem-gateway/blob/main/SECURITY.md).
+
+## Try it out
+
+Pre-built images from GHCR, so no Go toolchain, no conda and no local Caddy install:
 
 ```bash
-cd environment
-docker compose -f docker-compose.quickstart.yml up -d
+cd environment/http
+docker compose up -d
+curl -s http://localhost:8081/buem/health
+```
+
+The port is published on loopback, so the service answers on your machine and nowhere else. Set `HOST_BIND=0.0.0.0` in a `.env` only where something upstream controls access and has to reach the container from another host.
+
+For TLS instead:
+
+```bash
+cd environment/https
+docker compose up -d
 curl -sk https://localhost:8443/buem/health
 ```
 
-No `.env` is required. Every `${...}` in that file has a default (`APP_PORT` 8080, `HOST_HTTPS_PORT` 8443, `BUEM_IMAGE_TAG` `latest`).
-
-!!! warning "Trade-off against a real deployment"
-    Caddy's local CA lives in a Docker-managed volume here instead of a host bind mount, so it is never added to your OS or browser trust store. `https://localhost:8443` will show an untrusted-certificate warning: expected, not a bug. Pass `-k` or `--no-check-certificate` (curl, wget), or click through the browser warning. Use `docker-compose.prod.yml` for a real trust chain or public domain.
+!!! warning "The bundled certificate is not trusted"
+    Caddy's certificate authority lives in a Docker-managed volume here, so it is never added to your operating system or browser trust store. `https://localhost:8443` shows an untrusted-certificate warning: expected, not a bug. Pass `-k` or `--no-check-certificate`, or click through it in the browser. [Deployment](#deployment) covers a real trust chain.
 
 ## Local dev (building from source)
 
-For testing local code changes to `buem-gateway`:
+To run a local code change to `buem-gateway`:
 
 ```bash
-cd environment
-cp .env.example .env   # then edit CADDY_DATA_DIR for your machine
-docker compose up -d --build
+cd environment/http
+docker compose -f docker-compose.build.yml up -d --build
 ```
 
-This starts three containers: `buem-gateway` (this repo's Go connector, built from source), `buem-model` (the BuEM Flask model, pulled from `ghcr.io/enerplanet/buem-model` which `enerplanet/buem` builds and publishes), and `buem-reverse-proxy` (Caddy, the only one reachable from the host). Set `BUEM_IMAGE_TAG` to pin a `buem-model` version.
+This builds the connector from this source tree and pulls `buem-model` from `ghcr.io/enerplanet/buem-model`, which `enerplanet/buem` builds and publishes. Set `BUEM_IMAGE_TAG` to pin a version.
+
+The dockerfile stays at `environment/gateway.dockerfile` rather than being copied into either directory. CI builds the published image from that one path, and the image is identical whichever transport it runs behind.
 
 | Variable | File | Purpose |
 |---|---|---|
-| `HOST_HTTPS_PORT` | `.env` | Host port the reverse proxy publishes (default `8443`, not `443`, so it does not collide with ignis's own reverse proxy on the same host) |
-| `APP_PORT` | `.env` | Internal port `buem-gateway` listens on |
-| `CADDY_DATA_DIR` | `.env` | Host path to Caddy's trusted local CA. Run `caddy trust` once on the host, then point this at where that created the CA |
-| `ALLOWED_ORIGINS` | `env/common.env` | CORS origins the reverse proxy accepts |
-| `BUEM_API_KEY` | `env/proxy.env` | Value callers must send as `X-Api-Key`. Local-dev placeholder, rotate before any real deployment |
+| `HOST_BIND` | `http/.env` | Host interface the gateway is published on (default `127.0.0.1`) |
+| `HOST_PORT` | `http/.env` | Host port the gateway is published on (default `8081`. Not `8080`: the platform's Keycloak holds that, and ignis's own HTTP environment holds `8088`) |
+| `HOST_HTTPS_PORT` | `https/.env` | Host port the reverse proxy publishes (default `8443`, not `443`, so it does not collide with ignis's own reverse proxy on the same host) |
+| `APP_PORT` | either `.env` | Internal port `buem-gateway` listens on |
+| `BUEM_SITE_ADDRESS` | `https/.env` | Domain Caddy serves and provisions a certificate for |
+| `CADDY_DATA_DIR` | `https/.env` | Host path to Caddy's trusted local CA. Run `caddy trust` once on the host, then point this at where that created the CA |
+| `ALLOWED_ORIGINS` | `environment/env/common.env` | CORS origins accepted from browser pages. Shared by both environments |
 
-!!! note "buem-gateway is not reachable from the host"
-    Neither `buem-gateway` nor `buem-model` publishes a port. The reverse proxy is the only way in, the same pattern as [ignis](https://github.com/THD-Spatial-AI/ignis).
+!!! note "buem-model is never reachable from the host"
+    It publishes no port in either environment and is called only by `buem-gateway`, by service name on the compose network. `buem-gateway` itself does publish a port in `environment/http`; that is the point of that directory.
 
-## The `building-simulation` namespace
+## Compose project names
 
-`docker-compose.yml` declares `name: building-simulation`, the same project name the standalone `ignis` repo's compose file uses. Bringing both stacks up, from their own repos and independently, puts every container on the same `building-simulation_default` Docker network. This is purely for co-location: grouping the two services conceptually and avoiding host port collisions. **Nothing on either side calls across it.** buem-gateway does not reach ignis, and ignis does not reach buem-gateway.
+Each directory is its own compose project: `buem-gateway-http` and `buem-gateway-https`.
 
-!!! warning "Do not share this project name with anything else"
-    Compose tracks ownership by `(project name, service key)`, not `container_name`. Sharing `building-simulation` with a compose file that happens to reuse a service key, `buem-model` for instance, will cause `docker compose up` in one repo to silently recreate the other's container using its own definition. This happened once during development against `simulation-engine`'s bundled deployment; that deployment intentionally does **not** share this namespace as a result.
+A compose project is not a label for related things. It is the unit compose takes destructive action against, and the two are easy to confuse. These files previously shared one project name, `building-simulation`, with the [ignis](https://github.com/THD-Spatial-AI/ignis) repository, on the reasoning that both belong to the same modelling concern. That grouping was real but the mechanism was the wrong place to express it: it put a cross-repository delete behind `--remove-orphans`, a flag people pass casually. Neither service resolved anything belonging to the other, so the shared name bought these two repositories nothing in return for that.
+
+It was not unused, though, and that is the part worth carrying forward. A compose project's default network is named after the project, so anything joining it is coupled to another repository's directory and project naming, with no signal at build or start time when that changes: the service starts cleanly and fails at its first outbound call. A third service was resolving container names on `building-simulation_default` and broke on this rename. If something needs to reach this service from outside its own project, it should attach to a purpose-named network declared for that job, not to a side effect of a project name.
+
+The two transports are separate projects from each other for the same reason. Their containers are alternatives rather than companions, so neither should be able to act on the other's.
+
+!!! warning "Only one transport at a time, and bring the old one down first"
+    Container names are fixed and unique across the host, so `buem-gateway` cannot exist twice. Starting one transport while the other is running fails on the container name. Run `docker compose down` in the directory you are leaving before bringing up the other.
+
+    A stack still running from before these names changed belongs to the old `building-simulation` project and is invisible to `docker compose down` here. Remove its containers by name:
+
+    ```bash
+    docker stop buem-gateway buem-model buem-reverse-proxy
+    docker rm   buem-gateway buem-model buem-reverse-proxy
+    ```
+
+    `stop` before `rm` rather than `rm -f`, so the connector finishes any CSV it is part way through writing instead of taking a SIGKILL mid-file.
+
+    Do **not** use `docker compose -p building-simulation down` for this. That project was shared with [ignis](https://github.com/THD-Spatial-AI/ignis), so it would also remove `ignis-app`, `ignis-db` and `ignis-reverse-proxy`, which is the exact cross-repository deletion these separate project names exist to prevent. Naming the containers cannot reach anything but this service. Volumes are untouched either way.
+
+!!! info "Data volumes are shared across the transports on purpose"
+    `buem-csv-data` and `buem-results-data` pin their own names rather than taking the project prefix, so both transports mount the same data and switching between them keeps your results. The pinned names carry the old project prefix, which is kept only so the rename does not orphan existing volumes.
+
+    `caddy-data` is not pinned. It holds a self-signed authority that is never added to a trust store, so losing it costs one click through a certificate warning.
+
+!!! warning "Compose warns about the pinned volumes. Ignore the suggested fix"
+    `docker compose up` reports that each pinned volume was created for a different project and suggests `external: true`. Do not take it. An external volume must already exist before `up`, so a clean checkout would fail rather than create one, which defeats the point of these directories. The warning is inherent to one volume serving two projects: whichever project did not create it is always the one compose complains about, and that stays true on a clean machine after the first transport switch.
 
 ## Weather data
 
 Weather is supplied per request in the payload's `buem.weather` block (`index` timestamps plus `T`/`GHI`/`DHI`/`DNI` variables), not read from a mounted archive. See [API reference: Weather is required](api.md#weather-is-required) for the exact shape and validation rules. buem-gateway rejects any request missing `buem.weather` with a `400` before it reaches BuEM (see `internal/buem/weather_validate.go`).
 
 !!! info "No mounted archive, no weather service"
-    `docker-compose.yml` sets `BUEM_WEATHER_FALLBACK=false` on `buem-model`. That makes a request missing `buem.weather` fail loudly rather than have BuEM resolve its own, and it also skips the default-location timeseries `buem-model` would otherwise fetch when its config module loads. The container boots with no weather data of any kind.
+    Every compose file sets `BUEM_WEATHER_FALLBACK=false` on `buem-model`. That makes a request missing `buem.weather` fail loudly rather than have BuEM resolve its own, and it also skips the default-location timeseries `buem-model` would otherwise fetch when its config module loads. The container boots with no weather data of any kind.
 
 `testdata/test_buem_buildings_request.json` is a two-building fixture for `POST /api/v1/buem/buildings` (Germany, one SFH, one MFH, full envelope and thermal data) usable as an envelope-structure template, but it does not include a `weather` block, so posting it as-is now gets every building its own `400`-equivalent `error` entry, not a result.
 
 ## Deployment
 
-!!! danger "Do not expose buem-gateway or buem-model directly"
-    Neither has authentication of its own. `buem-reverse-proxy` (Caddy, `X-Api-Key`) is the only intended entry point, the same model as ignis. Run the stack on a private network with only the reverse proxy's port published.
+!!! danger "Neither service authenticates anything"
+    Run the stack only on a network that already controls who can reach it. `buem-model` publishes no port in any environment; `buem-gateway` publishes one in `environment/http`, and Caddy publishes one in `environment/https`. Neither checks a credential.
 
-For a shared host running both `ignis` and `buem-gateway`, bring each stack up from its own repo independently, as described in [The `building-simulation` namespace](#the-building-simulation-namespace). `HOST_HTTPS_PORT` must differ between the two (ignis defaults to `443`, buem-gateway to `8443`) since both publish through Caddy on the same host.
+For a shared host running both `ignis` and `buem-gateway`, bring each stack up from its own repository independently. They share nothing but the host, so the only thing that has to differ is the ports they publish. If both terminate TLS, `HOST_HTTPS_PORT` must differ between them.
 
-Use `docker-compose.prod.yml`, which pulls published images and needs no source tree on the target machine. Copy across: the compose file, `.env`, the `env/` directory, and the `caddy/` directory.
+### Behind an upstream proxy
 
-### 1. Prepare the `env/` files
+If the platform's own reverse proxy or a firewall already terminates TLS, deploy `environment/http` and let that upstream handle transport security. Set `HOST_BIND` so the upstream can reach the container, and make sure nothing else on that network can.
 
-!!! danger "Do not deploy the committed env/ files"
-    Change both of the following before starting the stack:
+Copy across `environment/http/docker-compose.yml`, a `.env` if you changed anything, and `environment/env/`, which sits one level up and is shared with the TLS environment.
 
-    - `BUEM_API_KEY` (`env/proxy.env`) to a rotated value
-    - `ALLOWED_ORIGINS` (`env/common.env`) to the real caller origins, or unset for server-to-server only
+### Terminating TLS here
 
-### 2. Prepare `.env`
+Use `environment/https/docker-compose.prod.yml`, which pulls published images and needs no source tree on the target machine. Copy across: the compose file, `.env`, the `caddy/` directory, and `environment/env/`.
 
-`CADDY_DATA_DIR` is required. `APP_PORT` defaults to `8080`. Set `BUEM_IMAGE_TAG` to pin a release rather than tracking `latest`.
+#### 1. Prepare the env files
+
+!!! danger "Do not deploy the committed env file"
+    Set `ALLOWED_ORIGINS` (`environment/env/common.env`) to the real caller origins, or leave it unset for server-to-server callers, which send no `Origin` header and ignore the response headers anyway.
+
+#### 2. Prepare `.env`
+
+`BUEM_SITE_ADDRESS` and `CADDY_DATA_DIR` are both required, and the compose file refuses to start without them rather than defaulting to something that would quietly serve the wrong thing. `APP_PORT` defaults to `8080`. Set `BUEM_IMAGE_TAG` to pin a release rather than tracking `latest`.
 
 !!! warning "HOST_HTTPS_PORT must be 443 for a real domain"
-    The `8443` default above is for the local, self-signed trust model in [Try it out](#try-it-out-no-caddy-setup) and [Local dev](#local-dev-building-from-source), where port choice is arbitrary since nothing validates it against a real certificate authority. Caddy's default ACME challenge (TLS-ALPN-01) validates against port 443 specifically, so a real domain needs `HOST_HTTPS_PORT=443`. That means buem-gateway and ignis cannot both terminate real, publicly-trusted TLS on the same host/IP at the same time, only one can hold port 443. Running them on separate hosts, or behind a single shared front proxy, avoids this; neither is set up here.
+    Caddy's default ACME challenge (TLS-ALPN-01) validates against port 443 specifically, so a real domain needs `HOST_HTTPS_PORT=443`, which is the production default. That means buem-gateway and ignis cannot both terminate publicly trusted TLS on the same host and IP: only one can hold port 443. Running them on separate hosts, or behind a single shared front proxy, avoids this; neither is set up here.
 
-### 3. Set the site address
-
-!!! warning "Set BUEM_SITE_ADDRESS before deploying"
-    It defaults to `localhost`. Set it in `env/proxy.env` to the deployment's real domain, or Caddy will neither serve it nor provision a certificate for it.
-
-### 4. Pull and start
+#### 3. Pull and start
 
 ```bash
+cd environment/https
 docker compose -f docker-compose.prod.yml pull
 docker compose -f docker-compose.prod.yml up -d
 ```
 
-### 5. Verify
+#### 4. Verify
 
 ```bash
 curl -s -o /dev/null -w '%{http_code}\n' https://your-domain/buem/health
-curl -s -o /dev/null -w '%{http_code}\n' https://your-domain/
-curl -s -o /dev/null -w '%{http_code}\n' -H "X-Api-Key: your-key" https://your-domain/
 ```
 
-Expect `200`, `403`, then a response from the app. A `200` on the second call means the API key gate is not working, and the deployment should be stopped.
+Expect `200`. A connection error usually means the certificate was not provisioned, which `docker compose logs buem-reverse-proxy` will show.
