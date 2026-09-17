@@ -1,16 +1,4 @@
-# Overlay: exercise buem-model's module-load weather fetch against a local
-# archive. The compose files set BUEM_WEATHER_FALLBACK=false, which skips that
-# fetch; this turns it back on and mounts a processed archive for it.
-#
-# It touches only buem-model, which is identical in both environments, so one
-# copy lives here rather than one per directory. Run it from inside either,
-# where the relative paths below resolve:
-#
-#   cd environment/http && docker compose -f docker-compose.yml -f ../docker-compose.weathertest.yml up -d
-#
-# Compose resolves an overlay's relative paths against the first file's
-# directory, not the overlay's own, which is why the archive path climbs three
-# levels rather than two.
+# Overlay Docker Compose configuration for testing the BuEM model's weather module against a local archive.
 services:
   buem-model:
     environment:

@@ -1,22 +1,9 @@
-# This proxy terminates TLS and does nothing else.
+# Caddyfile for the BuEM reverse proxy.
 #
-# It performs no authentication: callers are authenticated by the EnerPlanET
-# platform before they reach this stack, which sits on a network the operator
-# controls, so the network is the trust boundary.
-#
-# It performs no CORS handling either. buem-gateway sets the headers on real
-# responses and answers preflight itself, and that is the only implementation
-# the service has, since the HTTP environment runs with no proxy at all.
-# Answering preflight here as well would duplicate the allowed-header and
-# allowed-origin lists in a second place, where they would drift.
-#
-# Site address defaults to localhost for local use. A deployment must set
+# This proxy terminates TLS and forwards requests to the buem-gateway service.
+# The site address defaults to localhost for local use. A deployment must set
 # BUEM_SITE_ADDRESS to its own domain, otherwise Caddy will neither serve it
 # nor provision a certificate for it. See docker-compose.prod.yml.
-
-# HTTP/3 is disabled: the compose files publish the HTTPS port as TCP only, so
-# an advertised Alt-Svc: h3 leads clients to retry over QUIC and get no
-# response. Only h2 over the published TCP port is reachable.
 {
 	servers {
 		protocols h1 h2
@@ -24,10 +11,6 @@
 }
 
 {$BUEM_SITE_ADDRESS:localhost} {
-	# Everything goes through, /buem/health included. That endpoint is reachable
-	# on any deployment, so its response must stay liveness only: no version,
-	# configuration or database detail. It is nested under /buem/ rather than
-	# /health to avoid colliding with sibling services behind the shared
-	# Orchestrator.
+	# Forward all requests to the buem-gateway service.
 	reverse_proxy buem-gateway:{$APP_PORT:8080}
 }

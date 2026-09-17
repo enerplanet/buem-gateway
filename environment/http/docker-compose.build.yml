@@ -1,26 +1,4 @@
-# Same stack as docker-compose.yml in this directory, but builds buem-gateway
-# from the source tree in this repository instead of pulling the published
-# image. Use it to run a local code change:
-#
-#   cd environment/http && docker compose -f docker-compose.build.yml up -d --build
-#
-# Read docker-compose.yml's header first. Everything it says about TLS being a
-# deployment choice, about the host port rather than CORS being what restricts
-# access, and about buem-model never publishing a port, applies here too and is
-# not repeated.
-#
-# The build context reaches the repository root two levels up, and the
-# dockerfile stays at environment/gateway.dockerfile rather than being copied
-# into this directory. CI builds the published image from that one path
-# (.github/workflows/docker-publish.yml), and the image is identical whichever
-# transport it is run behind, so a per-directory copy would give CI two files
-# with no correct one to choose and they would drift apart.
-#
-# Standalone rather than an override merged onto docker-compose.yml: compose
-# appends `volumes:` lists rather than replacing them, so overrides in this
-# stack have produced stacked mounts at one path before now.
-# Project name scoped to this repository and this transport; see
-# ../http/docker-compose.yml for why.
+# Docker Compose build configuration for the BuEM gateway's HTTP environment.
 name: buem-gateway-http
 
 services:
@@ -65,27 +43,11 @@ services:
       timeout: 3s
       retries: 5
     ports:
-    # 8081, and not 8080 for two separate reasons. The platform's Keycloak binds
-    # 0.0.0.0:8080 on any host running the EnerPlanET stack, and binding every
-    # interface takes loopback with it, so HOST_BIND does not rescue it. ignis
-    # publishes its own HTTP environment on the same host and uses 8088, so the
-    # two must differ from each other as well. Do not unify them or move either
-    # back to 8080.
+      # Map the host's HOST_PORT to the container's APP_PORT, binding to HOST_BIND.
       - "${HOST_BIND:-127.0.0.1}:${HOST_PORT:-8081}:${APP_PORT:-8080}"
 
 volumes:
-  # Names pinned rather than project-scoped. Without this each transport would
-  # get its own copy, so switching between them would silently present an empty
-  # volume every time. The prefix predates the per-repository project names and
-  # is kept only so the rename does not orphan existing data.
-  #
-  # `docker compose up` warns that these were created for another project and
-  # suggests `external: true`. Do not take the suggestion. An external volume
-  # must already exist, so a clean machine would fail instead of creating it,
-  # which is the one thing these directories exist to make work. The warning is
-  # inherent to one volume serving two projects: whichever project did not
-  # create it is always the one compose complains about, on a clean machine as
-  # much as on this one.
+# Named volumes for persistent data storage.
   buem-csv-data:
     name: building-simulation_buem-csv-data
   buem-results-data:

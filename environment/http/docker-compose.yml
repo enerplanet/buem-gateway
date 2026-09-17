@@ -1,55 +1,15 @@
-# buem-gateway over plain HTTP, no reverse proxy and no TLS. Pulls pre-built
-# images, so this needs Docker and nothing else:
-#
-#   cd environment/http && docker compose up -d
-#
-# No .env, no host `caddy` install, no `caddy trust`, no API key. To build the
-# connector from your own source tree instead, use docker-compose.build.yml in
-# this directory. For TLS, use ../https/.
-#
-# TLS is a deployment choice, not a property of this service. In the deployment
-# this is written for, transport security and access control sit upstream: the
-# services run on a network the operator controls, and callers are already
-# authenticated by the EnerPlanET platform before they get this far.
-#
-# What restricts who can reach this service is the host port mapping below, not
-# the CORS origin list. CORS is enforced by a browser on behalf of a page it
-# loaded; a server-to-server caller such as the EnerPlanET backend sends no
-# Origin header and ignores the response headers entirely. ALLOWED_ORIGINS
-# therefore governs browser pages only, and is not an access control.
-#
-# The compose project name is scoped to this repository and this transport. A
-# compose project is not a label for related things: it is the unit compose
-# takes destructive action against. Sharing one across repositories put a
-# cross-repository delete behind `--remove-orphans`, a flag people pass
-# casually, and it bought these two repositories nothing: neither resolves
-# anything belonging to the other.
-#
-# It was not unused by everyone. A project's default network is named after the
-# project, so anything joining it couples itself to this directory's name with
-# no signal when that changes. A cross-project caller should attach to a
-# purpose-named network instead. See docs/getting-started.md.
-#
-# The two transports are separate projects because their containers are
-# alternatives, not companions. The data volumes below are pinned so they stay
-# shared across both anyway.
+# Docker Compose configuration for the BuEM gateway's HTTP environment.
 name: buem-gateway-http
 
 services:
-  # The BuEM thermal model (Flask/Gunicorn, Python). Built and published by
-  # enerplanet/buem, not this repo. Set BUEM_IMAGE_TAG to pin a version.
   buem-model:
     container_name: buem-model
     image: ghcr.io/enerplanet/buem-model:${BUEM_IMAGE_TAG:-latest}
     environment:
       - BUEM_CBC_EXE=/opt/conda/envs/buem_env/bin/cbc
-      # No weather archive or service: every request carries its own resolved
-      # timeseries, and BUEM_WEATHER_FALLBACK=false skips buem-model's
-      # module-load default fetch too. See docs/getting-started.md.
+      # No weather archive or service: every request carries its own resolved timeseries, and BUEM_WEATHER_FALLBACK=false skips buem-model's module-load default fetch too. See docs/getting-started.md.
       - BUEM_WEATHER_FALLBACK=false
-      # Write the intermediate .json.gz onto the shared volume, where
-      # buem-gateway reads and deletes it. Must match buem-gateway's own
-      # BUEM_RESULTS_DIR. Without this BuEM writes into its package directory.
+      # Write the intermediate .json.gz onto the shared volume, where buem-gateway reads and deletes it. Must match buem-gateway's ownBUEM_RESULTS_DIR. Without this BuEM writes into its package directory.
       - BUEM_RESULTS_DIR=/app/results
     volumes:
       - buem-results-data:/app/results
@@ -59,10 +19,6 @@ services:
       timeout: 10s
       start_period: 60s
       retries: 5
-    # No `ports:` mapping, in this environment or any other. buem-model is
-    # called only by buem-gateway, over the compose network, by service name.
-    # It performs a real physics simulation on whatever input it is handed and
-    # is not built to face a caller directly.
 
   # The Go connector. See ../../internal/buem.
   buem-gateway:
@@ -86,32 +42,13 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
-    # Bound to loopback by default, so a laptop on an untrusted network does
-    # not offer this service to everyone else on it. Nothing here checks who is
-    # calling. Set HOST_BIND=0.0.0.0 for a deployment where something upstream
-    # does that checking and has to reach this container from another host.
+
     ports:
-    # 8081, and not 8080 for two separate reasons. The platform's Keycloak binds
-    # 0.0.0.0:8080 on any host running the EnerPlanET stack, and binding every
-    # interface takes loopback with it, so HOST_BIND does not rescue it. ignis
-    # publishes its own HTTP environment on the same host and uses 8088, so the
-    # two must differ from each other as well. Do not unify them or move either
-    # back to 8080.
+      # Map the host's HOST_PORT to the container's APP_PORT, binding to HOST_BIND.
       - "${HOST_BIND:-127.0.0.1}:${HOST_PORT:-8081}:${APP_PORT:-8080}"
 
 volumes:
-  # Names pinned rather than project-scoped. Without this each transport would
-  # get its own copy, so switching between them would silently present an empty
-  # volume every time. The prefix predates the per-repository project names and
-  # is kept only so the rename does not orphan existing data.
-  #
-  # `docker compose up` warns that these were created for another project and
-  # suggests `external: true`. Do not take the suggestion. An external volume
-  # must already exist, so a clean machine would fail instead of creating it,
-  # which is the one thing these directories exist to make work. The warning is
-  # inherent to one volume serving two projects: whichever project did not
-  # create it is always the one compose complains about, on a clean machine as
-  # much as on this one.
+  # Named volumes for persistent data storage.
   buem-csv-data:
     name: building-simulation_buem-csv-data
   buem-results-data:

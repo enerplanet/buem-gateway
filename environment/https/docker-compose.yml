@@ -1,52 +1,15 @@
-# buem-gateway behind Caddy, terminating TLS. Pulls pre-built images, so this
-# needs Docker and nothing else:
-#
-#   cd environment/https && docker compose up -d
-#
-# No .env and no host `caddy` install: every value has a default and Caddy's
-# local certificate authority lives in a Docker-managed volume. That authority
-# is never added to your operating system or browser trust store, so
-# https://localhost:8443 shows an untrusted-certificate warning. That is
-# expected here. Click through it, or pass -k to curl, --no-check-certificate
-# to wget, or the equivalent in Postman. For a real trust chain or a public
-# domain use docker-compose.prod.yml in this directory.
-#
-# For plain HTTP with no proxy at all, which is usually what local development
-# wants, use ../http/.
-#
-# No API key. Callers reaching this stack are authenticated by the EnerPlanET
-# platform beforehand, and the services sit on a network the operator controls,
-# so the network is the trust boundary. Caddy's job here is TLS and nothing
-# else.
-#
-# The compose project name is scoped to this repository and this transport. A
-# compose project is not a label for related things: it is the unit compose
-# takes destructive action against. Sharing one across repositories put a
-# cross-repository delete behind `--remove-orphans`, a flag people pass
-# casually, and it bought these two repositories nothing: neither resolves
-# anything belonging to the other.
-#
-# It was not unused by everyone. A project's default network is named after the
-# project, so anything joining it couples itself to this directory's name with
-# no signal when that changes. A cross-project caller should attach to a
-# purpose-named network instead. See docs/getting-started.md.
-#
-# The two transports are separate projects because their containers are
-# alternatives, not companions. The data volumes below are pinned so they stay
-# shared across both anyway.
+# Development Docker Compose configuration for the BuEM gateway with HTTPS. Uses a local Caddy instance for TLS termination.
 name: buem-gateway-https
 
 services:
-  # The BuEM thermal model (Flask/Gunicorn, Python). Built and published by
-  # enerplanet/buem, not this repo. Set BUEM_IMAGE_TAG to pin a version.
+  # The BuEM thermal model service. Provides the core simulation functionality.
   buem-model:
     container_name: buem-model
     image: ghcr.io/enerplanet/buem-model:${BUEM_IMAGE_TAG:-latest}
     environment:
       - BUEM_CBC_EXE=/opt/conda/envs/buem_env/bin/cbc
       - BUEM_WEATHER_FALLBACK=false
-      # Match buem-gateway's BUEM_RESULTS_DIR so the intermediate .json.gz
-      # lands on the shared volume rather than in BuEM's package directory.
+      # Directory where the BuEM model writes its results. This should match
       - BUEM_RESULTS_DIR=/app/results
     volumes:
       - buem-results-data:/app/results
@@ -56,8 +19,6 @@ services:
       timeout: 10s
       start_period: 60s
       retries: 5
-    # No `ports:` mapping, in this environment or any other. buem-model is
-    # called only by buem-gateway, over the compose network, by service name.
 
   buem-gateway:
     container_name: buem-gateway
@@ -80,44 +41,25 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
-    # No `ports:` mapping in this environment: the proxy is the way in. The
-    # HTTP environment publishes the gateway directly instead.
 
   buem-reverse-proxy:
     image: caddy:2.11-alpine
     container_name: buem-reverse-proxy
     environment:
       - APP_PORT=${APP_PORT:-8080}
-      # The site address Caddy serves. Keep localhost for local use; a real
-      # deployment sets its own domain, or Caddy will neither serve it nor
-      # provision a certificate for it. See docker-compose.prod.yml.
       - BUEM_SITE_ADDRESS=${BUEM_SITE_ADDRESS:-localhost}
     depends_on:
       buem-gateway:
         condition: service_healthy
     ports:
-      # Host side assignable per service, so it does not collide with ignis's
-      # own reverse proxy.
+      # Map the host's HTTPS port to the container's HTTPS port.
       - "${HOST_HTTPS_PORT:-8443}:443"
     volumes:
-      # Directory mount, not per-file: a single-file bind mount silently serves
-      # stale content after an edit.
       - ./caddy:/etc/caddy:ro
       - caddy-data:/data/caddy
 
 volumes:
-  # Names pinned rather than project-scoped. Without this each transport would
-  # get its own copy, so switching between them would silently present an empty
-  # volume every time. The prefix predates the per-repository project names and
-  # is kept only so the rename does not orphan existing data.
-  #
-  # `docker compose up` warns that these were created for another project and
-  # suggests `external: true`. Do not take the suggestion. An external volume
-  # must already exist, so a clean machine would fail instead of creating it,
-  # which is the one thing these directories exist to make work. The warning is
-  # inherent to one volume serving two projects: whichever project did not
-  # create it is always the one compose complains about, on a clean machine as
-  # much as on this one.
+  # Named volume for Caddy's data directory, allowing the containerised Caddy to reuse the host's trusted local certificate authority.
   buem-csv-data:
     name: building-simulation_buem-csv-data
   buem-results-data:
