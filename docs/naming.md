@@ -12,7 +12,7 @@ This extends the existing EnerPlanET pattern used for PV, wind, biomass, and geo
 
 | Part | Rule | Example |
 |---|---|---|
-| `profile_type` | `heating`, `cooling`, or `electricity` | `heating` |
+| `profile_type` | `heating`, `cooling`, `electricity`, `hot_water`, or `kitchen` | `heating` |
 | `lat` | Latitude from the feature geometry, 6 decimal places | `48.833911` |
 | `lon` | Longitude from the feature geometry, 6 decimal places | `12.957720` |
 | `year` | 4-digit simulation year taken from `start_time` | `2018` |
@@ -40,7 +40,7 @@ ${BUEM_DATA_DIR}/
     electricity_48.833847_12.958071_2018.csv
 ```
 
-A `cooling_*.csv` is written only when `compute_cooling` was true in the request.
+`heating_*.csv` is always written. Every other profile type is written only when BuEM returned that series: `cooling_*.csv` when `compute_cooling` was true in the request, `hot_water_*.csv` when `include_dhw` was true, `kitchen_*.csv` when `cooking_carrier` was `gas`.
 
 `BUEM_DATA_DIR` is set through the environment. Every container that reads or writes these files must mount the same Docker volume at that path.
 
@@ -54,3 +54,5 @@ demand
 19.162132866903892
 ...
 ```
+
+The unit is not in the file. Every profile type is kW except `kitchen`, which is gas power in kW_gas (`thermal_load_profile.timeseries.kitchen_unit` in the response).
