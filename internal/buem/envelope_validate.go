@@ -9,7 +9,7 @@ import (
 // absent or empty. Callers (e.g. the HTTP handler) can check for it, or the
 // broader ErrInvalidRequest it wraps, with errors.Is to distinguish "you
 // sent an incomplete request" (400) from "BuEM tried to run it and failed"
-// (422) — this check runs before BuEM is ever called, so the latter status
+// (422). This check runs before BuEM is ever called, so the latter status
 // would be misleading.
 var ErrMissingEnvelope = fmt.Errorf("building.envelope is required with at least one element — buem-gateway does not resolve missing geometry from any external service, the caller must supply a complete envelope: %w", ErrInvalidRequest)
 
@@ -64,7 +64,7 @@ func requireEnvelope(buemRaw json.RawMessage) error {
 // checkEnvelopeElement enforces the schemas/v5 envelope_element contract:
 // id and type on every element (type from envelopeElementTypes), plus area,
 // azimuth and tilt on every non-ventilation element. Fields are checked for
-// presence only — BuEM is the authority on their values.
+// presence only. BuEM is the authority on their values.
 func checkEnvelopeElement(i int, raw json.RawMessage) error {
 	var el map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &el); err != nil {

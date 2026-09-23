@@ -10,7 +10,7 @@ import (
 // has no usable columns. Callers (e.g. the HTTP handler) can check for it, or
 // the broader ErrInvalidRequest it wraps, with errors.Is to distinguish "you
 // sent an incomplete request" (400) from "BuEM tried to run it and failed"
-// (422) — this check runs before BuEM is ever called, so the latter status
+// (422). This check runs before BuEM is ever called, so the latter status
 // would be misleading.
 var ErrMissingWeather = fmt.Errorf(`buem.weather is required with "index" and at least one of T/GHI/DNI/DHI under "variables" — buem-gateway does not resolve weather from any external service, the caller must supply a pre-resolved timeseries (see enerplanet/buem#10): %w`, ErrInvalidRequest)
 
@@ -18,7 +18,7 @@ var ErrMissingWeather = fmt.Errorf(`buem.weather is required with "index" and at
 // missing or has no usable columns, and a wrapped ErrInvalidRequest if any
 // variable array's length does not match index. Mirrors requireEnvelope:
 // buem-gateway resolves nothing from any external service, including weather
-// serve — the upstream BuEM Flask service itself now rejects a request with
+// serve. The upstream BuEM Flask service itself now rejects a request with
 // no weather (enerplanet/buem#10), but a check here surfaces it as a clear
 // client-input-error 400 instead of a confusing 422 two hops away.
 //

@@ -83,7 +83,7 @@ func TestRequireWeather_IndexParity(t *testing.T) {
 }
 
 // TestValidateSingle_MatchesRunPath confirms ValidateSingle rejects exactly
-// what TaskFromBuilding rejects — the guarantee that /api/v1/buem/validate
+// what TaskFromBuilding rejects: the guarantee that /api/v1/buem/validate
 // and /api/v1/buem/building never disagree.
 func TestValidateSingle_MatchesRunPath(t *testing.T) {
 	in := testBuildingInput("b1")
