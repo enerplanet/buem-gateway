@@ -181,6 +181,37 @@ func TestBuilding_MissingWeather(t *testing.T) {
 	}
 }
 
+// TestBuilding_BadGeometryIs400NotRunFailure confirms a request rejected by
+// the pre-flight geometry check returns 400, not the 422 reserved for a run
+// that reached BuEM and failed.
+func TestBuilding_BadGeometryIs400NotRunFailure(t *testing.T) {
+	upstream := fakeUpstream(t, http.StatusOK)
+	defer upstream.Close()
+	h := newTestHandler(t, upstream)
+
+	reqBody := `{
+		"id": "b1",
+		"geometry": {"type":"Point","coordinates":[12.5]},
+		"start_date": "2018-01-01T00:00:00Z",
+		"end_date": "2018-12-31T23:00:00Z",
+		"resolution": 60,
+		"model_id": "demo",
+		"buem": {"building":{"envelope":{"elements":[
+			{"id":"Wall_1","type":"wall","area":10.0,"azimuth":0.0,"tilt":90.0,"U":1.5}
+		]}},"weather":{"index":["2018-01-01T00:30:00Z"],"variables":{"T":[1.0]}}}
+	}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/buem/building", strings.NewReader(reqBody))
+	w := httptest.NewRecorder()
+	h.Building(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d (body=%s)", w.Code, http.StatusBadRequest, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "geometry.coordinates") {
+		t.Errorf("body = %q, want it to mention geometry.coordinates", w.Body.String())
+	}
+}
+
 func TestValidate_MissingBuemBlock(t *testing.T) {
 	h := New(nil)
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/buem/validate", strings.NewReader(`{"id":"b1"}`))
@@ -245,6 +276,9 @@ func TestValidate_ValidRequestNeverCallsBuEM(t *testing.T) {
 	h := New(nil)
 	reqBody := `{
 		"geometry": {"type":"Point","coordinates":[12.5,48.5]},
+		"start_date": "2018-01-01T00:00:00Z",
+		"end_date": "2018-12-31T23:00:00Z",
+		"resolution": 60,
 		"buem": {"building":{"building_type":"SFH","country":"DE","envelope":{"elements":[
 			{"id":"Wall_1","type":"wall","area":10.0,"azimuth":0.0,"tilt":90.0,"U":1.5}
 		]}},"weather":{"index":["2018-01-01T00:30:00Z"],"variables":{"T":[1.0]}}}
@@ -259,6 +293,74 @@ func TestValidate_ValidRequestNeverCallsBuEM(t *testing.T) {
 	body := decodeBody(t, w)
 	if body["valid"] != true {
 		t.Errorf("body = %v, want valid=true", body)
+	}
+}
+
+// TestValidate_RunsTheFullRunPathPreflight covers the checks /validate must
+// share with POST /api/v1/buem/building: geometry, start_date and per-element
+// envelope fields, not just "envelope and weather are present". Each case is
+// a request the run path would reject before calling BuEM; /validate must
+// reject it too, with 400 and the field named.
+func TestValidate_RunsTheFullRunPathPreflight(t *testing.T) {
+	const (
+		goodGeom    = `"geometry": {"type":"Point","coordinates":[12.5,48.5]},`
+		goodDates   = `"start_date": "2018-01-01T00:00:00Z", "end_date": "2018-12-31T23:00:00Z", "resolution": 60,`
+		goodWeather = `"weather":{"index":["2018-01-01T00:30:00Z"],"variables":{"T":[1.0]}}`
+		goodElement = `{"id":"Wall_1","type":"wall","area":10.0,"azimuth":0.0,"tilt":90.0,"U":1.5}`
+	)
+	buemBlock := func(elements string) string {
+		return `"buem": {"building":{"envelope":{"elements":[` + elements + `]}},` + goodWeather + `}`
+	}
+
+	for _, tc := range []struct {
+		name      string
+		body      string
+		wantField string
+	}{
+		{
+			name:      "geometry coordinates missing latitude",
+			body:      `{` + `"geometry": {"type":"Point","coordinates":[12.5]},` + goodDates + buemBlock(goodElement) + `}`,
+			wantField: "geometry.coordinates",
+		},
+		{
+			name:      "geometry type not Point",
+			body:      `{` + `"geometry": {"type":"Polygon","coordinates":[12.5,48.5]},` + goodDates + buemBlock(goodElement) + `}`,
+			wantField: "geometry.type",
+		},
+		{
+			name:      "start_date absent",
+			body:      `{` + goodGeom + buemBlock(goodElement) + `}`,
+			wantField: "start_date",
+		},
+		{
+			name:      "envelope element missing type",
+			body:      `{` + goodGeom + goodDates + buemBlock(`{"id":"Wall_1","area":10.0,"azimuth":0.0,"tilt":90.0}`) + `}`,
+			wantField: "type is required",
+		},
+		{
+			name:      "wall element missing tilt",
+			body:      `{` + goodGeom + goodDates + buemBlock(`{"id":"Wall_1","type":"wall","area":10.0,"azimuth":0.0}`) + `}`,
+			wantField: "tilt is required",
+		},
+		{
+			name:      "weather variable shorter than index",
+			body:      `{` + goodGeom + goodDates + `"buem": {"building":{"envelope":{"elements":[` + goodElement + `]}},"weather":{"index":["2018-01-01T00:30:00Z","2018-01-01T01:30:00Z"],"variables":{"T":[1.0]}}}}`,
+			wantField: "index has 2",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			h := New(nil)
+			req := httptest.NewRequest(http.MethodPost, "/api/v1/buem/validate", strings.NewReader(tc.body))
+			w := httptest.NewRecorder()
+			h.Validate(w, req)
+
+			if w.Code != http.StatusBadRequest {
+				t.Fatalf("status = %d, want %d (body=%s)", w.Code, http.StatusBadRequest, w.Body.String())
+			}
+			if !strings.Contains(w.Body.String(), tc.wantField) {
+				t.Errorf("body = %q, want it to mention %q", w.Body.String(), tc.wantField)
+			}
+		})
 	}
 }
 
@@ -338,7 +440,9 @@ func TestBuilding_ConnectorErrorReturnsUnprocessableEntity(t *testing.T) {
 		"end_date": "2018-12-31T23:00:00Z",
 		"resolution": 60,
 		"model_id": "demo",
-		"buem": {"building":{"envelope":{"elements":[{"id":"Wall_1"}]}},"weather":{"index":["2018-01-01T00:30:00Z"],"variables":{"T":[1.0]}}}
+		"buem": {"building":{"envelope":{"elements":[
+			{"id":"Wall_1","type":"wall","area":10.0,"azimuth":0.0,"tilt":90.0,"U":1.5}
+		]}},"weather":{"index":["2018-01-01T00:30:00Z"],"variables":{"T":[1.0]}}}
 	}`
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/buem/building", strings.NewReader(reqBody))
 	w := httptest.NewRecorder()

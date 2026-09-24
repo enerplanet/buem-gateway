@@ -54,7 +54,7 @@ Use it when the caller has no access to the shared volume. A caller that reads t
 
 ### Pre-flight validation
 
-`POST /api/v1/buem/validate` takes the same body as `POST /api/v1/buem/building` and checks that `envelope` and `weather` are both present with usable data, without ever calling BuEM. Returns `{"valid": true}` on success, the same `400` shape described below otherwise. Useful for a caller (the Orchestrator) confirming a request is well-formed before paying for the real run -- a `200` here doesn't guarantee BuEM will accept the request, only that the two things buem-gateway itself checks are present.
+`POST /api/v1/buem/validate` takes the same body as `POST /api/v1/buem/building` and runs the identical pre-flight, without ever calling BuEM: `geometry` is a `Point` with a `[lon, lat]` pair, `start_date` is an ISO 8601 timestamp, `envelope` has at least one element with every field the [contract](versioning.md) marks required (`id`, `type`, and `area`/`azimuth`/`tilt` on non-ventilation elements), and `weather` has `index`, a usable variable, and every variable array the same length as `index`. Returns `{"valid": true}` on success, the same `400` shape described below otherwise, naming the first field that failed. A `200` means every check buem-gateway performs passed; BuEM may still reject the request on a field value buem-gateway does not inspect.
 
 ### Envelope is required
 
@@ -62,8 +62,8 @@ Use it when the caller has no access to the shared volume. A caller that reads t
 
 | `envelope` | Behaviour |
 |---|---|
-| Present | Forwarded to BuEM unchanged |
-| Missing or empty | Rejected before BuEM is called. `POST /api/v1/buem/building` returns `400` with the reason in the body. `POST /api/v1/buem/buildings` gives that building its own `error` entry; every other building in the request is unaffected. |
+| Present, every element carrying `id`, `type`, and `area`/`azimuth`/`tilt` (non-ventilation only) | Forwarded to BuEM unchanged |
+| Missing, empty, or an element missing a required field | Rejected before BuEM is called. `POST /api/v1/buem/building` returns `400` with the field named in the body. `POST /api/v1/buem/buildings` gives that building its own `error` entry; every other building in the request is unaffected. |
 
 To resolve TABULA defaults from classification data, call [ignis](https://github.com/THD-Spatial-AI/ignis) yourself and build a complete `envelope` first: `GET /api/v1/variants/{country}/match?type=...&period=...` then `GET /api/v1/data/{code}`.
 
