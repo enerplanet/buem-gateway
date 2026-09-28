@@ -41,13 +41,14 @@ type buildingsRequest struct {
 	KeepTimeseries bool `json:"keep_timeseries"`
 }
 
-// buildingListItem is one building's own data — geometry and its building
-// block (envelope, building_type, country, ...). No weather here; see
-// buildingsRequest.Weather.
+// buildingListItem is one building's own data: geometry, its building block
+// (envelope, building_type, country, ...) and optionally its solver settings.
+// No weather here; see buildingsRequest.Weather.
 type buildingListItem struct {
 	ID       string          `json:"id"`
 	Geometry json.RawMessage `json:"geometry"`
 	Building json.RawMessage `json:"building"`
+	Solver   json.RawMessage `json:"solver"`
 }
 
 type buildingResultItem struct {
@@ -80,7 +81,12 @@ func (h *Handler) Buildings(w http.ResponseWriter, r *http.Request) {
 
 	inputs := make([]buem.BuildingInput, len(req.Buildings))
 	for i, b := range req.Buildings {
-		buemBlock, err := json.Marshal(map[string]json.RawMessage{"building": b.Building, "weather": req.Weather})
+		block := map[string]json.RawMessage{"building": b.Building, "weather": req.Weather}
+		// Absent or null leaves solver out, so BuEM applies its own defaults.
+		if len(b.Solver) > 0 && string(b.Solver) != "null" {
+			block["solver"] = b.Solver
+		}
+		buemBlock, err := json.Marshal(block)
 		if err != nil {
 			http.Error(w, "can't build request for building "+b.ID+": "+err.Error(), http.StatusBadRequest)
 			return
