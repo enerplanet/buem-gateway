@@ -2,26 +2,30 @@ package buem
 
 import (
 	"encoding/json"
-	"errors"
+	"fmt"
+	"sort"
 )
 
 // ErrMissingWeather is returned by RunSingle when buem.weather is absent or
-// has no usable columns. Callers (e.g. the HTTP handler) can check for it
-// with errors.Is to distinguish "you sent an incomplete request" (400) from
-// "BuEM tried to run it and failed" (422) — this check runs before BuEM is
-// ever called, so the latter status would be misleading.
-var ErrMissingWeather = errors.New(`buem.weather is required with "index" and at least one of T/GHI/DNI/DHI under "variables" — buem-gateway does not resolve weather from any external service, the caller must supply a pre-resolved timeseries (see enerplanet/buem#10)`)
+// has no usable columns. Callers (e.g. the HTTP handler) can check for it, or
+// the broader ErrInvalidRequest it wraps, with errors.Is to distinguish "you
+// sent an incomplete request" (400) from "BuEM tried to run it and failed"
+// (422). This check runs before BuEM is ever called, so the latter status
+// would be misleading.
+var ErrMissingWeather = fmt.Errorf(`buem.weather is required with "index" and at least one of T/GHI/DNI/DHI under "variables" — buem-gateway does not resolve weather from any external service, the caller must supply a pre-resolved timeseries (see enerplanet/buem#10): %w`, ErrInvalidRequest)
 
 // requireWeather reports ErrMissingWeather if the buem block's weather is
-// missing or has no usable columns. Mirrors requireEnvelope: buem-gateway
-// resolves nothing from any external service, including weather serve —
-// the upstream BuEM Flask service itself now rejects a request with no
-// weather (enerplanet/buem#10), but a check here surfaces it as a clear
+// missing or has no usable columns, and a wrapped ErrInvalidRequest if any
+// variable array's length does not match index. Mirrors requireEnvelope:
+// buem-gateway resolves nothing from any external service, including weather
+// serve. The upstream BuEM Flask service itself now rejects a request with
+// no weather (enerplanet/buem#10), but a check here surfaces it as a clear
 // client-input-error 400 instead of a confusing 422 two hops away.
 //
 // This is the hand-written half of the schemas/v5/request_schema.json
-// $defs/weather contract (required index + anyOf T/GHI/DNI/DHI). Keep the
-// two in step; TestValidatorsMatchV5Example fails if they diverge.
+// $defs/weather contract (required index + anyOf T/GHI/DNI/DHI; every
+// variable array the same length as index). Keep the two in step;
+// TestValidatorsMatchV5Example fails if they diverge.
 //
 // Shape matches weather serve's GET /v1/weather/point?format=json response
 // exactly: {"index": [...], "variables": {"T": [...], "GHI": [...], ...}}.
@@ -39,8 +43,23 @@ func requireWeather(buemRaw json.RawMessage) error {
 	if err := json.Unmarshal(buemRaw, &buem); err != nil {
 		return nil
 	}
-	if buem.Weather == nil || len(buem.Weather.Index) == 0 || !hasUsableWeatherVariable(buem.Weather.Variables) {
+	w := buem.Weather
+	if w == nil || len(w.Index) == 0 || !hasUsableWeatherVariable(w.Variables) {
 		return ErrMissingWeather
+	}
+	names := make([]string, 0, len(w.Variables))
+	for name := range w.Variables {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		var values []json.RawMessage
+		if err := json.Unmarshal(w.Variables[name], &values); err != nil {
+			return fmt.Errorf("buem.weather.variables.%s is not an array: %w", name, ErrInvalidRequest)
+		}
+		if len(values) != len(w.Index) {
+			return fmt.Errorf("buem.weather.variables.%s has %d values, index has %d: %w", name, len(values), len(w.Index), ErrInvalidRequest)
+		}
 	}
 	return nil
 }

@@ -42,12 +42,12 @@ func TaskFromBuilding(in BuildingInput, startDate, endDate string, resolution in
 		Coordinates []float64 `json:"coordinates"`
 	}
 	if err := json.Unmarshal(in.Geometry, &geom); err != nil || len(geom.Coordinates) < 2 {
-		return Task{}, fmt.Errorf("geometry.coordinates must be a [lon, lat] pair")
+		return Task{}, fmt.Errorf("geometry.coordinates must be a [lon, lat] pair: %w", ErrInvalidRequest)
 	}
 	// BuEM's schema fixes geometry.type to "Point"; without it BuEM rejects
 	// the feature with a generic "Invalid GeoJSON payload" that names no field.
 	if geom.Type != "Point" {
-		return Task{}, fmt.Errorf("geometry.type must be \"Point\", got %q", geom.Type)
+		return Task{}, fmt.Errorf("geometry.type must be \"Point\", got %q: %w", geom.Type, ErrInvalidRequest)
 	}
 
 	year, err := yearFromStartTime(startDate)
@@ -91,7 +91,11 @@ func buildFeature(in BuildingInput, startDate, endDate string, resolution int) (
 // string — it selects which MERRA-2 weather file BuEM uses.
 func yearFromStartTime(s string) (int, error) {
 	if len(s) < 4 {
-		return 0, fmt.Errorf("start_time too short: %q", s)
+		return 0, fmt.Errorf("start_date is required as an ISO 8601 timestamp, got %q: %w", s, ErrInvalidRequest)
 	}
-	return strconv.Atoi(s[:4])
+	year, err := strconv.Atoi(s[:4])
+	if err != nil {
+		return 0, fmt.Errorf("start_date does not begin with a 4-digit year: %q: %w", s, ErrInvalidRequest)
+	}
+	return year, nil
 }
