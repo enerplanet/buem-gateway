@@ -104,10 +104,11 @@ paths:
       operationId: validateBuilding
       summary: Pre-flight-check a single-building request
       description: >
-        Checks that `building.envelope` and `buem.weather` are present with
-        usable data. BuEM is not called.
+        Runs the same pre-flight as `/api/v1/buem/building` without calling
+        BuEM: `geometry`, `start_date`, and every field API contract v5 marks
+        required on `building.envelope` elements and `buem.weather`.
 
-        Accepts the same request body as `/api/v1/buem/building`. A 200 response  confirms only the two checks buem-gateway performs; BuEM may still reject the request at run time. Validates one building per call.
+        Accepts the same request body as `/api/v1/buem/building`. A 200 response confirms every check buem-gateway performs; BuEM may still reject the request on a field value buem-gateway does not inspect. Validates one building per call.
       requestBody:
         required: true
         content:

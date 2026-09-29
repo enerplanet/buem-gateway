@@ -88,8 +88,11 @@ func TestConnectorRunBatch_PassesThroughHotWaterAndKitchen(t *testing.T) {
 							Kitchen:  &LoadStats{Total: Quantity{Value: 386.1, Unit: "kWh_gas"}},
 						},
 						Timeseries: &Timeseries{
-							Unit:    "kW",
-							Heating: []float64{0.114, 0.223},
+							Unit:        "kW",
+							Heating:     []float64{0.114, 0.223},
+							HotWater:    []float64{0.31, 0.29},
+							Kitchen:     []float64{0.0, 1.1},
+							KitchenUnit: "kW_gas",
 						},
 					},
 					ModelMetadata: ModelMetadata{ProcessingTime: Quantity{Value: 1.2, Unit: "s"}},
@@ -136,6 +139,9 @@ func TestConnectorRunBatch_PassesThroughHotWaterAndKitchen(t *testing.T) {
 	if summary.Kitchen.Total != (Quantity{Value: 386.1, Unit: "kWh_gas"}) {
 		t.Errorf("expected summary.kitchen.total {386.1 kWh_gas}, got %+v", summary.Kitchen.Total)
 	}
+
+	assertProfileCSV(t, dataDir, "hot_water", "demand\n0.31\n0.29\n")
+	assertProfileCSV(t, dataDir, "kitchen", "demand\n0\n1.1\n")
 }
 
 func TestConnectorRunBatch_EnrichesBuildingsAndWritesCSV(t *testing.T) {
@@ -277,7 +283,9 @@ func TestConnectorRunSingle_ReturnsErrorOnFailure(t *testing.T) {
 	conn := NewConnector(cfg)
 
 	geometry := json.RawMessage(`{"type":"Point","coordinates":[12.5,48.5]}`)
-	buemBlock := json.RawMessage(`{"building":{"envelope":{"elements":[{"id":"Wall_1"}]}},"weather":{"index":["2018-01-01T00:30:00Z"],"variables":{"T":[1.0]}}}`)
+	buemBlock := json.RawMessage(`{"building":{"envelope":{"elements":[
+		{"id":"Wall_1","type":"wall","area":10.0,"azimuth":0.0,"tilt":90.0,"U":1.5}
+	]}},"weather":{"index":["2018-01-01T00:30:00Z"],"variables":{"T":[1.0]}}}`)
 
 	_, err := conn.RunSingle("solo-building", geometry, buemBlock, "2018-01-01T00:00:00Z", "2018-12-31T23:00:00Z", "demo-model", 60)
 	if err == nil {
@@ -432,6 +440,23 @@ func assertBuemBlockPresent(t *testing.T, result BuildingResult) {
 	// timeseries should be stripped, unlike RunSingle's response.
 	if _, present := tlp["timeseries"]; present {
 		t.Fatalf("expected timeseries to be stripped from RunBatch's response, got %v", tlp["timeseries"])
+	}
+}
+
+// assertProfileCSV checks that exactly one CSV of the given profile type was
+// written under the model directory, with the expected contents.
+func assertProfileCSV(t *testing.T, dataDir, profileType, want string) {
+	t.Helper()
+	matches, err := filepath.Glob(filepath.Join(dataDir, "demo-model", profileType+"_*.csv"))
+	if err != nil || len(matches) != 1 {
+		t.Fatalf("expected exactly one %s CSV under %s/demo-model, got %v (err=%v)", profileType, dataDir, matches, err)
+	}
+	content, err := os.ReadFile(matches[0])
+	if err != nil {
+		t.Fatalf("read %s CSV: %v", profileType, err)
+	}
+	if string(content) != want {
+		t.Fatalf("unexpected %s CSV content: %q", profileType, content)
 	}
 }
 
