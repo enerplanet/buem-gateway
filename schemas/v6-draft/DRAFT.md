@@ -1,4 +1,4 @@
-# API contract v6 — draft
+# API contract v6 (draft)
 
 This folder is the **in-development** next version of the BUEM-EnerPlanET
 request/response contract. It is inert: nothing in buem-gateway reads or

@@ -1,3 +1,7 @@
+---
+audience: developer
+---
+
 # Getting started
 
 ## Prerequisites
@@ -10,14 +14,14 @@
 
 ## Choose an environment
 
-`environment/` holds two, and you pick one. Neither needs a `.env` file and neither checks a credential.
+`environment/` holds two. Neither needs a `.env` file and neither checks a credential.
 
 | Directory | What runs | Reach it at |
 |---|---|---|
 | `environment/http` | `buem-gateway` and `buem-model` | `http://localhost:8081` |
 | `environment/https` | the same, plus Caddy terminating TLS | `https://localhost:8443` |
 
-TLS is a deployment choice rather than a property of this service. In the deployment these are written for, transport security and access control sit upstream, so `environment/http` is the one local development usually wants.
+TLS is a deployment choice, not a property of the service. Where transport security and access control sit upstream, use `environment/http`; it is also the usual choice for local development.
 
 !!! danger "Nothing in either environment authenticates a caller"
     There is no API key and no other credential. What restricts who can reach the service is the network it is published on. See [`SECURITY.md`](https://github.com/enerplanet/buem-gateway/blob/main/SECURITY.md).
@@ -32,7 +36,7 @@ docker compose up -d
 curl -s http://localhost:8081/buem/health
 ```
 
-The port is published on loopback, so the service answers on your machine and nowhere else. Set `HOST_BIND=0.0.0.0` in a `.env` only where something upstream controls access and has to reach the container from another host.
+The port is published on loopback, so the service answers only on the local machine. Set `HOST_BIND=0.0.0.0` in a `.env` only where something upstream controls access and has to reach the container from another host.
 
 For TLS instead:
 
@@ -43,7 +47,7 @@ curl -sk https://localhost:8443/buem/health
 ```
 
 !!! warning "The bundled certificate is not trusted"
-    Caddy's certificate authority lives in a Docker-managed volume here, so it is never added to your operating system or browser trust store. `https://localhost:8443` shows an untrusted-certificate warning: expected, not a bug. Pass `-k` or `--no-check-certificate`, or click through it in the browser. [Deployment](#deployment) covers a real trust chain.
+    Caddy's certificate authority lives in a Docker-managed volume and is not added to the operating system or browser trust store. `https://localhost:8443` shows an untrusted-certificate warning. Pass `-k` or `--no-check-certificate`, or click through it in the browser. [Deployment](#deployment) covers a real trust chain.
 
 ## Local dev (building from source)
 
@@ -75,33 +79,31 @@ The dockerfile stays at `environment/gateway.dockerfile` rather than being copie
 
 Each directory is its own compose project: `buem-gateway-http` and `buem-gateway-https`.
 
-A compose project is not a label for related things. It is the unit compose takes destructive action against, and the two are easy to confuse. These files previously shared one project name, `building-simulation`, with the [ignis](https://github.com/THD-Spatial-AI/ignis) repository, on the reasoning that both belong to the same modelling concern. That grouping was real but the mechanism was the wrong place to express it: it put a cross-repository delete behind `--remove-orphans`, a flag people pass casually. Neither service resolved anything belonging to the other, so the shared name bought these two repositories nothing in return for that.
+A compose project is the unit compose acts on destructively, for example with `--remove-orphans`. Sharing a project name with another repository would let a command run here remove that repository's containers, so these projects share a name with nothing else. The two transports are separate projects for the same reason: their containers are alternatives, and neither may act on the other's.
 
-It was not unused, though, and that is the part worth carrying forward. A compose project's default network is named after the project, so anything joining it is coupled to another repository's directory and project naming, with no signal at build or start time when that changes: the service starts cleanly and fails at its first outbound call. A third service was resolving container names on `building-simulation_default` and broke on this rename. If something needs to reach this service from outside its own project, it should attach to a purpose-named network declared for that job, not to a side effect of a project name.
-
-The two transports are separate projects from each other for the same reason. Their containers are alternatives rather than companions, so neither should be able to act on the other's.
+A compose project's default network is named after the project. A service outside this repository that needs to reach buem-gateway attaches to a purpose-named network declared for that job, not to `buem-gateway-http_default` or `buem-gateway-https_default`, which change if the project is renamed.
 
 !!! warning "Only one transport at a time, and bring the old one down first"
     Container names are fixed and unique across the host, so `buem-gateway` cannot exist twice. Starting one transport while the other is running fails on the container name. Run `docker compose down` in the directory you are leaving before bringing up the other.
 
-    A stack still running from before these names changed belongs to the old `building-simulation` project and is invisible to `docker compose down` here. Remove its containers by name:
+    A stack started under the old `building-simulation` project name is invisible to `docker compose down` here. Remove its containers by name:
 
     ```bash
     docker stop buem-gateway buem-model buem-reverse-proxy
     docker rm   buem-gateway buem-model buem-reverse-proxy
     ```
 
-    `stop` before `rm` rather than `rm -f`, so the connector finishes any CSV it is part way through writing instead of taking a SIGKILL mid-file.
+    `stop` before `rm`, not `rm -f`, so the connector finishes any CSV it is writing instead of being killed mid-file.
 
-    Do **not** use `docker compose -p building-simulation down` for this. That project was shared with [ignis](https://github.com/THD-Spatial-AI/ignis), so it would also remove `ignis-app`, `ignis-db` and `ignis-reverse-proxy`, which is the exact cross-repository deletion these separate project names exist to prevent. Naming the containers cannot reach anything but this service. Volumes are untouched either way.
+    Do **not** use `docker compose -p building-simulation down`. That project was shared with [ignis](https://github.com/THD-Spatial-AI/ignis), so it also removes `ignis-app`, `ignis-db` and `ignis-reverse-proxy`. Volumes are untouched either way.
 
 !!! info "Data volumes are shared across the transports on purpose"
-    `buem-csv-data` and `buem-results-data` pin their own names rather than taking the project prefix, so both transports mount the same data and switching between them keeps your results. The pinned names carry the old project prefix, which is kept only so the rename does not orphan existing volumes.
+    `buem-csv-data` and `buem-results-data` pin their own names rather than taking the project prefix, so both transports mount the same data and switching between them keeps the results. The pinned names carry the old `building-simulation` prefix so that existing volumes stay attached.
 
     `caddy-data` is not pinned. It holds a self-signed authority that is never added to a trust store, so losing it costs one click through a certificate warning.
 
 !!! warning "Compose warns about the pinned volumes. Ignore the suggested fix"
-    `docker compose up` reports that each pinned volume was created for a different project and suggests `external: true`. Do not take it. An external volume must already exist before `up`, so a clean checkout would fail rather than create one, which defeats the point of these directories. The warning is inherent to one volume serving two projects: whichever project did not create it is always the one compose complains about, and that stays true on a clean machine after the first transport switch.
+    `docker compose up` reports that each pinned volume was created for a different project and suggests `external: true`. Do not apply it: an external volume must exist before `up`, so a clean checkout would fail to start. The warning appears whenever one volume serves two projects and is expected after the first transport switch.
 
 ## Weather data
 
@@ -110,7 +112,7 @@ Weather is supplied per request in the payload's `buem.weather` block (`index` t
 !!! info "No mounted archive, no weather service"
     Every compose file sets `BUEM_WEATHER_FALLBACK=false` on `buem-model`. That makes a request missing `buem.weather` fail loudly rather than have BuEM resolve its own, and it also skips the default-location timeseries `buem-model` would otherwise fetch when its config module loads. The container boots with no weather data of any kind.
 
-`testdata/test_buem_buildings_request.json` is a two-building fixture for `POST /api/v1/buem/buildings` (Germany, one SFH, one MFH, full envelope and thermal data) usable as an envelope-structure template, but it does not include a `weather` block, so posting it as-is now gets every building its own `400`-equivalent `error` entry, not a result.
+`testdata/test_buem_buildings_request.json` is a two-building fixture for `POST /api/v1/buem/buildings` (Germany, one SFH, one MFH, full envelope and thermal data) usable as an envelope-structure template. It has no `weather` block, so posting it unchanged returns an `error` entry for every building.
 
 ## Deployment
 

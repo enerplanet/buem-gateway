@@ -1,4 +1,4 @@
-# BUEM–EnerPlanET API Schema Changelog
+# BuEM and EnerPlanET API Schema Changelog
 
 The current contract is **API contract v5**, defined by `schemas/v5/`. See
 [`docs/versioning.md`](docs/versioning.md) for the directory layout and how a
@@ -14,24 +14,24 @@ Changes staged in `schemas/v6-draft/`, the in-development next contract.
 - `thermal_load_profile.summary.hot_water` and `.kitchen`, and the matching
   `load_timeseries` arrays, report domestic hot water and cooking energy.
   `kitchen` is gas energy (`gas_energy_summary`, `kWh_gas`/`kW_gas` units,
-  its own `kitchen_unit` on `load_timeseries`) — a different fuel carrier
+  its own `kitchen_unit` on `load_timeseries`): a different fuel carrier
   from every other field, deliberately excluded from `total_energy_demand`.
   `hot_water` is fuel-agnostic demand and is included.
 - `building.cooking_carrier` (`electric` default, `gas`, `none`) and
   `building.include_dhw` (default `true`) select what `kitchen`/`hot_water`
   report.
-- `building.building_type` is an enum again — `SFH`, `MFH`, `TH`, `AB`, plus
+- `building.building_type` is an enum again: `SFH`, `MFH`, `TH`, `AB`, plus
   eight service ids: `bakery`, `clinic`, `hotel`, `office`, `restaurant`,
   `school`, `supermarket`, `warehouse`. The v5 migration dropped this check;
   v6-draft re-adds it with the service ids BuEM already routes to its
   service occupancy profile.
 - `building.residential_units`, `.num_persons`, `.archetype`, `.equipment`
   (29 household equipment ids, boolean ownership overrides) and `.capacity`
-  document the occupancy inputs BuEM already accepts — `num_persons`,
+  document the occupancy inputs BuEM already accepts. `num_persons`,
   `archetype`, and `equipment` apply to residential types; `capacity` to
   service types; `residential_units` to both.
 - For a service `building_type`, `hot_water` and `kitchen` come back with
-  all-zero statistics — BuEM has no hot water or cooking model for service
+  all-zero statistics, because BuEM has no hot water or cooking model for service
   buildings. Heating, cooling and electricity are unaffected.
 - `building.window_to_wall_ratio`, `.window_U`, `.window_g_gl` and `.door_U`
   size and parameterise the windows and doors BuEM synthesises when the
@@ -40,10 +40,10 @@ Changes staged in `schemas/v6-draft/`, the in-development next contract.
   subtract explicit window elements from wall areas, so a caller sending
   explicit windows must send net opaque wall areas.
 
-## v5.0.0 (2026-08) — Current
+## v5.0.0 (2026-08): Current
 
 **Status:** Current version
-**Compatible with v4.2.0:** No — `building.envelope` is now required.
+**Compatible with v4.2.0:** No: `building.envelope` is now required.
 
 ### 0. Contract frozen, schema aligned with the runtime
 
@@ -54,36 +54,36 @@ the frozen definition of API contract v5, the schema models `weather` (§3) so i
 matches what `requireWeather` enforces, and `scripts/validate_schemas.py` plus a
 Go test keep the hand-written checks and the schema from drifting. The mutable
 top-level `schemas/*.json` files are removed; the next version is developed in
-`schemas/v6-draft/`. buem-gateway stays dependency-free — validation is
+`schemas/v6-draft/`. buem-gateway stays dependency-free; validation is
 hand-written, the same as MEME.
 
 ### 1. `envelope` is required again (breaking)
 
 v4.0.0 made `building.envelope` optional, on the premise that when omitted, buem-gateway would
 derive surface areas and U-values from a TABULA variant resolved via a live call to ignis. In
-practice that made buem-gateway's "standalone, independently deployable" claim false — it silently
+practice that made buem-gateway's "standalone, independently deployable" claim false: it silently
 needed a second service (ignis) reachable on the same Docker network to accept a request shape its
-own schema advertised as valid — and the failure mode was bad: an unreachable/non-matching ignis
+own schema advertised as valid, and the failure mode was bad: an unreachable/non-matching ignis
 lookup fell through to forwarding the incomplete request to BuEM, which rejected it with a generic
 "invalid GeoJSON payload" error that named neither TABULA nor ignis. BuEM itself has never had its
 own TABULA-derivation capability; the v4.x "the model derives..." wording described buem-gateway's
 fallback behavior, not BuEM's.
 
 Removed the fallback entirely. `building.envelope` is required, with at least one element.
-buem-gateway now rejects a missing envelope immediately and explicitly — see
-[`docs/api.md`](docs/api.md#envelope-is-required) — instead of forwarding an incomplete request
+buem-gateway now rejects a missing envelope immediately and explicitly (see
+[`docs/api.md`](docs/api.md#envelope-is-required)) instead of forwarding an incomplete request
 and relying on an external service or on BuEM's own downstream error. Any caller building a
 request from classification data alone (building_type/construction_period/country) must resolve a
-concrete envelope itself before calling buem-gateway — e.g. via ignis directly — rather than
+concrete envelope itself before calling buem-gateway, for example via ignis directly, rather than
 relying on buem-gateway to do it silently.
 
 ### 2. `construction_period` clarified: TABULA class code, not a year range
 
 TABULA variant codes identify construction era by a country-specific numbered class (e.g. `"01"`,
-`"02"`) — never a literal year range. The schema's description previously said `"e.g. 1965-1974"`,
+`"02"`), never a literal year range. The schema's description previously said `"e.g. 1965-1974"`,
 which doesn't correspond to anything TABULA actually uses, and class boundaries differ per country
 (each national TABULA dataset drew its own). `construction_period` is classification metadata only
-now (§1 above) — it has no effect on the simulation, which reads geometry and U-values from
+now (§1 above); it has no effect on the simulation, which reads geometry and U-values from
 `envelope` directly.
 
 ### 3. `weather` is required, as a pre-resolved inline timeseries (breaking)
@@ -94,7 +94,7 @@ now (§1 above) — it has no effect on the simulation, which reads geometry and
 Optional `provider` and `year` fields record which archive it came from.
 
 buem-gateway calls no weather service. A `{ "provider": ... }` selector on its own is **not**
-accepted in place of the data — the caller (normally the Orchestrator) resolves weather and embeds
+accepted in place of the data; the caller (normally the Orchestrator) resolves weather and embeds
 it. buem-model still reads `provider`/`year` for its own standalone use, but that self-fetch path
 is out of contract for the EnerPlanET route.
 
@@ -103,10 +103,10 @@ recorded here and now expressed in the schema.
 
 ------------------------------------------------------------------------
 
-## v4.2.0 (2026-06) — Deprecated
+## v4.2.0 (2026-06): Deprecated
 
-**Status:** Deprecated — superseded by v5.0.0 (`envelope` was optional here, required from v5.0.0)
-**Compatible with v4.1.0:** Yes — new optional field only.
+**Status:** Deprecated, superseded by v5.0.0 (`envelope` was optional here, required from v5.0.0)
+**Compatible with v4.1.0:** Yes: new optional field only.
 
 ### What changed and why
 
@@ -118,14 +118,14 @@ Added an optional `model_id: string` field at the top level of the request Featu
 |---|---|---|---|
 | `FeatureCollection` | `model_id` | `string` | No |
 
-The BuEM solver does not use this value — it is forwarded as-is and ignored by the simulation engine. The EnerPlanET gateway reads it to isolate load profile CSV files per model: profiles are written to `{BUEM_DATA_DIR}/{model_id}/` rather than a shared flat directory. This prevents filename collisions between models and ties profile lifecycle to the model lifecycle (profiles are deleted when the model is deleted).
+The BuEM solver does not use this value; it is forwarded as-is and ignored by the simulation engine. The EnerPlanET gateway reads it to isolate load profile CSV files per model: profiles are written to `{BUEM_DATA_DIR}/{model_id}/` rather than a shared flat directory. This prevents filename collisions between models and ties profile lifecycle to the model lifecycle (profiles are deleted when the model is deleted).
 
 ------------------------------------------------------------------------
 
-## v4.1.0 (2026-04) — Deprecated
+## v4.1.0 (2026-04): Deprecated
 
-**Status:** Deprecated — superseded by v5.0.0
-**Compatible with v4.0.0:** Yes — new optional fields only.
+**Status:** Deprecated, superseded by v5.0.0
+**Compatible with v4.0.0:** Yes: new optional fields only.
 
 ### What changed and why
 
@@ -144,10 +144,10 @@ buildings easier to identify in UI and export files.
 
 ------------------------------------------------------------------------
 
-## v4.0.0 (2026-03) — Deprecated
+## v4.0.0 (2026-03): Deprecated
 
-**Status:** Deprecated — superseded by v5.0.0
-**Compatible with v3:** No — response clients must handle optional `cooling` field.
+**Status:** Deprecated, superseded by v5.0.0
+**Compatible with v3:** No: response clients must handle optional `cooling` field.
 
 ------------------------------------------------------------------------
 
@@ -194,7 +194,7 @@ model generates a profile from its occupancy simulation.
 
 **Why:** An 8760-value array inlined in the JSON payload is large and makes the
 request unwieldy. File path referencing keeps the JSON slim and is consistent with
-how the model already returns output timeseries — written to a shared volume and
+how the model already returns output timeseries: written to a shared volume and
 referenced by path. Electricity consumption by appliances heats the building
 interior and therefore affects both heating demand and cooling demand.
 
@@ -228,7 +228,7 @@ Two optional fields added to `building.thermal`:
 
 | Field | Unit | Default | TABULA name | Physical meaning |
 |---|---|---|---|---|
-| `phi_int` | W/m² | 3.0 | `phi_int` | Internal heat gains — occupants, appliances, lighting |
+| `phi_int` | W/m² | 3.0 | `phi_int` | Internal heat gains (occupants, appliances, lighting) |
 | `q_w_nd` | kWh/(m²·a) | 12.5 | `q_w_nd` | Net energy need for domestic hot water per unit floor area |
 
 When omitted, the model uses the defaults above (TABULA residential reference values). `phi_int` enters the ISO 13790 heat balance as a heat source; `q_w_nd` is added to the heating energy need in the final balance.
@@ -239,10 +239,10 @@ When omitted, the model uses the defaults above (TABULA residential reference va
 
 ------------------------------------------------------------------------
 
-## v3.0.0 (2026-03) — Deprecated
+## v3.0.0 (2026-03): Deprecated
 
 **Status:** Deprecated
-**Compatible with v2:** No — requests must be updated before sending to a v3 server.
+**Compatible with v2:** No: requests must be updated before sending to a v3 server.
 
 ------------------------------------------------------------------------
 
@@ -259,7 +259,7 @@ In v2 all building parameters lived together in a single block called
 | `solver` | Computation options: which solver to use, whether to run in parallel |
 
 `envelope` and `thermal` are nested inside `building` because they describe the
-building — they are not independent concerns at the same level as `solver`.
+building; they are not independent concerns at the same level as `solver`.
 
 **Why:** The old flat structure mixed building physics with computation settings.
 The new structure makes it clear what belongs to the building description and what
@@ -268,8 +268,8 @@ belongs to how the model runs.
 #### 2. Building location is taken from the map coordinates only
 
 In v2, latitude and longitude were repeated inside `building_attributes`. In v3,
-location comes exclusively from `feature.geometry.coordinates [longitude, latitude]`
-— the standard GeoJSON location field. The duplicate fields are removed.
+location comes exclusively from `feature.geometry.coordinates [longitude, latitude]`,
+the standard GeoJSON location field. The duplicate fields are removed.
 
 **Why:** Having location in two places risks them being inconsistent. The GeoJSON
 geometry is the authoritative location, so the model uses that directly.
@@ -277,8 +277,8 @@ geometry is the authoritative location, so the model uses that directly.
 #### 3. Building surfaces listed as a flat list
 
 In v2, surfaces were grouped into a nested structure by type (a `Walls` object
-containing an `elements` list, a `Roof` object, and so on). In v3, all surfaces
-— regardless of type — are in a single flat list called `building.envelope.elements`.
+containing an `elements` list, a `Roof` object, and so on). In v3, all surfaces,
+regardless of type, are in a single flat list called `building.envelope.elements`.
 Each surface has an `id` that you assign and a `type` field (wall, roof, floor,
 window, door, or ventilation).
 
@@ -319,8 +319,8 @@ field whose name did not clearly describe its purpose.
 #### 6. Building-wide thermal parameters available as inputs
 
 Several thermal parameters that the model used internally with fixed default values
-can now be set explicitly in the `building.thermal` section. They are all optional
-— if omitted, the same defaults as before are used.
+can now be set explicitly in the `building.thermal` section. They are all optional;
+if omitted, the same defaults as before are used.
 
 | Parameter | Physical meaning |
 |---|---|
@@ -356,7 +356,7 @@ measurable quantity is an object with a value and a unit:
 The unit field uses standard SI notation. If omitted, SI is assumed. Imperial units
 (ft², BTU, °F, etc.) are accepted where noted.
 
-**Why:** A bare number is ambiguous — is area in m² or ft²? Is temperature in °C
+**Why:** A bare number is ambiguous: is area in m² or ft²? Is temperature in °C
 or °F? Carrying the unit alongside the value eliminates this ambiguity and allows
 the frontend to display values in the user's preferred unit.
 
@@ -396,10 +396,10 @@ The response now always contains a `metadata` block at the top level:
 
 ------------------------------------------------------------------------
 
-## v2.0.0 (2026-02) — Deprecated
+## v2.0.0 (2026-02): Deprecated
 
 **Status:** Deprecated
-**Compatible with v1:** No — requests must be updated.
+**Compatible with v1:** No: requests must be updated.
 
 ### What changed
 
@@ -413,7 +413,7 @@ The response now always contains a `metadata` block at the top level:
 
 ------------------------------------------------------------------------
 
-## v1.0.0 (2025-11) — Deprecated
+## v1.0.0 (2025-11): Deprecated
 
 **Status:** Deprecated
 
