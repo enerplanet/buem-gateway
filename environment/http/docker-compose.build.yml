@@ -4,7 +4,7 @@ name: buem-gateway-http
 services:
   buem-model:
     container_name: buem-model
-    image: ghcr.io/enerplanet/buem-model:${BUEM_IMAGE_TAG:-latest}
+    image: ghcr.io/enerplanet/buem-model:${BUEM_MODEL_IMAGE_TAG:-latest}
     environment:
       - BUEM_CBC_EXE=/opt/conda/envs/buem_env/bin/cbc
       - BUEM_WEATHER_FALLBACK=false
@@ -45,6 +45,10 @@ services:
     ports:
       # Map the host's HOST_PORT to the container's APP_PORT, binding to HOST_BIND.
       - "${HOST_BIND:-127.0.0.1}:${HOST_PORT:-8081}:${APP_PORT:-8080}"
+    networks:
+      default:
+      tentacron-net:
+        aliases: [buem-gateway-http]   # the cross-repo name; never a container or project name
 
 volumes:
 # Named volumes for persistent data storage.
@@ -52,3 +56,10 @@ volumes:
     name: building-simulation_buem-csv-data
   buem-results-data:
     name: building-simulation_buem-results-data
+
+# Shared with the other heat-stack repos: key and name stay identical and nothing is added, since another
+# key fails `up` on a label mismatch and driver or ipam options make Compose recreate it for every stack.
+# The "exists but was not created" warning on `up` is expected; its `external: true` advice breaks a clean checkout.
+networks:
+  tentacron-net:
+    name: tentacron-net

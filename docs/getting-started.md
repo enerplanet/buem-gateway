@@ -54,7 +54,7 @@ cd environment/http
 docker compose -f docker-compose.build.yml up -d --build
 ```
 
-This builds the connector from this source tree and pulls `buem-model` from `ghcr.io/enerplanet/buem-model`, which `enerplanet/buem` builds and publishes. Set `BUEM_IMAGE_TAG` to pin a version.
+This builds the connector from this source tree and pulls `buem-model` from `ghcr.io/enerplanet/buem-model`, which `enerplanet/buem` builds and publishes. Set `BUEM_MODEL_IMAGE_TAG` to pin its version.
 
 The dockerfile stays at `environment/gateway.dockerfile` rather than being copied into either directory. CI builds the published image from that one path, and the image is identical whichever transport it runs behind.
 
@@ -136,7 +136,7 @@ Use `environment/https/docker-compose.prod.yml`, which pulls published images an
 
 #### 2. Prepare `.env`
 
-`BUEM_SITE_ADDRESS` and `CADDY_DATA_DIR` are both required, and the compose file refuses to start without them rather than defaulting to something that would quietly serve the wrong thing. `APP_PORT` defaults to `8080`. Set `BUEM_IMAGE_TAG` to pin a release rather than tracking `latest`.
+`BUEM_SITE_ADDRESS` and `CADDY_DATA_DIR` are both required, and the compose file refuses to start without them rather than defaulting to something that would quietly serve the wrong thing. `APP_PORT` defaults to `8080`. Set `BUEM_GATEWAY_IMAGE_TAG` and `BUEM_MODEL_IMAGE_TAG` to pin releases rather than tracking `latest`. The two images are versioned independently, so pin each to its own release.
 
 !!! warning "HOST_HTTPS_PORT must be 443 for a real domain"
     Caddy's default ACME challenge (TLS-ALPN-01) validates against port 443 specifically, so a real domain needs `HOST_HTTPS_PORT=443`, which is the production default. That means buem-gateway and ignis cannot both terminate publicly trusted TLS on the same host and IP: only one can hold port 443. Running them on separate hosts, or behind a single shared front proxy, avoids this; neither is set up here.

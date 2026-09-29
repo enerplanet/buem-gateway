@@ -5,7 +5,7 @@ services:
   # The BuEM thermal model service. Provides the core simulation functionality.
   buem-model:
     container_name: buem-model
-    image: ghcr.io/enerplanet/buem-model:${BUEM_IMAGE_TAG:-latest}
+    image: ghcr.io/enerplanet/buem-model:${BUEM_MODEL_IMAGE_TAG:-latest}
     environment:
       - BUEM_CBC_EXE=/opt/conda/envs/buem_env/bin/cbc
       - BUEM_WEATHER_FALLBACK=false
@@ -22,7 +22,7 @@ services:
 
   buem-gateway:
     container_name: buem-gateway
-    image: ghcr.io/enerplanet/buem-gateway:${BUEM_IMAGE_TAG:-latest}
+    image: ghcr.io/enerplanet/buem-gateway:${BUEM_GATEWAY_IMAGE_TAG:-latest}
     env_file: ../env/common.env
     environment:
       - APP_PORT=${APP_PORT:-8080}
