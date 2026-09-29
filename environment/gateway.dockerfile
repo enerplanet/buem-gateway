@@ -25,7 +25,15 @@ ENV PATH="${GOROOT}/bin:${PATH}"
 # -----------------------------
 WORKDIR /app
 COPY . .
-RUN go build -o bin/buem-gateway ./cmd/buem-gateway
+# Set by .github/workflows/docker-publish.yml; the defaults match internal/version's own.
+ARG VERSION=dev
+ARG COMMIT=none
+ARG DATE=unknown
+RUN go build -ldflags "\
+    -X github.com/enerplanet/buem-gateway/internal/version.Version=${VERSION} \
+    -X github.com/enerplanet/buem-gateway/internal/version.Commit=${COMMIT} \
+    -X github.com/enerplanet/buem-gateway/internal/version.Date=${DATE}" \
+    -o bin/buem-gateway ./cmd/buem-gateway
 
 # -----------------------------
 # Create non-root user and fix permissions
