@@ -1,20 +1,24 @@
+---
+audience: developer
+---
+
 # API reference
 
-The interactive reference lives in its own standalone page, [`openapi/index.html`](openapi/index.html), so it can be opened directly without running `mkdocs serve`. It renders [`openapi/openapi.yaml`](openapi/openapi.yaml); download that file to generate a client or import it into Postman.
+The interactive reference is a standalone page, [`openapi/index.html`](openapi/index.html), which opens without `mkdocs serve`. It renders [`openapi/openapi.yaml`](openapi/openapi.yaml), which can be downloaded to generate a client or imported into Postman.
 
 ## Authentication
 
-None. buem-gateway authenticates no request and checks no credential, and neither does anything shipped in front of it. Send no key; there is nothing to send.
+None. buem-gateway checks no credential, and neither does anything shipped in front of it. Requests carry no key.
 
 !!! danger "The network is the only thing controlling access"
-    Deploy buem-gateway only where something else already decides who can reach it: a network whose access you control, with callers authenticated by the EnerPlanET platform first. Anyone who can open a connection can run a simulation.
+    Deploy buem-gateway only on a network whose access is already controlled, with callers authenticated by the EnerPlanET platform first. Anyone who can open a connection can run a simulation.
 
 !!! note "Base URL"
     Local development: `http://localhost:8081` running `environment/http`, or `https://localhost:8443` running `environment/https`. Otherwise, whatever host the service is published on. See [Getting started](getting-started.md).
 
 ## Endpoints
 
-BuEM gateway exposes the following endpoints for running building models. It has no concept of a grid or topology — a caller that has one (EnerPlanET's grid model, for example) resolves it down to a flat list of buildings itself before calling either endpoint.
+buem-gateway has no concept of a grid or topology. A caller holding one (EnerPlanET's grid model, for example) resolves it to a flat list of buildings before calling.
 
 | Method | Path | Request | Response |
 | --- | --- | --- | --- |
@@ -25,7 +29,7 @@ BuEM gateway exposes the following endpoints for running building models. It has
 
 ### Buildings share weather, not envelope
 
-`POST /api/v1/buem/buildings` takes one `weather` block for the whole request, re-attached to every building server-side, instead of one copy per building. Most callers resolve weather once per model run (one point for the model's whole area) — repeating an hourly-for-a-year timeseries once per building would be pure duplication. `envelope` has no such sharing: it's genuinely different per building, so it stays under each entry's own `building` field.
+`POST /api/v1/buem/buildings` takes one `weather` block for the whole request and attaches it to every building server-side. `envelope` differs per building, so it stays under each entry's own `building` field. Each entry may also carry an optional `solver` object, forwarded to BuEM as `buem.solver`; omit it for BuEM's defaults.
 
 ```json
 {
@@ -41,7 +45,7 @@ BuEM gateway exposes the following endpoints for running building models. It has
 }
 ```
 
-The response is a list in the same order as `buildings`, each entry either `{"id": ..., "buem": {...}}` or `{"id": ..., "error": "..."}`. A `weather` block missing or incomplete at the top level fails every building in the request, each with its own `error` entry — it isn't a per-building concern the way `envelope` is.
+The response is a list in the same order as `buildings`, each entry either `{"id": ..., "buem": {...}}` or `{"id": ..., "error": "..."}`. A `weather` block missing or incomplete at the top level fails every building in the request, each with its own `error` entry.
 
 ### Hourly values in the batch response
 
@@ -72,12 +76,12 @@ To resolve TABULA defaults from classification data, call [ignis](https://github
 
 ### Weather is required
 
-`buem.weather` must be present with `index` and at least one of `T`/`GHI`/`DNI`/`DHI` under `variables` -- the shape [weather serve](https://github.com/enerplanet/weather)'s `GET /v1/weather/point?format=json` returns. buem-gateway does not resolve weather from any external service either; BuEM itself has raised on missing weather since [enerplanet/buem#10](https://github.com/enerplanet/buem/issues/10), and this check surfaces that as a clear `400` here instead of a `422` after an unnecessary round trip to BuEM.
+`buem.weather` must be present with `index` and at least one of `T`/`GHI`/`DNI`/`DHI` under `variables`, the shape [weather serve](https://github.com/enerplanet/weather)'s `GET /v1/weather/point?format=json` returns. buem-gateway does not resolve weather from any external service.
 
 | `weather` | Behaviour |
 |---|---|
 | Present, with a usable variable | Forwarded to BuEM unchanged |
-| Missing, or `variables` has none of T/GHI/DNI/DHI (e.g. only wind) | Rejected before BuEM is called. `POST /api/v1/buem/building` returns `400` with the reason in the body. `POST /api/v1/buem/buildings` gives every building in the request its own `error` entry — the top-level `weather` field is shared, so a missing one affects the whole batch, not one building. |
+| Missing, or `variables` has none of T/GHI/DNI/DHI (e.g. only wind) | Rejected before BuEM is called. `POST /api/v1/buem/building` returns `400` with the reason in the body. `POST /api/v1/buem/buildings` gives every building in the request its own `error` entry, because the top-level `weather` field is shared. |
 
 ### CSV output
 
@@ -107,4 +111,4 @@ demand
 3. Pick the `http://localhost:8081` server in the **Servers** dropdown, which matches the stack you just started.
 4. Expand an endpoint, click **Try it out**, fill in the parameters, then **Execute**. No credential is needed; nothing in the stack checks one.
 
-To do the same against the TLS environment, start `environment/https` instead, choose the `https://localhost:8443` server, and first open `https://localhost:8443` in a browser tab and click through the untrusted-certificate warning. That certificate authority is never added to your trust store, so the warning is expected rather than a setup mistake.
+For the TLS environment, start `environment/https`, choose the `https://localhost:8443` server, and first open `https://localhost:8443` in a browser tab and accept the untrusted-certificate warning. The bundled certificate authority is not in the browser's trust store, so the warning is expected.

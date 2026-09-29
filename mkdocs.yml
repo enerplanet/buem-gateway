@@ -10,8 +10,7 @@ repo_name: enerplanet/buem-gateway
 repo_url: https://github.com/enerplanet/buem-gateway
 edit_uri: edit/main/docs/
 
-# Theme configuration — mirrors THD-Spatial-AI/ignis's docs theme for a
-# consistent look across the building-simulation namespace's own repos.
+# Theme configuration matches THD-Spatial-AI/ignis's docs theme.
 theme:
   name: material
   features:
@@ -65,8 +64,7 @@ plugins:
   - search:
       separator: '[\s​\-_,:!=\[\]()"`/]+|\.(?!\d)|&[lg]t;|(?!\b)(?=[A-Z][a-z])'
 
-# Extensions — pymdownx.superfences custom mermaid fence is required for
-# Mermaid diagrams to render under Material; see CLAUDE.md.
+# Mermaid renders under Material only with the pymdownx.superfences custom fence.
 markdown_extensions:
   - abbr
   - admonition

@@ -1,4 +1,8 @@
-# BUEM–EnerPlanET API contract versioning
+---
+audience: developer
+---
+
+# BuEM and EnerPlanET API contract versioning
 
 This repo is the single source of truth for the request and response JSON
 exchanged between EnerPlanET and BUEM. The current contract is **API contract
@@ -13,29 +17,31 @@ v5**, defined by the files in `schemas/v5/`.
 | buem-model software version | git tags on the `buem` repo | v5.0.x |
 
 A match between any two of them is coincidence. Always write the contract
-version qualified — "API contract v5", "schema v5" — never a bare "v5".
+version qualified, as "API contract v5" or "schema v5", never a bare "v5".
 
 ## Directory layout is the version status
 
 | Path | Meaning |
 |---|---|
-| `schemas/v5/` | Current production contract. **Frozen** — never edited after it was cut. |
+| `schemas/v5/` | Current production contract. **Frozen**: never edited after it was cut. |
 | `schemas/v6-draft/` | Next version, under development. Inert: nothing loads, embeds, or validates against it. Edit freely. |
 | `schemas/v1/` … `schemas/v4/` | Archived past versions, read-only. |
 
 There is no mutable "current" directory. To know which contract is current, read
 this file or look for the `schemas/vN/` folder with no `-draft` suffix. To know
-which contract a running buem-gateway enforces, call `GET /buem/health` — it
+which contract a running buem-gateway enforces, call `GET /buem/health`, which
 reports `contract_version`.
 
 ## How the contract is enforced
 
 buem-gateway has no external Go dependencies and validates by hand, the same way
-MEME does: `requireEnvelope` and `requireWeather` (`internal/buem/`) check the
+MEME does. `requireEnvelope` and `requireWeather` (`internal/buem/`) check the
 parts of `schemas/v5/request_schema.json` a request must satisfy before BuEM is
-called — `building.envelope.elements` non-empty, `buem.weather` present with an
-`index` and at least one of T/GHI/DNI/DHI. A request that fails gets a 400 naming
-the field; there is no separate "wrong version" error.
+called: every envelope element carries `id`, `type` and (non-ventilation only)
+`area`/`azimuth`/`tilt`, and `buem.weather` has an `index`, at least one of
+T/GHI/DNI/DHI, and every variable array the same length as `index`. A request
+that fails gets a 400 naming the field; there is no separate "wrong version"
+error.
 
 Schema-versus-code drift is caught two ways, not by making the schema the runtime
 check:
@@ -70,7 +76,7 @@ A contract bump is text and file moves, no git tag, no GitHub release:
 3. Add the `CHANGELOG.md` entry; update the current-version line at the top of
    this file, the released-versions table below, and `openapi.yaml`
    `info.version`.
-4. Run `python scripts/validate_schemas.py` and `go test ./...` — the first
+4. Run `python scripts/validate_schemas.py` and `go test ./...`. The first
    checks the schema against its examples and the version-string sync, the second
    runs `TestValidatorsMatchV5Example` (rename per version) tying the checks to
    the example.
@@ -86,7 +92,7 @@ python scripts/validate_schemas.py
 
 | Version | Date | Status | What changed |
 |---|---|---|---|
-| v5.0.0 | 2026-08 | Current | `envelope` required again (v4.x TABULA fallback removed); `weather` required as a pre-resolved inline timeseries; contract frozen into `schemas/v5/` and enforced by embedded-schema validation. See `CHANGELOG.md`. |
+| v5.0.0 | 2026-08 | Current | `envelope` required again (v4.x TABULA fallback removed); `weather` required as a pre-resolved inline timeseries; contract frozen into `schemas/v5/`. See `CHANGELOG.md`. |
 | v4.2.0 | 2026-06 | Unsupported | Optional `model_id` on the request `FeatureCollection`, used by the gateway to namespace CSV output per model |
 | v4.1.0 | 2026-04 | Unsupported | Optional `name` field on `building` and `envelope_element`, display only |
 | v4.0.0 | 2026-03 | Unsupported | `solver.compute_cooling` (opt-in cooling), file-path electricity input, `envelope` optional (TABULA fallback), `phi_int`/`q_w_nd` configurable |
