@@ -277,7 +277,9 @@ func TestConnectorRunSingle_ReturnsErrorOnFailure(t *testing.T) {
 	conn := NewConnector(cfg)
 
 	geometry := json.RawMessage(`{"type":"Point","coordinates":[12.5,48.5]}`)
-	buemBlock := json.RawMessage(`{"building":{"envelope":{"elements":[{"id":"Wall_1"}]}},"weather":{"index":["2018-01-01T00:30:00Z"],"variables":{"T":[1.0]}}}`)
+	buemBlock := json.RawMessage(`{"building":{"envelope":{"elements":[
+		{"id":"Wall_1","type":"wall","area":10.0,"azimuth":0.0,"tilt":90.0,"U":1.5}
+	]}},"weather":{"index":["2018-01-01T00:30:00Z"],"variables":{"T":[1.0]}}}`)
 
 	_, err := conn.RunSingle("solo-building", geometry, buemBlock, "2018-01-01T00:00:00Z", "2018-12-31T23:00:00Z", "demo-model", 60)
 	if err == nil {
