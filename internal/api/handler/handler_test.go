@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/enerplanet/buem-gateway/internal/buem"
@@ -692,5 +693,61 @@ func TestBuildings_KeepTimeseriesFieldBindsFromJSON(t *testing.T) {
 				t.Errorf("timeseries present = %v, want %v (body=%s)", inline, tc.wantInline, w.Body.String())
 			}
 		})
+	}
+}
+
+// TestBuildings_ForwardsPerBuildingSolver confirms a batch item's solver
+// reaches BuEM as properties.buem.solver, and that an item without one (or
+// with an explicit null) forwards no solver key, so BuEM applies its default.
+func TestBuildings_ForwardsPerBuildingSolver(t *testing.T) {
+	var mu sync.Mutex
+	forwarded := map[string]map[string]json.RawMessage{}
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			Features []struct {
+				ID         string `json:"id"`
+				Properties struct {
+					BUEM map[string]json.RawMessage `json:"buem"`
+				} `json:"properties"`
+			} `json:"features"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			t.Errorf("upstream: decode request: %v", err)
+		}
+		f := req.Features[0]
+		mu.Lock()
+		forwarded[f.ID] = f.Properties.BUEM
+		mu.Unlock()
+		http.Error(w, "stop after capture", http.StatusBadRequest)
+	}))
+	defer upstream.Close()
+	h := newTestHandler(t, upstream)
+
+	envelope := `{"envelope":{"elements":[{"id":"Wall_1","type":"wall","area":10.0,"azimuth":0.0,"tilt":90.0,"U":1.5}]}}`
+	reqBody := `{
+		"start_date": "2018-01-01T00:00:00Z",
+		"end_date": "2018-12-31T23:00:00Z",
+		"resolution": 60,
+		"model_id": "demo",
+		"weather": {"index":["2018-01-01T00:30:00Z"],"variables":{"T":[1.0]}},
+		"buildings": [
+			{"id": "with-solver", "geometry": {"type":"Point","coordinates":[12.5,48.5]}, "building": ` + envelope + `, "solver": {"use_milp": true}},
+			{"id": "without-solver", "geometry": {"type":"Point","coordinates":[12.6,48.6]}, "building": ` + envelope + `},
+			{"id": "null-solver", "geometry": {"type":"Point","coordinates":[12.7,48.7]}, "building": ` + envelope + `, "solver": null}
+		]
+	}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/buem/buildings", strings.NewReader(reqBody))
+	h.Buildings(httptest.NewRecorder(), req)
+
+	if len(forwarded) != 3 {
+		t.Fatalf("expected 3 features forwarded to BuEM, got %d: %v", len(forwarded), forwarded)
+	}
+	if got := string(forwarded["with-solver"]["solver"]); got != `{"use_milp":true}` {
+		t.Errorf("with-solver: forwarded solver = %q, want %q", got, `{"use_milp":true}`)
+	}
+	for _, id := range []string{"without-solver", "null-solver"} {
+		if s, present := forwarded[id]["solver"]; present {
+			t.Errorf("%s: expected no solver key forwarded, got %s", id, s)
+		}
 	}
 }

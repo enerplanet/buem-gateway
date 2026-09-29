@@ -307,6 +307,14 @@ components:
           $ref: "#/components/schemas/Geometry"
         building:
           $ref: "#/components/schemas/BuildingBlock"
+        solver:
+          type: object
+          description: >
+            Optional solver settings for this building, forwarded to BuEM as
+            `buem.solver` (fields: `$defs/solver` in `schemas/v5/request_schema.json`).
+            Omit it, or send `null`, for BuEM's defaults.
+          additionalProperties: true
+          example: { use_milp: true }
       required: [id, geometry, building]
 
     BuildingsRequest:
