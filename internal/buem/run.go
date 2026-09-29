@@ -26,8 +26,8 @@ type RunMetrics struct {
 	ModelProcessingSeconds float64
 }
 
-// RunFeature sends one Task to the upstream BuEM service, writes its
-// heating/cooling/electricity CSVs to the shared data directory, and returns
+// RunFeature sends one Task to the upstream BuEM service, writes one CSV per
+// computed load profile to the shared data directory, and returns
 // the enriched buem block as raw JSON, with file paths injected. The inline
 // timeseries is stripped unless keepTimeseries is true — callers that read
 // results from the shared volume (the multi-building topology path) don't
@@ -76,9 +76,10 @@ func callUpstream(client *httpclient.Client, cfg *config.Config, task Task) (*Re
 	return &respFC.Features[0].Properties.BUEM, nil
 }
 
-// writeCSVsAndAnnotate writes heating, cooling, and electricity CSVs to
+// writeCSVsAndAnnotate writes one CSV per computed load profile to
 // {BuemDataDir}/{modelID}/, injects the file paths into the buem block, and
-// marshals it. The timeseries arrays are removed once written to CSV, unless
+// marshals it. Heating is always present; the rest are written only when BuEM
+// returned them. The timeseries arrays are removed once written to CSV, unless
 // keepTimeseries is true.
 func writeCSVsAndAnnotate(cfg *config.Config, block *ResponseBlock, task Task, keepTimeseries bool) ([]byte, time.Duration, error) {
 	ts := block.ThermalLoadProfile.Timeseries
@@ -96,16 +97,22 @@ func writeCSVsAndAnnotate(cfg *config.Config, block *ResponseBlock, task Task, k
 	suffix := fmt.Sprintf("%.6f_%.6f_%s", task.Lat, task.Lon, strconv.Itoa(task.Year))
 
 	writeStart := time.Now()
-	if err := writeLoadCSV(resultsDir, "heating", suffix, ts.Heating, &block.ThermalLoadProfile.HeatingFile); err != nil {
-		return nil, 0, err
+	profiles := []struct {
+		loadType string
+		values   []float64
+		dest     *string
+	}{
+		{"heating", ts.Heating, &block.ThermalLoadProfile.HeatingFile},
+		{"cooling", ts.Cooling, &block.ThermalLoadProfile.CoolingFile},
+		{"electricity", ts.Electricity, &block.ThermalLoadProfile.ElectricityFile},
+		{"hot_water", ts.HotWater, &block.ThermalLoadProfile.HotWaterFile},
+		{"kitchen", ts.Kitchen, &block.ThermalLoadProfile.KitchenFile},
 	}
-	if len(ts.Cooling) > 0 {
-		if err := writeLoadCSV(resultsDir, "cooling", suffix, ts.Cooling, &block.ThermalLoadProfile.CoolingFile); err != nil {
-			return nil, 0, err
+	for _, p := range profiles {
+		if len(p.values) == 0 {
+			continue
 		}
-	}
-	if len(ts.Electricity) > 0 {
-		if err := writeLoadCSV(resultsDir, "electricity", suffix, ts.Electricity, &block.ThermalLoadProfile.ElectricityFile); err != nil {
+		if err := writeLoadCSV(resultsDir, p.loadType, suffix, p.values, p.dest); err != nil {
 			return nil, 0, err
 		}
 	}
