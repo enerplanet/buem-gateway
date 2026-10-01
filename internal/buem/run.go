@@ -92,6 +92,10 @@ func writeCSVsAndAnnotate(cfg *config.Config, block *ResponseBlock, task Task, k
 
 	resultsDir := cfg.BuemDataDir
 	if task.ModelID != "" {
+		// Second guard behind ValidateModelID: never write outside BUEM_DATA_DIR.
+		if !filepath.IsLocal(task.ModelID) {
+			return nil, 0, fmt.Errorf("model_id %q resolves outside BUEM_DATA_DIR", task.ModelID)
+		}
 		resultsDir = filepath.Join(cfg.BuemDataDir, task.ModelID)
 	}
 	suffix := fmt.Sprintf("%.6f_%.6f_%s", task.Lat, task.Lon, strconv.Itoa(task.Year))

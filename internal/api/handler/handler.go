@@ -79,6 +79,13 @@ func (h *Handler) Buildings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// model_id is shared by every building, so an unsafe one fails the whole
+	// request rather than producing one identical error entry per building.
+	if err := buem.ValidateModelID(req.ModelID); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	inputs := make([]buem.BuildingInput, len(req.Buildings))
 	for i, b := range req.Buildings {
 		block := map[string]json.RawMessage{"building": b.Building, "weather": req.Weather}
@@ -158,7 +165,7 @@ func (h *Handler) Building(w http.ResponseWriter, r *http.Request) {
 }
 
 // Validate handles POST /api/v1/buem/validate: runs the same pre-flight as
-// the /api/v1/buem/building run path (envelope, weather, geometry,
+// the /api/v1/buem/building run path (model_id, envelope, weather, geometry,
 // start_date) without ever calling BuEM, so the two endpoints can never
 // disagree on whether a request is well-formed. Lets a caller (e.g. the
 // Orchestrator) confirm a request before paying for the real run.
@@ -179,7 +186,7 @@ func (h *Handler) Validate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	in := buem.BuildingInput{ID: req.ID, Geometry: req.Geometry, BUEM: req.BUEM}
-	if err := buem.ValidateSingle(in, req.StartDate, req.EndDate, req.Resolution); err != nil {
+	if err := buem.ValidateSingle(in, req.StartDate, req.EndDate, req.ModelID, req.Resolution); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}

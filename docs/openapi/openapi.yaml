@@ -105,7 +105,7 @@ paths:
       summary: Pre-flight-check a single-building request
       description: >
         Runs the same pre-flight as `/api/v1/buem/building` without calling
-        BuEM: `geometry`, `start_date`, and every field API contract v5 marks
+        BuEM: `model_id`, `geometry`, `start_date`, and every field API contract v5 marks
         required on `building.envelope` elements and `buem.weather`.
 
         Accepts the same request body as `/api/v1/buem/building`. A 200 response confirms every check buem-gateway performs; BuEM may still reject the request on a field value buem-gateway does not inspect. Validates one building per call.
@@ -167,7 +167,7 @@ components:
   responses:
     BadRequest:
       description: >
-        Malformed or incomplete request: unreadable body, missing buem block, missing building.envelope, or missing/unusable buem.weather. Rejected before BuEM is called.
+        Malformed or incomplete request: unreadable body, missing buem block, invalid model_id, missing building.envelope, or missing/unusable buem.weather. Rejected before BuEM is called.
       content:
         text/plain:
           schema:
@@ -238,7 +238,8 @@ components:
           $ref: "#/components/schemas/Geometry"
         model_id:
           type: string
-          description: Isolates output. CSVs are written under `{BUEM_DATA_DIR}/{model_id}/`.
+          pattern: "^[A-Za-z0-9._-]+$"
+          description: Isolates output. CSVs are written under `{BUEM_DATA_DIR}/{model_id}/`. Letters, digits, `.`, `_` and `-` only, and not `.` or `..`; anything else is a 400.
           example: demo-model-001
         start_date:
           type: string
@@ -322,6 +323,8 @@ components:
       properties:
         model_id:
           type: string
+          pattern: "^[A-Za-z0-9._-]+$"
+          description: Same rule as `BuildingRequest.model_id`. An invalid value rejects the whole request with 400.
           example: demo-model-001
         start_date:
           type: string

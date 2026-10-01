@@ -3,8 +3,25 @@ package buem
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strconv"
 )
+
+// modelIDPattern is the character set allowed in model_id, which becomes a
+// directory name under BUEM_DATA_DIR.
+var modelIDPattern = regexp.MustCompile(`^[A-Za-z0-9._-]+$`)
+
+// ValidateModelID rejects a model_id that is not a single safe path segment.
+// An empty model_id is valid: CSVs are then written to BUEM_DATA_DIR itself.
+func ValidateModelID(modelID string) error {
+	if modelID == "" {
+		return nil
+	}
+	if !modelIDPattern.MatchString(modelID) || modelID == "." || modelID == ".." {
+		return fmt.Errorf("model_id may contain only letters, digits, '.', '_' and '-', and may not be \".\" or \"..\", got %q: %w", modelID, ErrInvalidRequest)
+	}
+	return nil
+}
 
 // Task is one building extracted from a request, ready to send to the
 // upstream BuEM Flask API.
@@ -30,6 +47,9 @@ type BuildingInput struct {
 // caller must supply a complete buem block, buem-gateway resolves nothing
 // from any external service.
 func TaskFromBuilding(in BuildingInput, startDate, endDate string, resolution int, modelID string) (Task, error) {
+	if err := ValidateModelID(modelID); err != nil {
+		return Task{}, err
+	}
 	if err := requireEnvelope(in.BUEM); err != nil {
 		return Task{}, err
 	}

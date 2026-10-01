@@ -87,12 +87,12 @@ func TestRequireWeather_IndexParity(t *testing.T) {
 // and /api/v1/buem/building never disagree.
 func TestValidateSingle_MatchesRunPath(t *testing.T) {
 	in := testBuildingInput("b1")
-	if err := ValidateSingle(in, "2018-01-01T00:00:00Z", "2018-12-31T23:00:00Z", 60); err != nil {
+	if err := ValidateSingle(in, "2018-01-01T00:00:00Z", "2018-12-31T23:00:00Z", "", 60); err != nil {
 		t.Fatalf("ValidateSingle() rejected a complete request: %v", err)
 	}
 
 	in.Geometry = json.RawMessage(`{"type":"Point","coordinates":[12.5]}`)
-	err := ValidateSingle(in, "2018-01-01T00:00:00Z", "2018-12-31T23:00:00Z", 60)
+	err := ValidateSingle(in, "2018-01-01T00:00:00Z", "2018-12-31T23:00:00Z", "", 60)
 	if !errors.Is(err, ErrInvalidRequest) {
 		t.Fatalf("ValidateSingle() = %v, want it to wrap ErrInvalidRequest", err)
 	}

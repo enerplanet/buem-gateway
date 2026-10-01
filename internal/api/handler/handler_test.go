@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/enerplanet/buem-gateway/internal/buem"
@@ -749,5 +750,107 @@ func TestBuildings_ForwardsPerBuildingSolver(t *testing.T) {
 		if s, present := forwarded[id]["solver"]; present {
 			t.Errorf("%s: expected no solver key forwarded, got %s", id, s)
 		}
+	}
+}
+
+// countingUpstream returns a stub BuEM that records how often it was called
+// and rejects every request, for tests asserting BuEM is never reached.
+func countingUpstream(t *testing.T) (*httptest.Server, *atomic.Int32) {
+	t.Helper()
+	var calls atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		http.Error(w, "BuEM must not be called", http.StatusInternalServerError)
+	}))
+	return srv, &calls
+}
+
+const unsafeModelID = "../escape"
+
+func TestBuilding_UnsafeModelIDIs400(t *testing.T) {
+	upstream, calls := countingUpstream(t)
+	defer upstream.Close()
+	h := newTestHandler(t, upstream)
+
+	reqBody := `{
+		"id": "b1",
+		"geometry": {"type":"Point","coordinates":[12.5,48.5]},
+		"start_date": "2018-01-01T00:00:00Z",
+		"end_date": "2018-12-31T23:00:00Z",
+		"resolution": 60,
+		"model_id": "` + unsafeModelID + `",
+		"buem": {"building":{"envelope":{"elements":[
+			{"id":"Wall_1","type":"wall","area":10.0,"azimuth":0.0,"tilt":90.0,"U":1.5}
+		]}},"weather":{"index":["2018-01-01T00:30:00Z"],"variables":{"T":[1.0]}}}
+	}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/buem/building", strings.NewReader(reqBody))
+	w := httptest.NewRecorder()
+	h.Building(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d (body=%s)", w.Code, http.StatusBadRequest, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "model_id") {
+		t.Errorf("body = %q, want it to name model_id", w.Body.String())
+	}
+	if n := calls.Load(); n != 0 {
+		t.Errorf("BuEM called %d times, want 0", n)
+	}
+}
+
+func TestBuildings_UnsafeModelIDIs400(t *testing.T) {
+	upstream, calls := countingUpstream(t)
+	defer upstream.Close()
+	h := newTestHandler(t, upstream)
+
+	reqBody := `{
+		"start_date": "2018-01-01T00:00:00Z",
+		"end_date": "2018-12-31T23:00:00Z",
+		"resolution": 60,
+		"model_id": "` + unsafeModelID + `",
+		"weather": {"index":["2018-01-01T00:30:00Z"],"variables":{"T":[1.0]}},
+		"buildings": [{
+			"id": "b1",
+			"geometry": {"type":"Point","coordinates":[12.5,48.5]},
+			"building": {"envelope":{"elements":[
+				{"id":"Wall_1","type":"wall","area":10.0,"azimuth":0.0,"tilt":90.0,"U":1.5}
+			]}}
+		}]
+	}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/buem/buildings", strings.NewReader(reqBody))
+	w := httptest.NewRecorder()
+	h.Buildings(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d (body=%s)", w.Code, http.StatusBadRequest, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "model_id") {
+		t.Errorf("body = %q, want it to name model_id", w.Body.String())
+	}
+	if n := calls.Load(); n != 0 {
+		t.Errorf("BuEM called %d times, want 0", n)
+	}
+}
+
+func TestValidate_UnsafeModelIDIs400(t *testing.T) {
+	h := New(nil)
+	reqBody := `{
+		"id": "b1",
+		"geometry": {"type":"Point","coordinates":[12.5,48.5]},
+		"start_date": "2018-01-01T00:00:00Z",
+		"model_id": "` + unsafeModelID + `",
+		"buem": {"building":{"envelope":{"elements":[
+			{"id":"Wall_1","type":"wall","area":10.0,"azimuth":0.0,"tilt":90.0,"U":1.5}
+		]}},"weather":{"index":["2018-01-01T00:30:00Z"],"variables":{"T":[1.0]}}}
+	}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/buem/validate", strings.NewReader(reqBody))
+	w := httptest.NewRecorder()
+	h.Validate(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d (body=%s)", w.Code, http.StatusBadRequest, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "model_id") {
+		t.Errorf("body = %q, want it to name model_id", w.Body.String())
 	}
 }
