@@ -93,12 +93,14 @@ A compose project's default network is named after the project. A service outsid
     docker rm   buem-gateway buem-model buem-reverse-proxy
     ```
 
-    `stop` before `rm`, not `rm -f`, so the connector finishes any CSV it is writing instead of being killed mid-file.
+    `stop` before `rm`, not `rm -f`, so the connector finishes the requests in flight instead of being killed mid-run.
 
     Do **not** use `docker compose -p building-simulation down`. That project was shared with [ignis](https://github.com/THD-Spatial-AI/ignis), so it also removes `ignis-app`, `ignis-db` and `ignis-reverse-proxy`. Volumes are untouched either way.
 
-!!! info "Data volumes are shared across the transports on purpose"
-    `buem-csv-data` and `buem-results-data` pin their own names rather than taking the project prefix, so both transports mount the same data and switching between them keeps the results. The pinned names carry the old `building-simulation` prefix so that existing volumes stay attached.
+!!! info "The results volume is shared across the transports on purpose"
+    `buem-results-data` pins its own name rather than taking the project prefix, so both transports mount the same volume. The pinned name carries the old `building-simulation` prefix so that an existing volume stays attached.
+
+    Releases before v7.0.0 also wrote CSV files to a `building-simulation_buem-csv-data` volume. Nothing mounts it any more; remove it with `docker volume rm building-simulation_buem-csv-data` once you no longer need the files.
 
     `caddy-data` is not pinned. It holds a self-signed authority that is never added to a trust store, so losing it costs one click through a certificate warning.
 

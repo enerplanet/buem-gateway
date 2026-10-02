@@ -58,14 +58,6 @@ type ThermalLoadProfile struct {
 	Summary        ThermalSummary `json:"summary"`
 	Timeseries     *Timeseries    `json:"timeseries,omitempty"`
 	TimeseriesFile string         `json:"timeseries_file,omitempty"`
-
-	// The *File fields are injected by the connector after it writes the CSVs.
-	// They are not part of BuEM's own response.
-	HeatingFile     string `json:"heating_file,omitempty"`
-	CoolingFile     string `json:"cooling_file,omitempty"`
-	ElectricityFile string `json:"electricity_file,omitempty"`
-	HotWaterFile    string `json:"hot_water_file,omitempty"`
-	KitchenFile     string `json:"kitchen_file,omitempty"`
 }
 
 // ThermalSummary holds annual aggregate statistics per load type.

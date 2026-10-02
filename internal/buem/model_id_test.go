@@ -2,33 +2,9 @@ package buem
 
 import (
 	"errors"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/enerplanet/buem-gateway/internal/config"
 )
-
-// TestWriteCSVs_RefusesModelIDOutsideDataDir covers the guard at the write
-// itself, independent of the request preflight: a model_id that resolves
-// outside BUEM_DATA_DIR writes nothing.
-func TestWriteCSVs_RefusesModelIDOutsideDataDir(t *testing.T) {
-	root := t.TempDir()
-	dataDir := filepath.Join(root, "data")
-	cfg := &config.Config{BuemDataDir: dataDir}
-	block := &ResponseBlock{ThermalLoadProfile: ThermalLoadProfile{
-		Timeseries: &Timeseries{Heating: []float64{0.1, 0.2}},
-	}}
-	task := Task{NodeID: "b1", Lat: 48.5, Lon: 12.5, Year: 2018, ModelID: "../escape"}
-
-	if _, _, err := writeCSVsAndAnnotate(cfg, block, task, false); err == nil {
-		t.Fatal("writeCSVsAndAnnotate() = nil error, want a refusal for a model_id outside BUEM_DATA_DIR")
-	}
-	if _, err := os.Stat(filepath.Join(root, "escape")); !os.IsNotExist(err) {
-		t.Errorf("directory outside BUEM_DATA_DIR exists (stat err = %v), want nothing written", err)
-	}
-}
 
 func TestValidateModelID(t *testing.T) {
 	for _, id := range []string{"", "demo", "demo-model_001", "run.2026-10-01", "A1"} {

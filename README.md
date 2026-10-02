@@ -8,7 +8,7 @@
 
 Go connector between EnerPlanET and [BuEM](https://github.com/UU-BUEM/buem), the ISO 52016-1 thermal building model.
 
-buem-gateway accepts a single building or a flat list of buildings, forwards each to BuEM, writes the resulting heating, cooling, and electricity load profiles to CSV, and returns one result per building.
+buem-gateway accepts a single building or a flat list of buildings, forwards each to BuEM, and returns one result per building with its heating, cooling, electricity, hot water and kitchen load profiles.
 
 It is a standalone service with its own container and reverse proxy. It does not require `enerplanet/simulation-engine`.
 
@@ -17,7 +17,7 @@ It is a standalone service with its own container and reverse proxy. It does not
 This repository holds two things:
 
 - The connector itself.
-- The authoritative JSON schema contract defining BuEM's request and response format (`schemas/`) and the CSV output naming convention ([`docs/naming.md`](docs/naming.md)).
+- The authoritative JSON schema contract defining BuEM's request and response format (`schemas/`).
 
 The schema-contract version and buem-gateway's release version are numbered independently. See [`docs/versioning.md`](docs/versioning.md) and [`CHANGELOG.md`](CHANGELOG.md).
 
@@ -30,13 +30,11 @@ sequenceDiagram
     participant Proxy as buem-reverse-proxy<br/>Caddy, TLS only, optional
     participant App as buem-gateway<br/>Go connector
     participant Model as buem-model<br/>BuEM Flask
-    participant Vol as shared volume
 
     Caller->>Proxy: POST /api/v1/buem/buildings<br/>buildings list + shared weather
     Proxy->>App: Forward request
     App->>Model: POST /api/process<br/>one call per building
     Model-->>App: thermal_load_profile
-    App->>Vol: write heating/cooling/electricity CSVs
     App-->>Proxy: results list<br/>buem or error per building
     Proxy-->>Caller: results list<br/>buem or error per building
 ```

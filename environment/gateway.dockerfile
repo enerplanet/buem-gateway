@@ -40,7 +40,7 @@ RUN go build -ldflags "\
 # -----------------------------
 # Ensure that the volume mount points exist and are owned by the non-root user.
 RUN useradd -m -u 10001 appuser \
-    && mkdir -p /app/data /app/results \
+    && mkdir -p /app/results \
     && chown -R appuser:appuser /app
 USER appuser
 
