@@ -586,6 +586,7 @@ func TestConnectorRunBatch_AsksForTimeseriesOnlyWhenKept(t *testing.T) {
 			t.Errorf("keep=%v: results = %+v, want one clean result", tc.keep, results)
 		}
 	}
+}
 
 // TestConnectorRunBatch_DuplicateIDsKeepTheirOwnResults confirms results are
 // matched to buildings by position, not by id: buildings sharing an id each
