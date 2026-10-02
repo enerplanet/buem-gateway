@@ -33,6 +33,11 @@ Changes staged in `schemas/v6-draft/`, the in-development next contract.
 - For a service `building_type`, `hot_water` and `kitchen` come back with
   all-zero statistics, because BuEM has no hot water or cooking model for service
   buildings. Heating, cooling and electricity are unaffected.
+- `inputs.electricity_load_profile.path` must name a regular file inside
+  `BUEM_DATA_DIR` in the buem-model container, absolute or relative to it, of
+  at most 32 MiB. buem-model 6.4.0 and later reject any other path, including a
+  symlink that resolves outside the directory, and refuse file-based profiles
+  when `BUEM_DATA_DIR` is not set.
 - `building.window_to_wall_ratio`, `.window_U`, `.window_g_gl` and `.door_U`
   size and parameterise the windows and doors BuEM synthesises when the
   request has no explicit window or door elements. `window_to_wall_ratio`

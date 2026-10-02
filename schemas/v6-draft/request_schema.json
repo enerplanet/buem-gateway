@@ -453,11 +453,11 @@
         "electricity_load_profile": {
           "type": "object",
           "required": ["path"],
-          "description": "Hourly electricity consumption profile for the building, referenced by file path. The file must be accessible inside the model container — use the shared Docker volume (BUEM_DATA_DIR) to make client files available. When provided, the profile is used directly as the internal heat gain input instead of the model-generated occupancy-based profile. Electricity consumption heats the building interior and therefore affects heating and cooling demand. Supported formats: CSV (single column of values), JSON array, or gzipped JSON (.gz).",
+          "description": "Hourly electricity consumption profile for the building, referenced by file path. The file must be a regular file inside BUEM_DATA_DIR in the buem-model container, at most 32 MiB (decompressed size for .gz); buem-model rejects any other path, including a symlink that resolves outside BUEM_DATA_DIR, and refuses file-based profiles when BUEM_DATA_DIR is not set. When provided, the profile is used directly as the internal heat gain input instead of the model-generated occupancy-based profile. Electricity consumption heats the building interior and therefore affects heating and cooling demand. Supported formats: CSV (single column of values), JSON array, or gzipped JSON (.gz).",
           "properties": {
             "path": {
               "type": "string",
-              "description": "Absolute path to the profile file inside the container (e.g. /data/profiles/5.3453464_52.4353446_electricity_2018.csv)"
+              "description": "Path to the profile file inside BUEM_DATA_DIR in the model container, either absolute or relative to BUEM_DATA_DIR (e.g. /data/profiles/5.3453464_52.4353446_electricity_2018.csv with BUEM_DATA_DIR=/data)."
             },
             "unit": {
               "type": "string",
