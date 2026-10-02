@@ -58,7 +58,10 @@ cd environment/http
 docker compose -f docker-compose.build.yml up -d --build
 ```
 
-This builds the connector from this source tree and pulls `buem-model` from `ghcr.io/enerplanet/buem-model`, which `enerplanet/buem` builds and publishes. Set `BUEM_MODEL_IMAGE_TAG` to pin its version.
+This builds the connector from this source tree and pulls `buem-model` from `ghcr.io/enerplanet/buem-model`, which `enerplanet/buem` builds and publishes. The compose files default to `buem-model` 6.4.0; set `BUEM_MODEL_IMAGE_TAG` to pin another version.
+
+!!! warning "buem-model 6.4.0 or later"
+    Older `buem-model` images write a `.json.gz` file inside their container for every building whose hourly series is requested, and nothing removes it. buem-gateway no longer shares a volume with `buem-model` to delete those files, so pair it with 6.4.0 or later.
 
 The dockerfile stays at `environment/gateway.dockerfile` rather than being copied into either directory. CI builds the published image from that one path, and the image is identical whichever transport it runs behind.
 
@@ -97,10 +100,8 @@ A compose project's default network is named after the project. A service outsid
 
     Do **not** use `docker compose -p building-simulation down`. That project was shared with [ignis](https://github.com/THD-Spatial-AI/ignis), so it also removes `ignis-app`, `ignis-db` and `ignis-reverse-proxy`. Volumes are untouched either way.
 
-!!! info "The results volume is shared across the transports on purpose"
-    `buem-results-data` pins its own name rather than taking the project prefix, so both transports mount the same volume. The pinned name carries the old `building-simulation` prefix so that an existing volume stays attached.
-
-    Releases before v7.0.0 also wrote CSV files to a `building-simulation_buem-csv-data` volume. Nothing mounts it any more; remove it with `docker volume rm building-simulation_buem-csv-data` once you no longer need the files.
+!!! info "Volumes from earlier releases"
+    buem-gateway and `buem-model` share no volume. Earlier releases mounted `building-simulation_buem-csv-data` (CSV output, before v7.0.0) and `building-simulation_buem-results-data` (intermediate files, before v7.1.0). Nothing mounts either any more; remove them with `docker volume rm building-simulation_buem-csv-data building-simulation_buem-results-data` once you no longer need their contents.
 
     `caddy-data` is not pinned. It holds a self-signed authority that is never added to a trust store, so losing it costs one click through a certificate warning.
 

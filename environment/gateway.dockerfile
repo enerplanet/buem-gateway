@@ -47,9 +47,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends wget \
 WORKDIR /app
 COPY --from=build /app/bin/buem-gateway ./bin/buem-gateway
 
-# Ensure that the volume mount point exists and is owned by the non-root user.
 RUN useradd -m -u 10001 appuser \
-    && mkdir -p /app/results \
     && chown -R appuser:appuser /app
 USER appuser
 

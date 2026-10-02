@@ -57,7 +57,6 @@ func TestLoad_defaultsWhenEnvUnset(t *testing.T) {
 	for _, key := range []string{
 		"SERVER_HOST", "SERVER_PORT", "MAX_CONCURRENT_SIMS", "REQUEST_TIMEOUT",
 		"RETRY_ATTEMPTS", "RETRY_BASE_DELAY", "BUEM_SERVICE_HOST", "BUEM_SERVICE_PORT",
-		"BUEM_RESULTS_DIR",
 	} {
 		t.Setenv(key, "")
 	}
@@ -72,9 +71,6 @@ func TestLoad_defaultsWhenEnvUnset(t *testing.T) {
 	}
 	if c.BuEM.Host != "buem-model" || c.BuEM.Port != 5000 {
 		t.Errorf("BuEM = %s:%d, want buem-model:5000", c.BuEM.Host, c.BuEM.Port)
-	}
-	if c.BuemResultsDir != "results" {
-		t.Errorf("BuemResultsDir = %s, want results", c.BuemResultsDir)
 	}
 }
 
