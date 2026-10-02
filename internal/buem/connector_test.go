@@ -549,6 +549,45 @@ func TestConnectorRunBatch_KeepTimeseriesReturnsInlineSeries(t *testing.T) {
 	assertNoFileOutput(t, dataDir, results[0].BUEM)
 }
 
+// TestConnectorRunBatch_AsksForTimeseriesOnlyWhenKept confirms buem-gateway
+// requests BuEM's hourly series only when the caller keeps it. Without
+// include_timeseries BuEM still returns the full summary and writes no
+// intermediate file.
+func TestConnectorRunBatch_AsksForTimeseriesOnlyWhenKept(t *testing.T) {
+	for _, tc := range []struct {
+		keep      bool
+		wantQuery string
+	}{{false, ""}, {true, "include_timeseries=true"}} {
+		var gotQuery string
+		upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			gotQuery = r.URL.RawQuery
+			block := ResponseBlock{ThermalLoadProfile: ThermalLoadProfile{
+				Summary: ThermalSummary{Heating: LoadStats{Total: Quantity{Value: 1000, Unit: "kWh"}}},
+			}}
+			if r.URL.Query().Get("include_timeseries") == "true" {
+				block.ThermalLoadProfile.Timeseries = &Timeseries{Unit: "kW", Heating: []float64{0.1}}
+			}
+			json.NewEncoder(w).Encode(ResponseFeatureCollection{
+				Type:     "FeatureCollection",
+				Features: []ResponseFeature{{Properties: ResponseProperties{BUEM: block}}},
+			})
+		}))
+		host, portStr, _ := strings.Cut(strings.TrimPrefix(upstream.URL, "http://"), ":")
+		port, _ := strconv.Atoi(portStr)
+		conn := NewConnector(&config.Config{MaxConcurrentSims: 1, BuEM: config.UpstreamService{Host: host, Port: port}})
+
+		results := conn.RunBatch([]BuildingInput{testBuildingInput("b1")}, "2018-01-01T00:00:00Z", "2018-12-31T23:00:00Z", "", 60, tc.keep)
+		upstream.Close()
+
+		if gotQuery != tc.wantQuery {
+			t.Errorf("keep=%v: BuEM query = %q, want %q", tc.keep, gotQuery, tc.wantQuery)
+		}
+		if len(results) != 1 || results[0].Error != "" {
+			t.Errorf("keep=%v: results = %+v, want one clean result", tc.keep, results)
+		}
+	}
+}
+
 // TestConnectorRunBatch_DuplicateIDsKeepTheirOwnResults confirms results are
 // matched to buildings by position, not by id: buildings sharing an id each
 // get their own result, and one building's preflight failure does not mark

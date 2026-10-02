@@ -25,13 +25,13 @@ type RunMetrics struct {
 }
 
 // RunFeature sends one Task to the upstream BuEM service and returns the
-// buem block as raw JSON. The inline timeseries is stripped unless
-// keepTimeseries is true: a batch caller that needs only the summary figures
-// gets a response roughly 300 KB per building smaller.
+// buem block as raw JSON. BuEM is asked for the hourly series only when
+// keepTimeseries is true; otherwise it returns the summary figures alone and
+// writes no intermediate file.
 func RunFeature(client *httpclient.Client, cfg *config.Config, task Task, keepTimeseries bool) ([]byte, RunMetrics, error) {
 	wallStart := time.Now()
 
-	block, err := callUpstream(client, cfg, task)
+	block, err := callUpstream(client, cfg, task, keepTimeseries)
 	if err != nil {
 		return nil, RunMetrics{}, err
 	}
@@ -52,12 +52,15 @@ func RunFeature(client *httpclient.Client, cfg *config.Config, task Task, keepTi
 	return enriched, metrics, nil
 }
 
-func callUpstream(client *httpclient.Client, cfg *config.Config, task Task) (*ResponseBlock, error) {
+func callUpstream(client *httpclient.Client, cfg *config.Config, task Task, includeTimeseries bool) (*ResponseBlock, error) {
 	singleFC := FeatureCollection{
 		Type:     "FeatureCollection",
 		Features: []json.RawMessage{task.RawFeature},
 	}
-	url := cfg.BuEM.URL(apiProcessPath) + "?include_timeseries=true"
+	url := cfg.BuEM.URL(apiProcessPath)
+	if includeTimeseries {
+		url += "?include_timeseries=true"
+	}
 
 	var respFC ResponseFeatureCollection
 	if err := client.PostJSONAndDecode(url, singleFC, &respFC); err != nil {
@@ -69,22 +72,23 @@ func callUpstream(client *httpclient.Client, cfg *config.Config, task Task) (*Re
 	return &respFC.Features[0].Properties.BUEM, nil
 }
 
-// finishBlock checks that BuEM returned the timeseries it was asked for,
-// deletes the intermediate file BuEM wrote for it, and strips the inline
-// series unless keepTimeseries is true.
+// finishBlock checks that BuEM returned the timeseries when it was asked for
+// one and deletes the intermediate file BuEM wrote for it. Without
+// keepTimeseries no series was requested, and any BuEM sends is dropped.
 func finishBlock(cfg *config.Config, block *ResponseBlock, keepTimeseries bool) ([]byte, error) {
-	ts := block.ThermalLoadProfile.Timeseries
-	if ts == nil {
-		return nil, fmt.Errorf("BuEM response missing timeseries (include_timeseries=true was requested)")
-	}
-	if len(ts.Heating) == 0 {
-		return nil, fmt.Errorf("heating timeseries is empty")
+	if keepTimeseries {
+		ts := block.ThermalLoadProfile.Timeseries
+		if ts == nil {
+			return nil, fmt.Errorf("BuEM response missing timeseries (include_timeseries=true was requested)")
+		}
+		if len(ts.Heating) == 0 {
+			return nil, fmt.Errorf("heating timeseries is empty")
+		}
+	} else {
+		block.ThermalLoadProfile.Timeseries = nil
 	}
 
 	deleteSourceTimeseries(cfg, block.ThermalLoadProfile.TimeseriesFile)
-	if !keepTimeseries {
-		block.ThermalLoadProfile.Timeseries = nil
-	}
 	return json.Marshal(block)
 }
 
