@@ -1,4 +1,4 @@
-FROM debian:bookworm-slim
+FROM debian:bookworm-slim AS build
 
 ARG DEBIAN_FRONTEND=noninteractive
 ENV GO_VERSION=1.26.1
@@ -36,9 +36,18 @@ RUN go build -ldflags "\
     -o bin/buem-gateway ./cmd/buem-gateway
 
 # -----------------------------
-# Create non-root user and fix permissions
+# Runtime image: the binary only
 # -----------------------------
-# Ensure that the volume mount points exist and are owned by the non-root user.
+FROM debian:bookworm-slim
+
+# wget serves the compose healthchecks.
+RUN apt-get update && apt-get install -y --no-install-recommends wget \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY --from=build /app/bin/buem-gateway ./bin/buem-gateway
+
+# Ensure that the volume mount point exists and is owned by the non-root user.
 RUN useradd -m -u 10001 appuser \
     && mkdir -p /app/results \
     && chown -R appuser:appuser /app
