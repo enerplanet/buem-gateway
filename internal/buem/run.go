@@ -6,7 +6,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -22,17 +21,13 @@ const (
 // RunMetrics reports timing for one building's run, used for batch logging.
 type RunMetrics struct {
 	WallDuration           time.Duration
-	CSVWriteDuration       time.Duration
 	ModelProcessingSeconds float64
 }
 
-// RunFeature sends one Task to the upstream BuEM service, writes one CSV per
-// computed load profile to the shared data directory, and returns
-// the enriched buem block as raw JSON, with file paths injected. The inline
-// timeseries is stripped unless keepTimeseries is true — callers that read
-// results from the shared volume (the multi-building topology path) don't
-// need it in the response; callers with no volume access (e.g. a browser
-// client hitting /api/v1/buem/building) do.
+// RunFeature sends one Task to the upstream BuEM service and returns the
+// buem block as raw JSON. The inline timeseries is stripped unless
+// keepTimeseries is true: a batch caller that needs only the summary figures
+// gets a response roughly 300 KB per building smaller.
 func RunFeature(client *httpclient.Client, cfg *config.Config, task Task, keepTimeseries bool) ([]byte, RunMetrics, error) {
 	wallStart := time.Now()
 
@@ -40,21 +35,19 @@ func RunFeature(client *httpclient.Client, cfg *config.Config, task Task, keepTi
 	if err != nil {
 		return nil, RunMetrics{}, err
 	}
-	modelSeconds := block.ModelMetadata.ProcessingTime.Value
 
-	enriched, csvWriteDuration, err := writeCSVsAndAnnotate(cfg, block, task, keepTimeseries)
+	enriched, err := finishBlock(cfg, block, keepTimeseries)
 	if err != nil {
 		return nil, RunMetrics{}, err
 	}
 
 	metrics := RunMetrics{
 		WallDuration:           time.Since(wallStart),
-		CSVWriteDuration:       csvWriteDuration,
-		ModelProcessingSeconds: modelSeconds,
+		ModelProcessingSeconds: block.ModelMetadata.ProcessingTime.Value,
 	}
-	log.Printf("buem-gateway | node=%s lat=%.6f lon=%.6f year=%d wall=%s model=%.3fs csv=%s",
+	log.Printf("buem-gateway | node=%s lat=%.6f lon=%.6f year=%d wall=%s model=%.3fs",
 		task.NodeID, task.Lat, task.Lon, task.Year,
-		metrics.WallDuration.Round(time.Millisecond), metrics.ModelProcessingSeconds, metrics.CSVWriteDuration.Round(time.Millisecond))
+		metrics.WallDuration.Round(time.Millisecond), metrics.ModelProcessingSeconds)
 
 	return enriched, metrics, nil
 }
@@ -76,99 +69,28 @@ func callUpstream(client *httpclient.Client, cfg *config.Config, task Task) (*Re
 	return &respFC.Features[0].Properties.BUEM, nil
 }
 
-// writeCSVsAndAnnotate writes one CSV per computed load profile to
-// {BuemDataDir}/{modelID}/, injects the file paths into the buem block, and
-// marshals it. Heating is always present; the rest are written only when BuEM
-// returned them. The timeseries arrays are removed once written to CSV, unless
-// keepTimeseries is true.
-func writeCSVsAndAnnotate(cfg *config.Config, block *ResponseBlock, task Task, keepTimeseries bool) ([]byte, time.Duration, error) {
+// finishBlock checks that BuEM returned the timeseries it was asked for,
+// deletes the intermediate file BuEM wrote for it, and strips the inline
+// series unless keepTimeseries is true.
+func finishBlock(cfg *config.Config, block *ResponseBlock, keepTimeseries bool) ([]byte, error) {
 	ts := block.ThermalLoadProfile.Timeseries
 	if ts == nil {
-		return nil, 0, fmt.Errorf("BuEM response missing timeseries (include_timeseries=true was requested)")
+		return nil, fmt.Errorf("BuEM response missing timeseries (include_timeseries=true was requested)")
 	}
 	if len(ts.Heating) == 0 {
-		return nil, 0, fmt.Errorf("heating timeseries is empty")
+		return nil, fmt.Errorf("heating timeseries is empty")
 	}
-
-	resultsDir := cfg.BuemDataDir
-	if task.ModelID != "" {
-		// Second guard behind ValidateModelID: never write outside BUEM_DATA_DIR.
-		if !filepath.IsLocal(task.ModelID) {
-			return nil, 0, fmt.Errorf("model_id %q resolves outside BUEM_DATA_DIR", task.ModelID)
-		}
-		resultsDir = filepath.Join(cfg.BuemDataDir, task.ModelID)
-	}
-	suffix := fmt.Sprintf("%.6f_%.6f_%s", task.Lat, task.Lon, strconv.Itoa(task.Year))
-
-	writeStart := time.Now()
-	profiles := []struct {
-		loadType string
-		values   []float64
-		dest     *string
-	}{
-		{"heating", ts.Heating, &block.ThermalLoadProfile.HeatingFile},
-		{"cooling", ts.Cooling, &block.ThermalLoadProfile.CoolingFile},
-		{"electricity", ts.Electricity, &block.ThermalLoadProfile.ElectricityFile},
-		{"hot_water", ts.HotWater, &block.ThermalLoadProfile.HotWaterFile},
-		{"kitchen", ts.Kitchen, &block.ThermalLoadProfile.KitchenFile},
-	}
-	for _, p := range profiles {
-		if len(p.values) == 0 {
-			continue
-		}
-		if err := writeLoadCSV(resultsDir, p.loadType, suffix, p.values, p.dest); err != nil {
-			return nil, 0, err
-		}
-	}
-	csvWriteDuration := time.Since(writeStart)
 
 	deleteSourceTimeseries(cfg, block.ThermalLoadProfile.TimeseriesFile)
 	if !keepTimeseries {
 		block.ThermalLoadProfile.Timeseries = nil
 	}
-
-	enriched, err := json.Marshal(block)
-	if err != nil {
-		return nil, 0, err
-	}
-	return enriched, csvWriteDuration, nil
-}
-
-// writeLoadCSV writes one load-type CSV (e.g. "heating") and records its path
-// into destPath for the response block.
-func writeLoadCSV(dir, loadType, suffix string, values []float64, destPath *string) error {
-	path := filepath.Join(dir, fmt.Sprintf("%s_%s.csv", loadType, suffix))
-	if err := writeProfileCSV(path, values); err != nil {
-		return fmt.Errorf("write %s CSV: %w", loadType, err)
-	}
-	*destPath = path
-	return nil
-}
-
-// writeProfileCSV writes float64 values to a CSV file with a single "demand"
-// header column. Parent directories are created if they do not exist.
-func writeProfileCSV(path string, values []float64) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
-		return err
-	}
-	f, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	var sb strings.Builder
-	sb.WriteString("demand\n")
-	for _, v := range values {
-		sb.WriteString(strconv.FormatFloat(v, 'f', -1, 64))
-		sb.WriteByte('\n')
-	}
-	_, err = f.WriteString(sb.String())
-	return err
+	return json.Marshal(block)
 }
 
 // deleteSourceTimeseries removes the .json.gz file BuEM's Flask service wrote
-// to the shared volume for this run — redundant once the CSV is written.
+// to the shared volume for this run. The same series is already in the
+// response, so the file is redundant.
 // Failures are logged but never fail the request.
 func deleteSourceTimeseries(cfg *config.Config, timeseriesFile string) {
 	if !strings.HasPrefix(timeseriesFile, buemFilesPrefix) {

@@ -36,8 +36,8 @@ type buildingsRequest struct {
 	Buildings  []buildingListItem `json:"buildings"`
 
 	// KeepTimeseries returns the hourly values inline instead of only the
-	// CSV paths, for a caller with no access to the shared volume. Roughly
-	// 300 KB of JSON per building for a year of hourly values.
+	// summary figures. Roughly 300 KB of JSON per building for a year of
+	// hourly values.
 	KeepTimeseries bool `json:"keep_timeseries"`
 }
 

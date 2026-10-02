@@ -5,7 +5,7 @@ info:
   version: 5.0.0
   description: |
     buem-gateway connects EnerPlanET to
-    [BuEM](https://github.com/enerplanet/buem), the ISO 52016-1 thermal building model. It accepts one building or a flat list of buildings, forwards each to BuEM, writes the resulting heating, cooling, and electricity load profiles to CSV, and returns one result per building.
+    [BuEM](https://github.com/enerplanet/buem), the ISO 52016-1 thermal building model. It accepts one building or a flat list of buildings, forwards each to BuEM, and returns one result per building with its load profiles.
 
     `buem.building.envelope` and `buem.weather` are required on every request. buem-gateway resolves neither from any external service. See
     [Envelope is required](https://github.com/enerplanet/buem-gateway/blob/main/docs/api.md#envelope-is-required)
@@ -232,14 +232,14 @@ components:
       properties:
         id:
           type: string
-          description: Optional, used for logging and CSV filenames. Defaults to "building".
+          description: Optional, used for logging. Defaults to "building".
           example: demo-building
         geometry:
           $ref: "#/components/schemas/Geometry"
         model_id:
           type: string
           pattern: "^[A-Za-z0-9._-]+$"
-          description: Isolates output. CSVs are written under `{BUEM_DATA_DIR}/{model_id}/`. Letters, digits, `.`, `_` and `-` only, and not `.` or `..`; anything else is a 400.
+          description: Accepted for compatibility and has no effect on the run. Letters, digits, `.`, `_` and `-` only, and not `.` or `..`; anything else is a 400.
           example: demo-model-001
         start_date:
           type: string
@@ -302,7 +302,7 @@ components:
       properties:
         id:
           type: string
-          description: Used for logging, CSV filenames, and matching this building's result back to it in the response.
+          description: Used for logging and for matching this building's result back to it in the response.
           example: "111"
         geometry:
           $ref: "#/components/schemas/Geometry"
@@ -341,9 +341,9 @@ components:
           type: boolean
           default: false
           description: >
-            Return each building's hourly values in `thermal_load_profile.timeseries`
-            as well as writing them to CSV. Off by default: the response carries summary
-            figures and CSV paths only. Roughly 300 KB of extra JSON per building for a
+            Return each building's hourly values in `thermal_load_profile.timeseries`.
+            Off by default: the response carries summary figures only. Roughly 300 KB
+            of extra JSON per building for a
             year of hourly values, so a batch of several hundred buildings returns a
             response in the hundreds of megabytes.
           example: false

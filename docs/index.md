@@ -24,13 +24,11 @@ sequenceDiagram
     participant Proxy as buem-reverse-proxy<br/>Caddy, TLS only, optional
     participant App as buem-gateway<br/>Go connector
     participant Model as buem-model<br/>BuEM Flask
-    participant Vol as shared volume
 
     Caller->>Proxy: POST /api/v1/buem/buildings<br/>buildings list + shared weather
     Proxy->>App: Forward request
     App->>Model: POST /api/process<br/>one call per building
     Model-->>App: thermal_load_profile
-    App->>Vol: write heating/cooling/electricity CSVs
     App-->>Proxy: results list<br/>buem or error per building
     Proxy-->>Caller: results list<br/>buem or error per building
 ```

@@ -3,9 +3,9 @@ package buem
 import (
 	"encoding/json"
 	"errors"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"path/filepath"
 	"reflect"
 	"strconv"
@@ -16,8 +16,8 @@ import (
 )
 
 // fakeUpstream returns a stub BuEM /api/process server. Its response carries
-// just enough of a real BuEM response — one heating value — to exercise CSV
-// writing and the merge-back path.
+// just enough of a real BuEM response, one heating series, to exercise the
+// merge-back path.
 func fakeUpstream(t *testing.T) *httptest.Server {
 	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -110,7 +110,6 @@ func TestConnectorRunBatch_PassesThroughHotWaterAndKitchen(t *testing.T) {
 	cfg := &config.Config{
 		MaxConcurrentSims: 4,
 		BuEM:              config.UpstreamService{Host: host, Port: port},
-		BuemDataDir:       dataDir,
 		BuemResultsDir:    dataDir,
 	}
 	conn := NewConnector(cfg)
@@ -140,11 +139,10 @@ func TestConnectorRunBatch_PassesThroughHotWaterAndKitchen(t *testing.T) {
 		t.Errorf("expected summary.kitchen.total {386.1 kWh_gas}, got %+v", summary.Kitchen.Total)
 	}
 
-	assertProfileCSV(t, dataDir, "hot_water", "demand\n0.31\n0.29\n")
-	assertProfileCSV(t, dataDir, "kitchen", "demand\n0\n1.1\n")
+	assertNoFileOutput(t, dataDir, results[0].BUEM)
 }
 
-func TestConnectorRunBatch_EnrichesBuildingsAndWritesCSV(t *testing.T) {
+func TestConnectorRunBatch_ReturnsSummaryAndWritesNoFiles(t *testing.T) {
 	upstream := fakeUpstream(t)
 	defer upstream.Close()
 
@@ -161,7 +159,6 @@ func TestConnectorRunBatch_EnrichesBuildingsAndWritesCSV(t *testing.T) {
 	cfg := &config.Config{
 		MaxConcurrentSims: 4,
 		BuEM:              config.UpstreamService{Host: host, Port: port},
-		BuemDataDir:       dataDir,
 		BuemResultsDir:    dataDir,
 	}
 	conn := NewConnector(cfg)
@@ -173,7 +170,7 @@ func TestConnectorRunBatch_EnrichesBuildingsAndWritesCSV(t *testing.T) {
 		t.Fatalf("expected 1 result, got %d", len(results))
 	}
 	assertBuemBlockPresent(t, results[0])
-	assertHeatingCSVWritten(t, dataDir)
+	assertNoFileOutput(t, dataDir, results[0].BUEM)
 }
 
 // TestConnectorRunBatch_PartialFailureDoesNotAffectOtherBuildings confirms
@@ -197,7 +194,6 @@ func TestConnectorRunBatch_PartialFailureDoesNotAffectOtherBuildings(t *testing.
 	cfg := &config.Config{
 		MaxConcurrentSims: 4,
 		BuEM:              config.UpstreamService{Host: host, Port: port},
-		BuemDataDir:       dataDir,
 		BuemResultsDir:    dataDir,
 	}
 	conn := NewConnector(cfg)
@@ -236,7 +232,6 @@ func TestConnectorRunSingle_EnrichesOneBuildingNoTopology(t *testing.T) {
 	cfg := &config.Config{
 		MaxConcurrentSims: 4,
 		BuEM:              config.UpstreamService{Host: host, Port: port},
-		BuemDataDir:       dataDir,
 		BuemResultsDir:    dataDir,
 	}
 	conn := NewConnector(cfg)
@@ -259,8 +254,7 @@ func TestConnectorRunSingle_EnrichesOneBuildingNoTopology(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected thermal_load_profile in enriched block, got %v", block)
 	}
-	// RunSingle callers (e.g. a browser client) have no access to the shared
-	// volume CSVs land on — the timeseries must survive in the response.
+	// RunSingle always returns the series inline.
 	ts, ok := tlp["timeseries"].(map[string]interface{})
 	if !ok {
 		t.Fatalf("expected timeseries to be present in RunSingle's response, got %v", tlp)
@@ -268,7 +262,7 @@ func TestConnectorRunSingle_EnrichesOneBuildingNoTopology(t *testing.T) {
 	if _, ok := ts["heating"]; !ok {
 		t.Fatalf("expected timeseries.heating to be present, got %v", ts)
 	}
-	assertHeatingCSVWritten(t, dataDir)
+	assertNoFileOutput(t, dataDir, enriched)
 }
 
 func TestConnectorRunSingle_ReturnsErrorOnFailure(t *testing.T) {
@@ -436,42 +430,34 @@ func assertBuemBlockPresent(t *testing.T, result BuildingResult) {
 	if !ok {
 		t.Fatalf("expected thermal_load_profile in result buem block, got %v", block)
 	}
-	// RunBatch callers read results from the shared volume CSVs — the inline
-	// timeseries should be stripped, unlike RunSingle's response.
+	// RunBatch strips the inline timeseries unless keepTimeseries is set,
+	// unlike RunSingle's response.
 	if _, present := tlp["timeseries"]; present {
 		t.Fatalf("expected timeseries to be stripped from RunBatch's response, got %v", tlp["timeseries"])
 	}
 }
 
-// assertProfileCSV checks that exactly one CSV of the given profile type was
-// written under the model directory, with the expected contents.
-func assertProfileCSV(t *testing.T, dataDir, profileType, want string) {
+// assertNoFileOutput checks that a run wrote nothing under dir and that the
+// response carries no file paths: load profiles are returned in the response
+// only.
+func assertNoFileOutput(t *testing.T, dir string, block json.RawMessage) {
 	t.Helper()
-	matches, err := filepath.Glob(filepath.Join(dataDir, "demo-model", profileType+"_*.csv"))
-	if err != nil || len(matches) != 1 {
-		t.Fatalf("expected exactly one %s CSV under %s/demo-model, got %v (err=%v)", profileType, dataDir, matches, err)
-	}
-	content, err := os.ReadFile(matches[0])
+	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if path != dir {
+			t.Errorf("unexpected file written: %s", path)
+		}
+		return nil
+	})
 	if err != nil {
-		t.Fatalf("read %s CSV: %v", profileType, err)
+		t.Fatalf("walk %s: %v", dir, err)
 	}
-	if string(content) != want {
-		t.Fatalf("unexpected %s CSV content: %q", profileType, content)
-	}
-}
-
-func assertHeatingCSVWritten(t *testing.T, dataDir string) {
-	t.Helper()
-	matches, err := filepath.Glob(filepath.Join(dataDir, "demo-model", "heating_*.csv"))
-	if err != nil || len(matches) != 1 {
-		t.Fatalf("expected exactly one heating CSV under %s/demo-model, got %v (err=%v)", dataDir, matches, err)
-	}
-	content, err := os.ReadFile(matches[0])
-	if err != nil {
-		t.Fatalf("read heating CSV: %v", err)
-	}
-	if !strings.HasPrefix(string(content), "demand\n0.114\n0.223\n") {
-		t.Fatalf("unexpected heating CSV content: %q", content)
+	for _, field := range []string{"heating_file", "cooling_file", "electricity_file", "hot_water_file", "kitchen_file"} {
+		if strings.Contains(string(block), `"`+field+`"`) {
+			t.Errorf("response carries %s, want no file paths: %s", field, block)
+		}
 	}
 }
 
@@ -516,10 +502,10 @@ func TestTaskFromBuilding_ForwardsBuildingLevelWindowFields(t *testing.T) {
 	}
 }
 
-// TestConnectorRunBatch_KeepTimeseriesReturnsInlineSeries covers the opt-in
-// a caller with no access to the shared volume needs: the hourly values come
-// back in the response instead of only the CSV paths. The default stays
-// false - TestConnectorRunBatch_EnrichesBuildingsAndWritesCSV pins that side.
+// TestConnectorRunBatch_KeepTimeseriesReturnsInlineSeries covers the opt-in:
+// the hourly values come back in the response instead of only the summary.
+// The default stays false; TestConnectorRunBatch_ReturnsSummaryAndWritesNoFiles
+// pins that side.
 func TestConnectorRunBatch_KeepTimeseriesReturnsInlineSeries(t *testing.T) {
 	upstream := fakeUpstream(t)
 	defer upstream.Close()
@@ -533,7 +519,6 @@ func TestConnectorRunBatch_KeepTimeseriesReturnsInlineSeries(t *testing.T) {
 	cfg := &config.Config{
 		MaxConcurrentSims: 4,
 		BuEM:              config.UpstreamService{Host: host, Port: port},
-		BuemDataDir:       dataDir,
 		BuemResultsDir:    dataDir,
 	}
 	conn := NewConnector(cfg)
@@ -561,7 +546,5 @@ func TestConnectorRunBatch_KeepTimeseriesReturnsInlineSeries(t *testing.T) {
 	if !reflect.DeepEqual(ts.Heating, []float64{0.114, 0.223}) {
 		t.Errorf("timeseries.heating = %v, want [0.114 0.223]", ts.Heating)
 	}
-	// The CSVs are still written either way - the flag adds the inline copy,
-	// it does not turn off the volume output other callers read.
-	assertHeatingCSVWritten(t, dataDir)
+	assertNoFileOutput(t, dataDir, results[0].BUEM)
 }

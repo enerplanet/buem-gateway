@@ -33,11 +33,9 @@ type Config struct {
 
 	BuEM UpstreamService
 
-	// BuemDataDir is where heating/cooling/electricity CSVs are written,
-	// under {BuemDataDir}/{model_id}/. BuemResultsDir is where BuEM's own
-	// Flask service writes its intermediate .json.gz timeseries file,
-	// deleted once the CSV has been extracted from it.
-	BuemDataDir    string
+	// BuemResultsDir is where BuEM's own Flask service writes its
+	// intermediate .json.gz timeseries file, deleted once the response
+	// carrying the same series has been received.
 	BuemResultsDir string
 }
 
@@ -70,7 +68,6 @@ func load() *Config {
 			Port: envInt("BUEM_SERVICE_PORT", 5000),
 		},
 
-		BuemDataDir:    envString("BUEM_DATA_DIR", "data"),
 		BuemResultsDir: envString("BUEM_RESULTS_DIR", "results"),
 	}
 }

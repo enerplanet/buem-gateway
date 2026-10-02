@@ -7,12 +7,12 @@ import (
 	"strconv"
 )
 
-// modelIDPattern is the character set allowed in model_id, which becomes a
-// directory name under BUEM_DATA_DIR.
+// modelIDPattern is the character set allowed in model_id.
 var modelIDPattern = regexp.MustCompile(`^[A-Za-z0-9._-]+$`)
 
-// ValidateModelID rejects a model_id that is not a single safe path segment.
-// An empty model_id is valid: CSVs are then written to BUEM_DATA_DIR itself.
+// ValidateModelID rejects a model_id outside modelIDPattern. model_id is
+// accepted for compatibility and has no effect on a run; an empty value is
+// valid.
 func ValidateModelID(modelID string) error {
 	if modelID == "" {
 		return nil
@@ -29,7 +29,6 @@ type Task struct {
 	NodeID     string
 	Lat, Lon   float64
 	Year       int
-	ModelID    string // isolates CSV output per model; empty for a bare test request
 	RawFeature json.RawMessage
 }
 
@@ -85,7 +84,6 @@ func TaskFromBuilding(in BuildingInput, startDate, endDate string, resolution in
 		Lat:        geom.Coordinates[1],
 		Lon:        geom.Coordinates[0],
 		Year:       year,
-		ModelID:    modelID,
 		RawFeature: rawFeature,
 	}, nil
 }

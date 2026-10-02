@@ -15,7 +15,7 @@ import (
 )
 
 // fakeUpstream returns a stub BuEM /api/process server, just enough to
-// exercise the handler → connector → CSV-write path end to end. Mirrors
+// exercise the handler → connector path end to end. Mirrors
 // internal/buem/connector_test.go's helper of the same name.
 func fakeUpstream(t *testing.T, statusCode int) *httptest.Server {
 	t.Helper()
@@ -84,7 +84,6 @@ func newTestHandler(t *testing.T, upstream *httptest.Server) *Handler {
 	cfg := &config.Config{
 		MaxConcurrentSims: 4,
 		BuEM:              config.UpstreamService{Host: host, Port: port},
-		BuemDataDir:       dataDir,
 		BuemResultsDir:    dataDir,
 	}
 	return New(buem.NewConnector(cfg))

@@ -49,16 +49,14 @@ The response is a list in the same order as `buildings`, each entry either `{"id
 
 ### Hourly values in the batch response
 
-By default `POST /api/v1/buem/buildings` returns summary figures and CSV paths, not hourly values. Send `"keep_timeseries": true` to get `thermal_load_profile.timeseries` populated for every building that ran, the same arrays `POST /api/v1/buem/building` returns. The CSVs are still written either way.
-
-Use it when the caller has no access to the shared volume. A caller that reads the CSVs should leave it off.
+By default `POST /api/v1/buem/buildings` returns summary figures only, not hourly values. Send `"keep_timeseries": true` to get `thermal_load_profile.timeseries` populated for every building that ran, the same arrays `POST /api/v1/buem/building` returns.
 
 !!! warning "Response size"
     A year of hourly values is roughly 300 KB of JSON per building. A batch of several hundred buildings with `keep_timeseries` set returns a response in the hundreds of megabytes.
 
 ### Pre-flight validation
 
-`POST /api/v1/buem/validate` takes the same body as `POST /api/v1/buem/building` and runs the identical pre-flight, without ever calling BuEM: `model_id`, if present, uses only letters, digits, `.`, `_` and `-`, `geometry` is a `Point` with a `[lon, lat]` pair, `start_date` is an ISO 8601 timestamp, `envelope` has at least one element with every field the [contract](versioning.md) marks required (`id`, `type`, and `area`/`azimuth`/`tilt` on non-ventilation elements), and `weather` has `index`, a usable variable, and every variable array the same length as `index`. Returns `{"valid": true}` on success, the same `400` shape described below otherwise, naming the first field that failed. A `200` means every check buem-gateway performs passed; BuEM may still reject the request on a field value buem-gateway does not inspect.
+`POST /api/v1/buem/validate` takes the same body as `POST /api/v1/buem/building` and runs the identical pre-flight, without ever calling BuEM: `model_id`, if present, uses only letters, digits, `.`, `_` and `-` (it has no other effect), `geometry` is a `Point` with a `[lon, lat]` pair, `start_date` is an ISO 8601 timestamp, `envelope` has at least one element with every field the [contract](versioning.md) marks required (`id`, `type`, and `area`/`azimuth`/`tilt` on non-ventilation elements), and `weather` has `index`, a usable variable, and every variable array the same length as `index`. Returns `{"valid": true}` on success, the same `400` shape described below otherwise, naming the first field that failed. A `200` means every check buem-gateway performs passed; BuEM may still reject the request on a field value buem-gateway does not inspect.
 
 ### Envelope is required
 
@@ -82,25 +80,6 @@ To resolve TABULA defaults from classification data, call [ignis](https://github
 |---|---|
 | Present, with a usable variable | Forwarded to BuEM unchanged |
 | Missing, or `variables` has none of T/GHI/DNI/DHI (e.g. only wind) | Rejected before BuEM is called. `POST /api/v1/buem/building` returns `400` with the reason in the body. `POST /api/v1/buem/buildings` gives every building in the request its own `error` entry, because the top-level `weather` field is shared. |
-
-### CSV output
-
-One CSV per computed load type, per building, written to `{BUEM_DATA_DIR}/{model_id}/`:
-
-```
-heating_{lat}_{lon}_{year}.csv
-cooling_{lat}_{lon}_{year}.csv       (only if compute_cooling was true)
-electricity_{lat}_{lon}_{year}.csv
-```
-
-Each is a single `demand` column of hourly values in kW (8760 rows for a full year), header included:
-
-```csv
-demand
-19.00950133202262
-19.162132866903892
-...
-```
 
 ## Testing it yourself
 

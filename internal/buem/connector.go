@@ -1,6 +1,6 @@
 // Package buem implements the connector to the upstream BuEM Flask thermal
 // model API: it fans a building or a list of buildings out to BuEM
-// concurrently and writes the resulting load profiles to CSV. Callers own
+// concurrently and returns each building's load profiles. Callers own
 // their own topology/grid concept, if they have one — buem-gateway only
 // ever sees individual buildings, keyed by whatever id the caller gave them.
 package buem
@@ -57,8 +57,8 @@ type BuildingResult struct {
 // failure.
 //
 // keepTimeseries carries the hourly values back in each result instead of
-// only the CSV paths, for a caller with no access to the shared volume. It
-// costs roughly 300 KB of JSON per building for a year of hourly values.
+// only the summary figures. It costs roughly 300 KB of JSON per building for
+// a year of hourly values.
 func (c *Connector) RunBatch(inputs []BuildingInput, startDate, endDate, modelID string, resolution int, keepTimeseries bool) []BuildingResult {
 	tasks := make([]Task, 0, len(inputs))
 	preflightErr := make(map[string]string, len(inputs))
@@ -147,7 +147,7 @@ type outcome struct {
 }
 
 // runOne runs a single task against BuEM. keepTimeseries controls whether
-// the response's inline timeseries survives CSV extraction — see RunFeature.
+// the response keeps its inline timeseries; see RunFeature.
 func (c *Connector) runOne(task Task, keepTimeseries bool) outcome {
 	block, metrics, err := RunFeature(c.client, c.cfg, task, keepTimeseries)
 	if err != nil {
@@ -159,7 +159,7 @@ func (c *Connector) runOne(task Task, keepTimeseries bool) outcome {
 
 func logBatchSummary(results map[string]outcome, requestDuration time.Duration) {
 	var successful, failed int
-	var totalWall, totalCSV time.Duration
+	var totalWall time.Duration
 	var totalModelSeconds float64
 
 	for _, o := range results {
@@ -169,15 +169,13 @@ func logBatchSummary(results map[string]outcome, requestDuration time.Duration) 
 		}
 		successful++
 		totalWall += o.metrics.WallDuration
-		totalCSV += o.metrics.CSVWriteDuration
 		totalModelSeconds += o.metrics.ModelProcessingSeconds
 	}
 
-	avgWall, avgCSV, avgModel := time.Duration(0), time.Duration(0), 0.0
+	avgWall, avgModel := time.Duration(0), 0.0
 	throughput := 0.0
 	if successful > 0 {
 		avgWall = totalWall / time.Duration(successful)
-		avgCSV = totalCSV / time.Duration(successful)
 		avgModel = totalModelSeconds / float64(successful)
 	}
 	if requestDuration > 0 {
@@ -185,8 +183,8 @@ func logBatchSummary(results map[string]outcome, requestDuration time.Duration) 
 	}
 
 	log.Printf(
-		"buem-gateway | processed=%d failed=%d total=%s avg_wall=%s avg_model=%.3fs avg_csv=%s throughput=%.2f buildings/s",
+		"buem-gateway | processed=%d failed=%d total=%s avg_wall=%s avg_model=%.3fs throughput=%.2f buildings/s",
 		successful, failed, requestDuration.Round(time.Millisecond),
-		avgWall.Round(time.Millisecond), avgModel, avgCSV.Round(time.Millisecond), throughput,
+		avgWall.Round(time.Millisecond), avgModel, throughput,
 	)
 }
