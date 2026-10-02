@@ -58,7 +58,7 @@ Use it when the caller has no access to the shared volume. A caller that reads t
 
 ### Pre-flight validation
 
-`POST /api/v1/buem/validate` takes the same body as `POST /api/v1/buem/building` and runs the identical pre-flight, without ever calling BuEM: `geometry` is a `Point` with a `[lon, lat]` pair, `start_date` is an ISO 8601 timestamp, `envelope` has at least one element with every field the [contract](versioning.md) marks required (`id`, `type`, and `area`/`azimuth`/`tilt` on non-ventilation elements), and `weather` has `index`, a usable variable, and every variable array the same length as `index`. Returns `{"valid": true}` on success, the same `400` shape described below otherwise, naming the first field that failed. A `200` means every check buem-gateway performs passed; BuEM may still reject the request on a field value buem-gateway does not inspect.
+`POST /api/v1/buem/validate` takes the same body as `POST /api/v1/buem/building` and runs the identical pre-flight, without ever calling BuEM: `model_id`, if present, uses only letters, digits, `.`, `_` and `-`, `geometry` is a `Point` with a `[lon, lat]` pair, `start_date` is an ISO 8601 timestamp, `envelope` has at least one element with every field the [contract](versioning.md) marks required (`id`, `type`, and `area`/`azimuth`/`tilt` on non-ventilation elements), and `weather` has `index`, a usable variable, and every variable array the same length as `index`. Returns `{"valid": true}` on success, the same `400` shape described below otherwise, naming the first field that failed. A `200` means every check buem-gateway performs passed; BuEM may still reject the request on a field value buem-gateway does not inspect.
 
 ### Envelope is required
 
