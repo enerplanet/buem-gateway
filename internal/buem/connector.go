@@ -60,15 +60,20 @@ type BuildingResult struct {
 // only the summary figures. It costs roughly 300 KB of JSON per building for
 // a year of hourly values.
 func (c *Connector) RunBatch(inputs []BuildingInput, startDate, endDate, modelID string, resolution int, keepTimeseries bool) []BuildingResult {
+	// Results are matched to inputs by position, never by id: ids come from
+	// the caller and are not guaranteed unique.
+	results := make([]BuildingResult, len(inputs))
 	tasks := make([]Task, 0, len(inputs))
-	preflightErr := make(map[string]string, len(inputs))
-	for _, in := range inputs {
+	inputIndex := make([]int, 0, len(inputs))
+	for i, in := range inputs {
+		results[i].ID = in.ID
 		task, err := TaskFromBuilding(in, startDate, endDate, resolution, modelID)
 		if err != nil {
-			preflightErr[in.ID] = err.Error()
+			results[i].Error = err.Error()
 			continue
 		}
 		tasks = append(tasks, task)
+		inputIndex = append(inputIndex, i)
 	}
 
 	log.Printf("buem-gateway | model=%s running %d/%d buildings with a complete buem block", modelID, len(tasks), len(inputs))
@@ -77,18 +82,13 @@ func (c *Connector) RunBatch(inputs []BuildingInput, startDate, endDate, modelID
 	outcomes := c.runTasks(tasks, keepTimeseries)
 	logBatchSummary(outcomes, time.Since(requestStart))
 
-	results := make([]BuildingResult, len(inputs))
-	for i, in := range inputs {
-		if msg, failed := preflightErr[in.ID]; failed {
-			results[i] = BuildingResult{ID: in.ID, Error: msg}
-			continue
-		}
-		o := outcomes[in.ID]
+	for j, o := range outcomes {
+		i := inputIndex[j]
 		if o.errMsg != "" {
-			results[i] = BuildingResult{ID: in.ID, Error: o.errMsg}
+			results[i].Error = o.errMsg
 			continue
 		}
-		results[i] = BuildingResult{ID: in.ID, BUEM: o.buemBlock}
+		results[i].BUEM = o.buemBlock
 	}
 	return results
 }
@@ -113,34 +113,27 @@ func (c *Connector) RunSingle(id string, geometry, buemRaw json.RawMessage, star
 	return result.buemBlock, nil
 }
 
-// runTasks runs every task concurrently, bounded by c.sem, and collects each
-// outcome keyed by node ID.
-func (c *Connector) runTasks(tasks []Task, keepTimeseries bool) map[string]outcome {
-	ch := make(chan outcome, len(tasks))
+// runTasks runs every task concurrently, bounded by c.sem, and returns one
+// outcome per task in the same order as tasks.
+func (c *Connector) runTasks(tasks []Task, keepTimeseries bool) []outcome {
+	outcomes := make([]outcome, len(tasks))
 	var wg sync.WaitGroup
 
-	for _, task := range tasks {
+	for i, task := range tasks {
 		wg.Add(1)
-		go func(t Task) {
+		go func(i int, t Task) {
 			defer wg.Done()
 			c.sem <- struct{}{}
 			defer func() { <-c.sem }()
-			ch <- c.runOne(t, keepTimeseries)
-		}(task)
+			outcomes[i] = c.runOne(t, keepTimeseries)
+		}(i, task)
 	}
 	wg.Wait()
-	close(ch)
-
-	results := make(map[string]outcome, len(tasks))
-	for o := range ch {
-		results[o.nodeID] = o
-	}
-	return results
+	return outcomes
 }
 
-// outcome is the result of running one Task, keyed by NodeID.
+// outcome is the result of running one Task.
 type outcome struct {
-	nodeID    string
 	buemBlock json.RawMessage
 	errMsg    string
 	metrics   RunMetrics
@@ -152,12 +145,12 @@ func (c *Connector) runOne(task Task, keepTimeseries bool) outcome {
 	block, metrics, err := RunFeature(c.client, c.cfg, task, keepTimeseries)
 	if err != nil {
 		log.Printf("buem-gateway | node=%s error: %s", task.NodeID, err)
-		return outcome{nodeID: task.NodeID, errMsg: err.Error()}
+		return outcome{errMsg: err.Error()}
 	}
-	return outcome{nodeID: task.NodeID, buemBlock: block, metrics: metrics}
+	return outcome{buemBlock: block, metrics: metrics}
 }
 
-func logBatchSummary(results map[string]outcome, requestDuration time.Duration) {
+func logBatchSummary(results []outcome, requestDuration time.Duration) {
 	var successful, failed int
 	var totalWall time.Duration
 	var totalModelSeconds float64
