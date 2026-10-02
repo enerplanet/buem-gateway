@@ -586,4 +586,81 @@ func TestConnectorRunBatch_AsksForTimeseriesOnlyWhenKept(t *testing.T) {
 			t.Errorf("keep=%v: results = %+v, want one clean result", tc.keep, results)
 		}
 	}
+
+// TestConnectorRunBatch_DuplicateIDsKeepTheirOwnResults confirms results are
+// matched to buildings by position, not by id: buildings sharing an id each
+// get their own result, and one building's preflight failure does not mark
+// the others with the same id as failed.
+func TestConnectorRunBatch_DuplicateIDsKeepTheirOwnResults(t *testing.T) {
+	// The stub reports the request's longitude as the heating total, so each
+	// result shows which building it came from.
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req FeatureCollection
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		var feature struct {
+			Geometry struct {
+				Coordinates []float64 `json:"coordinates"`
+			} `json:"geometry"`
+		}
+		json.Unmarshal(req.Features[0], &feature)
+		json.NewEncoder(w).Encode(ResponseFeatureCollection{
+			Type: "FeatureCollection",
+			Features: []ResponseFeature{{Properties: ResponseProperties{BUEM: ResponseBlock{
+				ThermalLoadProfile: ThermalLoadProfile{
+					Summary:    ThermalSummary{Heating: LoadStats{Total: Quantity{Value: feature.Geometry.Coordinates[0], Unit: "kWh"}}},
+					Timeseries: &Timeseries{Unit: "kW", Heating: []float64{1}},
+				},
+			}}}},
+		})
+	}))
+	defer upstream.Close()
+
+	host, portStr, _ := strings.Cut(strings.TrimPrefix(upstream.URL, "http://"), ":")
+	port, _ := strconv.Atoi(portStr)
+	conn := NewConnector(&config.Config{MaxConcurrentSims: 4, BuEM: config.UpstreamService{Host: host, Port: port}})
+
+	atLon := func(lon float64) BuildingInput {
+		in := testBuildingInput("dup")
+		in.Geometry, _ = json.Marshal(map[string]interface{}{"type": "Point", "coordinates": []float64{lon, 48.5}})
+		return in
+	}
+	noEnvelope := BuildingInput{ID: "dup", Geometry: atLon(15).Geometry, BUEM: json.RawMessage(`{"building":{},"weather":{"index":["2018-01-01T00:30:00Z"],"variables":{"T":[1.0]}}}`)}
+
+	results := conn.RunBatch([]BuildingInput{atLon(10), noEnvelope, atLon(20)}, "2018-01-01T00:00:00Z", "2018-12-31T23:00:00Z", "", 60, false)
+
+	if len(results) != 3 {
+		t.Fatalf("got %d results, want 3", len(results))
+	}
+	heatingTotal := func(r BuildingResult) float64 {
+		var block struct {
+			ThermalLoadProfile struct {
+				Summary struct {
+					Heating struct{ Total Quantity } `json:"heating"`
+				} `json:"summary"`
+			} `json:"thermal_load_profile"`
+		}
+		if err := json.Unmarshal(r.BUEM, &block); err != nil {
+			t.Fatalf("unmarshal result: %v (result=%+v)", err, r)
+		}
+		return block.ThermalLoadProfile.Summary.Heating.Total.Value
+	}
+	for _, want := range []struct {
+		i   int
+		lon float64
+	}{{0, 10}, {2, 20}} {
+		r := results[want.i]
+		if r.Error != "" {
+			t.Errorf("results[%d].Error = %q, want a result", want.i, r.Error)
+			continue
+		}
+		if got := heatingTotal(r); got != want.lon {
+			t.Errorf("results[%d] heating total = %v, want %v (another building's result)", want.i, got, want.lon)
+		}
+	}
+	if results[1].Error == "" {
+		t.Errorf("results[1].Error is empty, want the missing-envelope error")
+	}
 }
