@@ -4,19 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"os"
-	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/enerplanet/buem-gateway/internal/config"
 	"github.com/enerplanet/buem-gateway/internal/httpclient"
 )
 
-const (
-	apiProcessPath  = "/api/process"
-	buemFilesPrefix = "/api/files/"
-)
+const apiProcessPath = "/api/process"
 
 // RunMetrics reports timing for one building's run, used for batch logging.
 type RunMetrics struct {
@@ -36,7 +30,7 @@ func RunFeature(client *httpclient.Client, cfg *config.Config, task Task, keepTi
 		return nil, RunMetrics{}, err
 	}
 
-	enriched, err := finishBlock(cfg, block, keepTimeseries)
+	enriched, err := finishBlock(block, keepTimeseries)
 	if err != nil {
 		return nil, RunMetrics{}, err
 	}
@@ -73,9 +67,10 @@ func callUpstream(client *httpclient.Client, cfg *config.Config, task Task, incl
 }
 
 // finishBlock checks that BuEM returned the timeseries when it was asked for
-// one and deletes the intermediate file BuEM wrote for it. Without
-// keepTimeseries no series was requested, and any BuEM sends is dropped.
-func finishBlock(cfg *config.Config, block *ResponseBlock, keepTimeseries bool) ([]byte, error) {
+// one. Without keepTimeseries no series was requested, and any BuEM sends is
+// dropped. buem-model 6.4.0 and later write no file for an inline series, so
+// there is nothing to clean up.
+func finishBlock(block *ResponseBlock, keepTimeseries bool) ([]byte, error) {
 	if keepTimeseries {
 		ts := block.ThermalLoadProfile.Timeseries
 		if ts == nil {
@@ -88,25 +83,5 @@ func finishBlock(cfg *config.Config, block *ResponseBlock, keepTimeseries bool) 
 		block.ThermalLoadProfile.Timeseries = nil
 	}
 
-	deleteSourceTimeseries(cfg, block.ThermalLoadProfile.TimeseriesFile)
 	return json.Marshal(block)
-}
-
-// deleteSourceTimeseries removes the .json.gz file BuEM's Flask service wrote
-// to the shared volume for this run. The same series is already in the
-// response, so the file is redundant.
-// Failures are logged but never fail the request.
-func deleteSourceTimeseries(cfg *config.Config, timeseriesFile string) {
-	if !strings.HasPrefix(timeseriesFile, buemFilesPrefix) {
-		return
-	}
-	fname := timeseriesFile[len(buemFilesPrefix):]
-	if fname == "" || cfg.BuemResultsDir == "" {
-		return
-	}
-
-	fullPath := filepath.Join(cfg.BuemResultsDir, fname)
-	if err := os.Remove(fullPath); err != nil && !os.IsNotExist(err) {
-		log.Printf("buem-gateway | warning: failed to delete source timeseries file %s: %v", fullPath, err)
-	}
 }

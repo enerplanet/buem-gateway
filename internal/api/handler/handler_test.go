@@ -80,11 +80,9 @@ func newTestHandler(t *testing.T, upstream *httptest.Server) *Handler {
 		t.Fatalf("parse upstream port: %v", err)
 	}
 
-	dataDir := t.TempDir()
 	cfg := &config.Config{
 		MaxConcurrentSims: 4,
 		BuEM:              config.UpstreamService{Host: host, Port: port},
-		BuemResultsDir:    dataDir,
 	}
 	return New(buem.NewConnector(cfg))
 }

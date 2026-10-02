@@ -32,11 +32,6 @@ type Config struct {
 	RetryBaseDelay    int // milliseconds
 
 	BuEM UpstreamService
-
-	// BuemResultsDir is where BuEM's own Flask service writes its
-	// intermediate .json.gz timeseries file, deleted once the response
-	// carrying the same series has been received.
-	BuemResultsDir string
 }
 
 var (
@@ -67,8 +62,6 @@ func load() *Config {
 			Host: envString("BUEM_SERVICE_HOST", "buem-model"),
 			Port: envInt("BUEM_SERVICE_PORT", 5000),
 		},
-
-		BuemResultsDir: envString("BUEM_RESULTS_DIR", "results"),
 	}
 }
 

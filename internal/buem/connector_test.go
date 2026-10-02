@@ -3,10 +3,8 @@ package buem
 import (
 	"encoding/json"
 	"errors"
-	"io/fs"
 	"net/http"
 	"net/http/httptest"
-	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
@@ -106,11 +104,9 @@ func TestConnectorRunBatch_PassesThroughHotWaterAndKitchen(t *testing.T) {
 
 	host, portStr, _ := strings.Cut(strings.TrimPrefix(upstream.URL, "http://"), ":")
 	port, _ := strconv.Atoi(portStr)
-	dataDir := t.TempDir()
 	cfg := &config.Config{
 		MaxConcurrentSims: 4,
 		BuEM:              config.UpstreamService{Host: host, Port: port},
-		BuemResultsDir:    dataDir,
 	}
 	conn := NewConnector(cfg)
 
@@ -139,7 +135,7 @@ func TestConnectorRunBatch_PassesThroughHotWaterAndKitchen(t *testing.T) {
 		t.Errorf("expected summary.kitchen.total {386.1 kWh_gas}, got %+v", summary.Kitchen.Total)
 	}
 
-	assertNoFileOutput(t, dataDir, results[0].BUEM)
+	assertNoFilePaths(t, results[0].BUEM)
 }
 
 func TestConnectorRunBatch_ReturnsSummaryAndWritesNoFiles(t *testing.T) {
@@ -155,11 +151,9 @@ func TestConnectorRunBatch_ReturnsSummaryAndWritesNoFiles(t *testing.T) {
 		t.Fatalf("parse upstream port: %v", err)
 	}
 
-	dataDir := t.TempDir()
 	cfg := &config.Config{
 		MaxConcurrentSims: 4,
 		BuEM:              config.UpstreamService{Host: host, Port: port},
-		BuemResultsDir:    dataDir,
 	}
 	conn := NewConnector(cfg)
 
@@ -170,7 +164,7 @@ func TestConnectorRunBatch_ReturnsSummaryAndWritesNoFiles(t *testing.T) {
 		t.Fatalf("expected 1 result, got %d", len(results))
 	}
 	assertBuemBlockPresent(t, results[0])
-	assertNoFileOutput(t, dataDir, results[0].BUEM)
+	assertNoFilePaths(t, results[0].BUEM)
 }
 
 // TestConnectorRunBatch_PartialFailureDoesNotAffectOtherBuildings confirms
@@ -190,11 +184,9 @@ func TestConnectorRunBatch_PartialFailureDoesNotAffectOtherBuildings(t *testing.
 		t.Fatalf("parse upstream port: %v", err)
 	}
 
-	dataDir := t.TempDir()
 	cfg := &config.Config{
 		MaxConcurrentSims: 4,
 		BuEM:              config.UpstreamService{Host: host, Port: port},
-		BuemResultsDir:    dataDir,
 	}
 	conn := NewConnector(cfg)
 
@@ -228,11 +220,9 @@ func TestConnectorRunSingle_EnrichesOneBuildingNoTopology(t *testing.T) {
 		t.Fatalf("parse upstream port: %v", err)
 	}
 
-	dataDir := t.TempDir()
 	cfg := &config.Config{
 		MaxConcurrentSims: 4,
 		BuEM:              config.UpstreamService{Host: host, Port: port},
-		BuemResultsDir:    dataDir,
 	}
 	conn := NewConnector(cfg)
 
@@ -262,7 +252,7 @@ func TestConnectorRunSingle_EnrichesOneBuildingNoTopology(t *testing.T) {
 	if _, ok := ts["heating"]; !ok {
 		t.Fatalf("expected timeseries.heating to be present, got %v", ts)
 	}
-	assertNoFileOutput(t, dataDir, enriched)
+	assertNoFilePaths(t, enriched)
 }
 
 func TestConnectorRunSingle_ReturnsErrorOnFailure(t *testing.T) {
@@ -437,23 +427,10 @@ func assertBuemBlockPresent(t *testing.T, result BuildingResult) {
 	}
 }
 
-// assertNoFileOutput checks that a run wrote nothing under dir and that the
-// response carries no file paths: load profiles are returned in the response
-// only.
-func assertNoFileOutput(t *testing.T, dir string, block json.RawMessage) {
+// assertNoFilePaths checks that the response carries no file paths: load
+// profiles are returned in the response only.
+func assertNoFilePaths(t *testing.T, block json.RawMessage) {
 	t.Helper()
-	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if path != dir {
-			t.Errorf("unexpected file written: %s", path)
-		}
-		return nil
-	})
-	if err != nil {
-		t.Fatalf("walk %s: %v", dir, err)
-	}
 	for _, field := range []string{"heating_file", "cooling_file", "electricity_file", "hot_water_file", "kitchen_file"} {
 		if strings.Contains(string(block), `"`+field+`"`) {
 			t.Errorf("response carries %s, want no file paths: %s", field, block)
@@ -515,11 +492,9 @@ func TestConnectorRunBatch_KeepTimeseriesReturnsInlineSeries(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse upstream port: %v", err)
 	}
-	dataDir := t.TempDir()
 	cfg := &config.Config{
 		MaxConcurrentSims: 4,
 		BuEM:              config.UpstreamService{Host: host, Port: port},
-		BuemResultsDir:    dataDir,
 	}
 	conn := NewConnector(cfg)
 
@@ -546,7 +521,7 @@ func TestConnectorRunBatch_KeepTimeseriesReturnsInlineSeries(t *testing.T) {
 	if !reflect.DeepEqual(ts.Heating, []float64{0.114, 0.223}) {
 		t.Errorf("timeseries.heating = %v, want [0.114 0.223]", ts.Heating)
 	}
-	assertNoFileOutput(t, dataDir, results[0].BUEM)
+	assertNoFilePaths(t, results[0].BUEM)
 }
 
 // TestConnectorRunBatch_AsksForTimeseriesOnlyWhenKept confirms buem-gateway
