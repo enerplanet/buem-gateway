@@ -5,10 +5,10 @@ on:
     branches: ["main"]
     paths:
       - "schemas/**"
+  # No paths filter on pull requests: this job is a required check on main,
+  # and a filtered-out run never reports, which blocks every unrelated PR.
   pull_request:
     branches: ["main"]
-    paths:
-      - "schemas/**"
 
 jobs:
   validate-schemas:
