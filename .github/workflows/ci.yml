@@ -27,3 +27,6 @@ jobs:
 
       - name: Validate schemas and version sync
         run: python scripts/validate_schemas.py
+
+      - name: Test v6-draft output selection
+        run: python scripts/v6_draft_outputs_test.py

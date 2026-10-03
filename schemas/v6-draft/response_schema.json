@@ -165,8 +165,7 @@
 
     "load_summary": {
       "type": "object",
-      "required": ["heating", "electricity"],
-      "description": "Aggregated statistics over the full simulation period. heating and electricity are always present. cooling is always present. hot_water and kitchen are present only when the model computed them.",
+      "description": "Aggregated statistics over the full simulation period, one entry per profile the request selected (outputs set to summary or series; every profile when outputs is omitted). A selected profile buem-model cannot produce is reported as all-zero rather than left out: hot_water and kitchen for service building_type, kitchen with electric cooking. peak_heating_load is present when heating is selected and peak_cooling_load when cooling is selected. total_energy_demand is present only when heating, cooling, electricity and hot_water are all selected.",
       "properties": {
         "heating":     { "$ref": "#/$defs/energy_summary" },
         "cooling":     { "$ref": "#/$defs/energy_summary" },
@@ -181,7 +180,7 @@
         },
         "total_energy_demand": {
           "allOf": [{ "$ref": "#/$defs/energy_qty" }],
-          "description": "Total heating + cooling + electricity + hot_water demand over the simulation period. Does not include kitchen — see its own description."
+          "description": "Sum of heating, cooling, electricity and hot_water over the simulation period, present only when all four are selected so that it always means the same quantity. Does not include kitchen, see its own description."
         },
         "peak_heating_load": {
           "allOf": [{ "$ref": "#/$defs/power_qty" }],
@@ -193,7 +192,7 @@
         },
         "energy_intensity": {
           "allOf": [{ "$ref": "#/$defs/energy_intensity_qty" }],
-          "description": "Total energy demand per reference floor area"
+          "description": "total_energy_demand divided by building.A_ref. Present when total_energy_demand is present."
         }
       }
     },
@@ -264,8 +263,8 @@
 
     "load_timeseries": {
       "type": "object",
-      "required": ["unit", "timestamps", "heating", "electricity"],
-      "description": "Hourly timeseries arrays — only present when ?include_timeseries=true is passed to the endpoint. unit applies to every array except kitchen, which is gas and carries its own kitchen_unit (same electric/thermal-vs-gas split as load_summary's energy_summary vs gas_energy_summary). cooling, hot_water, and kitchen are present only when the model computed them.",
+      "required": ["unit", "timestamps"],
+      "description": "Hourly timeseries arrays, one per profile the request set to series. unit applies to every array except kitchen, which is gas and carries its own kitchen_unit (same electric/thermal-vs-gas split as load_summary's energy_summary vs gas_energy_summary). kitchen is present only with gas cooking.",
       "properties": {
         "unit": {
           "type": "string",
@@ -316,6 +315,19 @@
       "type": "object",
       "description": "Diagnostic information about the model run",
       "properties": {
+        "resolved_inputs": {
+          "type": "object",
+          "description": "The occupancy inputs buem-model actually used for this building, after applying defaults. A field that does not apply to the building_type is null.",
+          "properties": {
+            "building_type":     { "type": "string" },
+            "country":           { "type": "string" },
+            "region_code":       { "type": ["string", "null"] },
+            "num_persons":       { "type": ["number", "null"], "description": "Occupants per dwelling; a fractional value is the statistical mean buem-model blended from two household sizes. null for service building_type." },
+            "residential_units": { "type": "number" },
+            "archetype":         { "type": ["string", "null"], "description": "Household archetype. null for service building_type." },
+            "capacity":          { "type": ["integer", "null"], "description": "Occupant capacity. null for residential building_type." }
+          }
+        },
         "model_version": {
           "type": "string",
           "description": "BUEM model version used"
