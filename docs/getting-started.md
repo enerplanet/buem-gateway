@@ -86,10 +86,13 @@ A compose project is the unit compose acts on destructively, for example with `-
 
 A compose project's default network is named after the project. A service outside this repository that needs to reach buem-gateway attaches to a purpose-named network declared for that job, not to `buem-gateway-http_default` or `buem-gateway-https_default`, which change if the project is renamed.
 
-!!! warning "Only one transport at a time, and bring the old one down first"
-    Container names are fixed and unique across the host, so `buem-gateway` cannot exist twice. Starting one transport while the other is running fails on the container name. Run `docker compose down` in the directory you are leaving before bringing up the other.
+Compose names the containers after the project, for example `buem-gateway-http-buem-gateway-1`, so both transports can run at the same time on one host: they are separate projects on different host ports (8081 and 8443). Address a container through compose from its directory, for example `docker compose logs buem-gateway` or `docker compose stop buem-gateway`, rather than by container name. Other containers on a shared network reach the connector by its service name `buem-gateway`, or by the alias `buem-gateway-http` on `tentacron-net`.
 
-    A stack started under the old `building-simulation` project name is invisible to `docker compose down` here. Remove its containers by name:
+!!! warning "One HTTP stack per host on tentacron-net"
+    Every HTTP stack started from this repository joins `tentacron-net` under the same alias, `buem-gateway-http`. Two of them on one host would split requests between the two stacks without any error. Run a second HTTP stack, for example for testing, under its own project name and without `tentacron-net`.
+
+!!! info "Containers from earlier versions of these compose files"
+    Earlier versions of these compose files fixed the container names to `buem-gateway`, `buem-model` and `buem-reverse-proxy`. A stack started from this repository under its current project name is replaced by the next `docker compose up`. A stack started under the old `building-simulation` project name is invisible to compose here. Remove its containers by name:
 
     ```bash
     docker stop buem-gateway buem-model buem-reverse-proxy
