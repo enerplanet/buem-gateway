@@ -3,7 +3,6 @@ name: buem-gateway-https
 
 services:
   buem-model:
-    container_name: buem-model
     image: ghcr.io/enerplanet/buem-model:${BUEM_MODEL_IMAGE_TAG:-6.6.0}
     env_file: ../env/common.env
     environment:
@@ -18,7 +17,6 @@ services:
       retries: 5
 
   buem-gateway:
-    container_name: buem-gateway
     image: ghcr.io/enerplanet/buem-gateway:${BUEM_GATEWAY_IMAGE_TAG:-latest}
     env_file: ../env/common.env
     environment:
@@ -36,7 +34,6 @@ services:
 
   buem-reverse-proxy:
     image: caddy:2.11-alpine
-    container_name: buem-reverse-proxy
     environment:
       - APP_PORT=${APP_PORT:-8080}
       # The domain name for the BuEM gateway, used by Caddy to obtain a certificate.

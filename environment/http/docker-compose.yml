@@ -3,7 +3,6 @@ name: buem-gateway-http
 
 services:
   buem-model:
-    container_name: buem-model
     image: ghcr.io/enerplanet/buem-model:${BUEM_MODEL_IMAGE_TAG:-6.6.0}
     environment:
       - BUEM_CBC_EXE=/opt/conda/envs/buem_env/bin/cbc
@@ -18,7 +17,6 @@ services:
 
   # The Go connector. See ../../internal/buem.
   buem-gateway:
-    container_name: buem-gateway
     image: ghcr.io/enerplanet/buem-gateway:${BUEM_GATEWAY_IMAGE_TAG:-latest}
     env_file: ../env/common.env
     environment:
