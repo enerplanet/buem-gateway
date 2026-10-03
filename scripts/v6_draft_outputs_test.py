@@ -63,6 +63,10 @@ class OutputSelectionTest(unittest.TestCase):
         self.assertFalse(self._valid(lambda d: self._buem(d, 1)["building"].update(equipment={"kettle": True})))
         self.assertFalse(self._valid(lambda d: self._buem(d, 1)["building"].update(residential_units=2)))
         self.assertTrue(self._valid(lambda d: self._buem(d, 1)["building"].update(residential_units=1)))
+        for field, value in (("num_persons", 2), ("archetype", "generic"), ("region_code", "GM0200")):
+            with self.subTest(field=field):
+                self.assertFalse(self._valid(lambda d: self._buem(d, 1)["building"].update({field: value})))
+        self.assertFalse(self._valid(lambda d: self._buem(d, 2)["building"].update(residential_units=1.5)))
 
     def test_output_levels_are_closed(self) -> None:
         self.assertFalse(self._valid(lambda d: self._buem(d, 2)["outputs"].update(electricity="hourly")))

@@ -170,7 +170,14 @@
             "properties": { "building_type": { "enum": ["bakery", "clinic", "hotel", "office", "restaurant", "school", "supermarket", "warehouse"] } }
           },
           "then": {
-            "not": { "required": ["equipment"] },
+            "not": {
+              "anyOf": [
+                { "required": ["equipment"] },
+                { "required": ["num_persons"] },
+                { "required": ["archetype"] },
+                { "required": ["region_code"] }
+              ]
+            },
             "properties": { "residential_units": { "const": 1 } }
           }
         }
@@ -261,7 +268,7 @@
           "description": "Whether to report domestic hot water energy alongside space heating, as thermal_load_profile.summary.hot_water. false suppresses it without affecting the space-heating solve — for a caller whose DHW is met by a separate system it accounts for itself."
         },
         "residential_units": {
-          "type": "number",
+          "type": "integer",
           "minimum": 1,
           "default": 1,
           "description": "Number of dwellings in the building. buem-model simulates one representative dwelling and multiplies its internal gains, electricity, hot water and cooking by this number, so every dwelling is identical and peaks scale linearly. Required for MFH and AB. Must be 1 for service building_type, whose occupancy comes from capacity."

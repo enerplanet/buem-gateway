@@ -25,9 +25,12 @@ Changes staged in `schemas/v6-draft/`, the in-development next contract.
   back silently to `MFH`, `NL`, 100 m2 and one dwelling.
 - The `equipment` description states that an omitted appliance keeps its
   default ownership probability and that counts are not expressible.
-- Service `building_type` may not carry `equipment`, and its
-  `residential_units` must be 1; buem-model ignores the first and the second
-  would double-count occupancy already derived from capacity.
+- Service `building_type` may not carry the household inputs `equipment`,
+  `num_persons`, `archetype` or `region_code`, which buem-model ignores for
+  services. `include_dhw` and `cooking_carrier` stay allowed and have no
+  effect there, since services have no hot water or cooking model. Its
+  `residential_units` must be 1, since a higher value would double-count
+  occupancy already derived from capacity. `residential_units` is an integer.
 - `A_ref` is the whole building's floor area, `num_persons` is per dwelling,
   and `residential_units` multiplies one representative dwelling.
 - Response: `model_metadata.resolved_inputs` reports the occupancy inputs
