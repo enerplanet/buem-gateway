@@ -374,12 +374,12 @@
         "comfortT_lb": {
           "allOf": [{ "$ref": "#/$defs/temperature_qty" }],
           "description": "Heating setpoint — minimum acceptable indoor temperature",
-          "default": { "value": 21.0, "unit": "degC" }
+          "default": { "value": 18.0, "unit": "degC" }
         },
         "comfortT_ub": {
           "allOf": [{ "$ref": "#/$defs/temperature_qty" }],
           "description": "Cooling setpoint — maximum acceptable indoor temperature",
-          "default": { "value": 24.0, "unit": "degC" }
+          "default": { "value": 21.0, "unit": "degC" }
         },
         "design_T_min": {
           "allOf": [{ "$ref": "#/$defs/temperature_qty" }],

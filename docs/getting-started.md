@@ -58,7 +58,7 @@ cd environment/http
 docker compose -f docker-compose.build.yml up -d --build
 ```
 
-This builds the connector from this source tree and pulls `buem-model` from `ghcr.io/enerplanet/buem-model`, which `enerplanet/buem` builds and publishes. The compose files default to `buem-model` 6.4.0; set `BUEM_MODEL_IMAGE_TAG` to pin another version.
+This builds the connector from this source tree and pulls `buem-model` from `ghcr.io/enerplanet/buem-model`, which `enerplanet/buem` builds and publishes. The compose files default to `buem-model` 6.6.0, which applies an 18 to 21 degC comfort band when a request omits `comfortT_lb` and `comfortT_ub`; set `BUEM_MODEL_IMAGE_TAG` to pin another version.
 
 !!! warning "buem-model 6.4.0 or later"
     Older `buem-model` images write a `.json.gz` file inside their container for every building whose hourly series is requested, and nothing removes it. buem-gateway no longer shares a volume with `buem-model` to delete those files, so pair it with 6.4.0 or later.

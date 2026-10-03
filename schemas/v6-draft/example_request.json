@@ -304,11 +304,11 @@
               },
               "thermal_class": "medium",
               "comfortT_lb": {
-                "value": 21,
+                "value": 18,
                 "unit": "degC"
               },
               "comfortT_ub": {
-                "value": 24,
+                "value": 21,
                 "unit": "degC"
               }
             }
