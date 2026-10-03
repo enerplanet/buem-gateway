@@ -38,6 +38,8 @@ Changes staged in `schemas/v6-draft/`, the in-development next contract.
   at most 32 MiB. buem-model 6.4.0 and later reject any other path, including a
   symlink that resolves outside the directory, and refuse file-based profiles
   when `BUEM_DATA_DIR` is not set.
+- `building.thermal.comfortT_lb` and `.comfortT_ub` default to 18 and 21 degC,
+  the defaults buem-model 6.6.0 and later apply when the fields are omitted.
 - `building.window_to_wall_ratio`, `.window_U`, `.window_g_gl` and `.door_U`
   size and parameterise the windows and doors BuEM synthesises when the
   request has no explicit window or door elements. `window_to_wall_ratio`
@@ -49,6 +51,11 @@ Changes staged in `schemas/v6-draft/`, the in-development next contract.
 
 **Status:** Current version
 **Compatible with v4.2.0:** No: `building.envelope` is now required.
+
+**Erratum (2026-10-02):** `schemas/v5/` documents `comfortT_lb` and
+`comfortT_ub` defaults of 21 and 24 degC. buem-model 6.6.0 and later apply 18
+and 21 degC when the fields are omitted; buem-gateway forwards what the caller
+sends and fills nothing in. Send both fields to fix the band.
 
 ### 0. Contract frozen, schema aligned with the runtime
 

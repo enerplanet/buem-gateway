@@ -4,7 +4,7 @@ name: buem-gateway-http
 services:
   buem-model:
     container_name: buem-model
-    image: ghcr.io/enerplanet/buem-model:${BUEM_MODEL_IMAGE_TAG:-6.4.0}
+    image: ghcr.io/enerplanet/buem-model:${BUEM_MODEL_IMAGE_TAG:-6.6.0}
     environment:
       - BUEM_CBC_EXE=/opt/conda/envs/buem_env/bin/cbc
       # No weather archive or service: every request carries its own resolved timeseries, and BUEM_WEATHER_FALLBACK=false skips buem-model's module-load default fetch too. See docs/getting-started.md.
