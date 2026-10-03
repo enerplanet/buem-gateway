@@ -91,8 +91,8 @@ Compose names the containers after the project, for example `buem-gateway-http-b
 !!! warning "One HTTP stack per host on tentacron-net"
     Every HTTP stack started from this repository joins `tentacron-net` under the same alias, `buem-gateway-http`. Two of them on one host would split requests between the two stacks without any error. Run a second HTTP stack, for example for testing, under its own project name and without `tentacron-net`.
 
-!!! info "Containers from releases before v7.2.0"
-    Earlier releases fixed the container names to `buem-gateway`, `buem-model` and `buem-reverse-proxy`. A stack started from this repository under its current project name is replaced by the next `docker compose up`. A stack started under the old `building-simulation` project name is invisible to compose here. Remove its containers by name:
+!!! info "Containers from earlier versions of these compose files"
+    Earlier versions of these compose files fixed the container names to `buem-gateway`, `buem-model` and `buem-reverse-proxy`. A stack started from this repository under its current project name is replaced by the next `docker compose up`. A stack started under the old `building-simulation` project name is invisible to compose here. Remove its containers by name:
 
     ```bash
     docker stop buem-gateway buem-model buem-reverse-proxy
