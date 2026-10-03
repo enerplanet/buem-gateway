@@ -11,6 +11,29 @@ version is promoted.
 Changes staged in `schemas/v6-draft/`, the in-development next contract.
 `schemas/v5/` is unaffected by any of this; see `schemas/v6-draft/DRAFT.md`.
 
+- `buem.outputs` selects the load profiles to compute: each of `heating`,
+  `cooling`, `electricity`, `hot_water` and `kitchen` is `none`, `summary`
+  (default) or `series`. `buem.weather` and `building.envelope` are required
+  only when heating or cooling is selected; a request selecting neither may
+  omit both, takes its year from `properties.start_time`, and buem-model
+  skips the thermal solve. The response carries only the selected profiles;
+  `peak_heating_load` and `peak_cooling_load` follow heating and cooling, and
+  `total_energy_demand` appears only when heating, cooling, electricity and
+  hot_water are all selected.
+- `building.building_type`, `.country` and `.A_ref` are required, and
+  `.residential_units` is required for `MFH` and `AB`. Each previously fell
+  back silently to `MFH`, `NL`, 100 m2 and one dwelling.
+- The `equipment` description states that an omitted appliance keeps its
+  default ownership probability and that counts are not expressible.
+- Service `building_type` may not carry `equipment`, and its
+  `residential_units` must be 1; buem-model ignores the first and the second
+  would double-count occupancy already derived from capacity.
+- `A_ref` is the whole building's floor area, `num_persons` is per dwelling,
+  and `residential_units` multiplies one representative dwelling.
+- Response: `model_metadata.resolved_inputs` reports the occupancy inputs
+  buem-model used after defaults (building_type, country, region_code,
+  num_persons, residential_units, archetype, capacity), and
+  `summary.energy_intensity` is defined as total_energy_demand / A_ref.
 - `buem.weather.variables` requires all four of `T`, `GHI`, `DHI` and `DNI`,
   which BuEM's solver needs. v5 required only one. On promotion,
   buem-gateway's `requireWeather` check must require all four as well.

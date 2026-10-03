@@ -65,14 +65,58 @@
 
     "buem": {
       "type": "object",
-      "required": ["building", "weather"],
-      "description": "BUEM model input. building is the complete physical description. solver is execution settings. inputs is optional user-provided timeseries that override model-generated values. weather is the pre-resolved hourly timeseries for the building's location — required, because buem-gateway resolves weather from no external service (see enerplanet/buem#10).",
+      "required": ["building"],
+      "description": "BUEM model input. building is the description of the building and its occupants. outputs selects the load profiles to compute. solver is execution settings. inputs is optional user-provided timeseries that override model-generated values. weather is the pre-resolved hourly timeseries for the building's location. weather and building.envelope are required whenever heating or cooling is selected (the default); a request selecting neither may omit both, and the year then comes from properties.start_time.",
       "properties": {
         "building": { "$ref": "#/$defs/building" },
+        "outputs":  { "$ref": "#/$defs/outputs" },
         "solver":   { "$ref": "#/$defs/solver" },
         "inputs":   { "$ref": "#/$defs/inputs" },
         "weather":  { "$ref": "#/$defs/weather" }
+      },
+      "if": {
+        "required": ["outputs"],
+        "properties": {
+          "outputs": {
+            "required": ["heating", "cooling"],
+            "properties": {
+              "heating": { "const": "none" },
+              "cooling": { "const": "none" }
+            }
+          }
+        }
+      },
+      "else": {
+        "required": ["weather"],
+        "properties": {
+          "building": { "required": ["envelope"] }
+        }
       }
+    },
+
+    "outputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Load profiles to compute and return. Each profile is none (not computed, absent from the response), summary (annual total, peak and statistics) or series (summary plus hourly values). An omitted profile is summary. heating and cooling need building.envelope and weather; electricity, hot_water and kitchen come from the occupancy model alone. When heating and cooling are both none, buem-model skips the thermal solve.",
+      "properties": {
+        "heating":     { "$ref": "#/$defs/output_level" },
+        "cooling":     { "$ref": "#/$defs/output_level" },
+        "electricity": { "$ref": "#/$defs/output_level" },
+        "hot_water": {
+          "allOf": [{ "$ref": "#/$defs/output_level" }],
+          "description": "Residential building_type only; service buildings report all-zero hot water."
+        },
+        "kitchen": {
+          "allOf": [{ "$ref": "#/$defs/output_level" }],
+          "description": "Gas cooking energy, reported only when building.cooking_carrier is gas. With electric cooking it stays inside electricity."
+        }
+      }
+    },
+
+    "output_level": {
+      "type": "string",
+      "enum": ["none", "summary", "series"],
+      "default": "summary"
     },
 
     "weather": {
@@ -110,8 +154,27 @@
 
     "building": {
       "type": "object",
-      "required": ["envelope"],
-      "description": "Complete physical description of the building. Classification fields (type, country, etc.) sit at this level. Geometry and per-element thermal properties are in envelope, which is required — neither BuEM nor buem-gateway derives it from classification fields alone.",
+      "required": ["building_type", "country", "A_ref"],
+      "description": "Description of the building and its occupants. Classification and occupancy fields sit at this level. Geometry and per-element thermal properties are in envelope, required whenever heating or cooling is selected (see buem). Neither BuEM nor buem-gateway derives envelope from classification fields. residential_units is required for MFH and AB.",
+      "allOf": [
+        {
+          "if": {
+            "required": ["building_type"],
+            "properties": { "building_type": { "enum": ["MFH", "AB"] } }
+          },
+          "then": { "required": ["residential_units"] }
+        },
+        {
+          "if": {
+            "required": ["building_type"],
+            "properties": { "building_type": { "enum": ["bakery", "clinic", "hotel", "office", "restaurant", "school", "supermarket", "warehouse"] } }
+          },
+          "then": {
+            "not": { "required": ["equipment"] },
+            "properties": { "residential_units": { "const": 1 } }
+          }
+        }
+      ],
       "properties": {
         "name": {
           "type": "string",
@@ -119,8 +182,7 @@
         },
         "A_ref": {
           "allOf": [{ "$ref": "#/$defs/area_qty" }],
-          "description": "Reference floor area. Derived from floor element areas if omitted.",
-          "default": { "value": 0, "unit": "m2" }
+          "description": "Reference (conditioned) floor area of the whole building, not of one dwelling. Drives the thermal mass and ventilation volume, and for service building_type the default capacity."
         },
         "h_room": {
           "allOf": [{ "$ref": "#/$defs/length_qty" }],
@@ -202,12 +264,12 @@
           "type": "number",
           "minimum": 1,
           "default": 1,
-          "description": "Number of dwellings in the building. Scales internal gains, electricity, hot water and cooking from one dwelling to the whole building. Applies to every building_type."
+          "description": "Number of dwellings in the building. buem-model simulates one representative dwelling and multiplies its internal gains, electricity, hot water and cooking by this number, so every dwelling is identical and peaks scale linearly. Required for MFH and AB. Must be 1 for service building_type, whose occupancy comes from capacity."
         },
         "num_persons": {
           "type": "integer",
           "minimum": 1,
-          "description": "Occupants per dwelling. Residential building_type only. Omitted resolves a per-type statistical value."
+          "description": "Occupants per dwelling, not per building. Residential building_type only. Omitted resolves the statistical household size for country, region_code and building_type (CBS figures for NL, generic figures elsewhere)."
         },
         "archetype": {
           "type": "string",
@@ -217,7 +279,7 @@
         "equipment": {
           "type": "object",
           "additionalProperties": false,
-          "description": "Per-appliance ownership override, keyed by household equipment id. Residential building_type only, ignored for service types. true forces owned, false excludes, an omitted key uses the archetype default.",
+          "description": "Per-appliance ownership override, keyed by household equipment id. Residential building_type only, ignored for service types. true forces owned, false excludes, an omitted key keeps the appliance's default ownership probability (a seeded draw per household). Each key is one appliance; counts are not expressible, so two or three TVs are tv_1, tv_2 and tv_3.",
           "properties": {
             "answer_machine":       { "type": "boolean" },
             "cassette_cd_player":   { "type": "boolean" },
