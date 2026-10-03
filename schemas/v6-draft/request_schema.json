@@ -447,7 +447,7 @@
         "thermal_class": {
           "type": "string",
           "enum": ["light", "medium", "heavy"],
-          "description": "ISO 13790 thermal mass class — used to derive c_m when c_m is not provided explicitly",
+          "description": "ISO 13790 thermal mass class. Sets the effective mass-area factor (light and medium 2.5, heavy 3.0). c_m is independent and defaults to 165 kJ/(m2K) when omitted.",
           "default": "medium"
         },
         "comfortT_lb": {
