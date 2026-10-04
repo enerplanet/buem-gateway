@@ -13,6 +13,15 @@ The types fall into two groups:
 | Residential | `SFH` single-family, `TH` terraced house, `MFH` multi-family, `AB` apartment block | a household model: persons, household archetype, appliances |
 | Service | `bakery`, `clinic`, `hotel`, `office`, `restaurant`, `school`, `supermarket`, `warehouse` | an opening-hours schedule scaled by capacity |
 
+## One building, many dwellings
+
+Each entry in a request is one building with one envelope. A dwelling is one self-contained living space occupied by one household. `residential_units` is the number of dwellings in the building:
+
+- An apartment block with 12 flats is one entry with `residential_units: 12`.
+- A row of twelve single-family houses is twelve entries, each with `residential_units: 1`.
+
+`residential_units` never counts separate buildings.
+
 ## Profiles and what they need
 
 Each request selects profiles in `buem.outputs` (`none`, `summary` or `series`).
@@ -35,7 +44,7 @@ A request with `heating` and `cooling` both `none` needs no envelope and no weat
 | `building_type` | yes | | `SFH`, `TH`, `MFH`, `AB` |
 | `country` | yes | | household-size figures exist for `NL`; other countries use generic European figures |
 | `A_ref` | yes | | floor area of the whole building, never of one dwelling |
-| `residential_units` | for `MFH` and `AB` | 1 | number of dwellings, an integer |
+| `residential_units` | for `MFH` and `AB` | 1 | the number of dwellings in the building, an integer |
 | `num_persons` | no | statistical household size per dwelling (table below) | occupants per dwelling, not per building |
 | `archetype` | no | by type (table below) | `generic`, `working_couple`, `family_with_children`, `retired_single`, `student_shared` |
 | `region_code` | no | country figures | CBS municipality code, e.g. `GM0200` |
