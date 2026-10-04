@@ -47,20 +47,35 @@ buem-gateway has no concept of a grid or topology. A caller holding one (EnerPla
 
 The response is a list in the same order as `buildings`, each entry either `{"id": ..., "buem": {...}}` or `{"id": ..., "error": "..."}`. A `weather` block missing or incomplete at the top level fails every building in the request, each with its own `error` entry.
 
+### Selecting outputs
+
+`outputs` selects the load profiles to compute. Each of `heating`, `cooling`, `electricity`, `hot_water` and `kitchen` is `none` (not computed, absent from the response), `summary` (annual total, peak and statistics) or `series` (summary plus hourly values). An omitted profile is `summary`.
+
+```json
+"outputs": {"heating": "none", "cooling": "none", "electricity": "summary", "hot_water": "summary", "kitchen": "none"}
+```
+
+| Endpoint | Where `outputs` goes |
+|---|---|
+| `POST /api/v1/buem/building`, `POST /api/v1/buem/validate` | inside `buem` |
+| `POST /api/v1/buem/buildings` | top level, applied to every building |
+
+`envelope` and `weather` are required only when heating or cooling is selected. A request with `heating` and `cooling` both `none` may omit both and takes its year from `start_date`; electricity, hot water and kitchen come from the occupancy model alone. With `outputs` present, `keep_timeseries` has no effect: `series` decides which hourly arrays come back. buem-model releases that predate output selection reject requests carrying `outputs`.
+
 ### Hourly values in the batch response
 
-By default `POST /api/v1/buem/buildings` returns summary figures only, not hourly values. Send `"keep_timeseries": true` to get `thermal_load_profile.timeseries` populated for every building that ran, the same arrays `POST /api/v1/buem/building` returns.
+Without `outputs`, `POST /api/v1/buem/buildings` returns summary figures only, not hourly values. Send `"keep_timeseries": true` to get `thermal_load_profile.timeseries` populated for every building that ran, the same arrays `POST /api/v1/buem/building` returns.
 
 !!! warning "Response size"
     A year of hourly values is roughly 300 KB of JSON per building. A batch of several hundred buildings with `keep_timeseries` set returns a response in the hundreds of megabytes.
 
 ### Pre-flight validation
 
-`POST /api/v1/buem/validate` takes the same body as `POST /api/v1/buem/building` and runs the identical pre-flight, without ever calling BuEM: `model_id`, if present, uses only letters, digits, `.`, `_` and `-` (it has no other effect), `geometry` is a `Point` with a `[lon, lat]` pair, `start_date` is an ISO 8601 timestamp, `envelope` has at least one element with every field the [contract](versioning.md) marks required (`id`, `type`, and `area`/`azimuth`/`tilt` on non-ventilation elements), and `weather` has `index`, a usable variable, and every variable array the same length as `index`. Returns `{"valid": true}` on success, the same `400` shape described below otherwise, naming the first field that failed. A `200` means every check buem-gateway performs passed; BuEM may still reject the request on a field value buem-gateway does not inspect.
+`POST /api/v1/buem/validate` takes the same body as `POST /api/v1/buem/building` and runs the identical pre-flight, without ever calling BuEM: `model_id`, if present, uses only letters, digits, `.`, `_` and `-` (it has no other effect), `geometry` is a `Point` with a `[lon, lat]` pair, `start_date` is an ISO 8601 timestamp, `outputs`, if present, uses only `none`, `summary` and `series`, `envelope` (when heating or cooling is selected) has at least one element with every field the [contract](versioning.md) marks required (`id`, `type`, and `area`/`azimuth`/`tilt` on non-ventilation elements), and `weather` has `index`, a usable variable, and every variable array the same length as `index`. Returns `{"valid": true}` on success, the same `400` shape described below otherwise, naming the first field that failed. A `200` means every check buem-gateway performs passed; BuEM may still reject the request on a field value buem-gateway does not inspect.
 
 ### Envelope is required
 
-`buem.building.envelope` must be present and contain at least one element. buem-gateway does not derive geometry from the classification fields (`building_type`, `construction_period`, `country`), and calls no external service to resolve them.
+`buem.building.envelope` must be present and contain at least one element, unless `outputs` selects neither heating nor cooling. buem-gateway does not derive geometry from the classification fields (`building_type`, `construction_period`, `country`), and calls no external service to resolve them.
 
 | `envelope` | Behaviour |
 |---|---|
@@ -74,7 +89,7 @@ To resolve TABULA defaults from classification data, call [ignis](https://github
 
 ### Weather is required
 
-`buem.weather` must be present with `index` and at least one of `T`/`GHI`/`DNI`/`DHI` under `variables`, the shape [weather serve](https://github.com/enerplanet/weather)'s `GET /v1/weather/point?format=json` returns. buem-gateway does not resolve weather from any external service.
+Unless `outputs` selects neither heating nor cooling, `buem.weather` must be present with `index` and at least one of `T`/`GHI`/`DNI`/`DHI` under `variables`, the shape [weather serve](https://github.com/enerplanet/weather)'s `GET /v1/weather/point?format=json` returns. buem-gateway does not resolve weather from any external service.
 
 | `weather` | Behaviour |
 |---|---|

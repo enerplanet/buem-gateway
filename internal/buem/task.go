@@ -26,10 +26,44 @@ func ValidateModelID(modelID string) error {
 // Task is one building extracted from a request, ready to send to the
 // upstream BuEM Flask API.
 type Task struct {
-	NodeID     string
-	Lat, Lon   float64
-	Year       int
+	NodeID   string
+	Lat, Lon float64
+	Year     int
+	// HasOutputs is true when the request's buem block carries outputs, which
+	// then decides on BuEM's side which profiles and series come back.
+	HasOutputs bool
 	RawFeature json.RawMessage
+}
+
+// outputLevels are the values each profile in buem.outputs may take.
+var outputLevels = map[string]bool{"": true, "none": true, "summary": true, "series": true}
+
+// outputProfiles are the profile names buem.outputs may contain.
+var outputProfiles = map[string]bool{"heating": true, "cooling": true, "electricity": true, "hot_water": true, "kitchen": true}
+
+// readOutputs reports whether buemBlock carries outputs and whether it selects
+// a thermal profile. An omitted profile counts as selected, so a block
+// without outputs selects heating and cooling.
+func readOutputs(buemBlock json.RawMessage) (present, thermal bool, err error) {
+	var block struct {
+		Outputs *map[string]string `json:"outputs"`
+	}
+	if err := json.Unmarshal(buemBlock, &block); err != nil {
+		return false, false, fmt.Errorf("buem.outputs must map profile names to none, summary or series: %w", ErrInvalidRequest)
+	}
+	if block.Outputs == nil {
+		return false, true, nil
+	}
+	for name, level := range *block.Outputs {
+		if !outputProfiles[name] {
+			return false, false, fmt.Errorf("buem.outputs.%s is not a profile; use heating, cooling, electricity, hot_water or kitchen: %w", name, ErrInvalidRequest)
+		}
+		if !outputLevels[level] {
+			return false, false, fmt.Errorf("buem.outputs.%s must be none, summary or series, got %q: %w", name, level, ErrInvalidRequest)
+		}
+	}
+	o := *block.Outputs
+	return true, o["heating"] != "none" || o["cooling"] != "none", nil
 }
 
 // BuildingInput is one building's request data — the id/geometry/buem shape
@@ -49,11 +83,19 @@ func TaskFromBuilding(in BuildingInput, startDate, endDate string, resolution in
 	if err := ValidateModelID(modelID); err != nil {
 		return Task{}, err
 	}
-	if err := requireEnvelope(in.BUEM); err != nil {
+	hasOutputs, thermal, err := readOutputs(in.BUEM)
+	if err != nil {
 		return Task{}, err
 	}
-	if err := requireWeather(in.BUEM); err != nil {
-		return Task{}, err
+	// Envelope and weather feed only the thermal model; a request selecting
+	// neither heating nor cooling may omit both.
+	if thermal {
+		if err := requireEnvelope(in.BUEM); err != nil {
+			return Task{}, err
+		}
+		if err := requireWeather(in.BUEM); err != nil {
+			return Task{}, err
+		}
 	}
 
 	var geom struct {
@@ -84,6 +126,7 @@ func TaskFromBuilding(in BuildingInput, startDate, endDate string, resolution in
 		Lat:        geom.Coordinates[1],
 		Lon:        geom.Coordinates[0],
 		Year:       year,
+		HasOutputs: hasOutputs,
 		RawFeature: rawFeature,
 	}, nil
 }

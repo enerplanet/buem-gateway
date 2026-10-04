@@ -35,6 +35,10 @@ type buildingsRequest struct {
 	Weather    json.RawMessage    `json:"weather"`
 	Buildings  []buildingListItem `json:"buildings"`
 
+	// Outputs selects the load profiles for every building in the request,
+	// forwarded as each building's buem.outputs.
+	Outputs json.RawMessage `json:"outputs"`
+
 	// KeepTimeseries returns the hourly values inline instead of only the
 	// summary figures. Roughly 300 KB of JSON per building for a year of
 	// hourly values.
@@ -88,7 +92,14 @@ func (h *Handler) Buildings(w http.ResponseWriter, r *http.Request) {
 
 	inputs := make([]buem.BuildingInput, len(req.Buildings))
 	for i, b := range req.Buildings {
-		block := map[string]json.RawMessage{"building": b.Building, "weather": req.Weather}
+		block := map[string]json.RawMessage{"building": b.Building}
+		// An occupancy-only request may omit weather; forward it only when sent.
+		if len(req.Weather) > 0 && string(req.Weather) != "null" {
+			block["weather"] = req.Weather
+		}
+		if len(req.Outputs) > 0 && string(req.Outputs) != "null" {
+			block["outputs"] = req.Outputs
+		}
 		// Absent or null leaves solver out, so BuEM applies its own defaults.
 		if len(b.Solver) > 0 && string(b.Solver) != "null" {
 			block["solver"] = b.Solver
