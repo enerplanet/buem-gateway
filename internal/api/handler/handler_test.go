@@ -851,3 +851,55 @@ func TestValidate_UnsafeModelIDIs400(t *testing.T) {
 		t.Errorf("body = %q, want it to name model_id", w.Body.String())
 	}
 }
+
+func TestBuildings_ForwardsOutputsToEveryBuilding(t *testing.T) {
+	var forwarded []string
+	var mu sync.Mutex
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			Features []struct {
+				Properties struct {
+					BUEM struct {
+						Outputs json.RawMessage `json:"outputs"`
+					} `json:"buem"`
+				} `json:"properties"`
+			} `json:"features"`
+		}
+		json.NewDecoder(r.Body).Decode(&req)
+		mu.Lock()
+		forwarded = append(forwarded, string(req.Features[0].Properties.BUEM.Outputs))
+		mu.Unlock()
+		w.Write([]byte(`{"type":"FeatureCollection","features":[{"properties":{"buem":{"thermal_load_profile":{"summary":{}},"model_metadata":{}}}}]}`))
+	}))
+	defer upstream.Close()
+	h := newTestHandler(t, upstream)
+
+	reqBody := `{
+		"start_date": "2018-01-01T00:00:00Z",
+		"end_date": "2018-12-31T23:00:00Z",
+		"resolution": 60,
+		"outputs": {"heating":"none","cooling":"none","electricity":"summary"},
+		"buildings": [
+			{"id":"a","geometry":{"type":"Point","coordinates":[6.0,52.1]},"building":{"building_type":"SFH","country":"NL","A_ref":{"value":120,"unit":"m2"}}},
+			{"id":"b","geometry":{"type":"Point","coordinates":[6.1,52.1]},"building":{"building_type":"SFH","country":"NL","A_ref":{"value":130,"unit":"m2"}}}
+		]
+	}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/buem/buildings", strings.NewReader(reqBody))
+	w := httptest.NewRecorder()
+	h.Buildings(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (body=%s)", w.Code, w.Body.String())
+	}
+	if strings.Contains(w.Body.String(), `"error"`) {
+		t.Fatalf("a building failed: %s", w.Body.String())
+	}
+	if len(forwarded) != 2 {
+		t.Fatalf("BuEM called %d times, want 2", len(forwarded))
+	}
+	for _, o := range forwarded {
+		if !strings.Contains(o, `"electricity":"summary"`) {
+			t.Errorf("forwarded outputs = %s, want the request's outputs", o)
+		}
+	}
+}

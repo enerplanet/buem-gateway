@@ -224,8 +224,29 @@ components:
     BuemBlock:
       type: object
       description: >
-        The building's classification, envelope, thermal, solver, and weather data. See `schemas/v5/request_schema.json` in this repo for the full BuEM request contract. Forwarded to BuEM largely as-is; `envelope` and `weather` are both required -- buem-gateway resolves neither from any external service, the caller must supply both complete.
+        The building's classification, envelope, thermal, solver, weather and outputs data. See `schemas/v5/request_schema.json` in this repo for the full BuEM request contract. Forwarded to BuEM as-is. `envelope` and `weather` are required unless `outputs` selects neither heating nor cooling; buem-gateway resolves neither from any external service.
+      properties:
+        outputs:
+          $ref: "#/components/schemas/Outputs"
       additionalProperties: true
+
+    Outputs:
+      type: object
+      description: >
+        Load profiles to compute. Each is none (absent from the response), summary (annual total, peak and statistics) or series (summary plus hourly values); an omitted profile is summary. With heating and cooling both none, envelope and weather may be omitted.
+      properties:
+        heating: { $ref: "#/components/schemas/OutputLevel" }
+        cooling: { $ref: "#/components/schemas/OutputLevel" }
+        electricity: { $ref: "#/components/schemas/OutputLevel" }
+        hot_water: { $ref: "#/components/schemas/OutputLevel" }
+        kitchen: { $ref: "#/components/schemas/OutputLevel" }
+      additionalProperties: false
+      example: { heating: none, cooling: none, electricity: summary, hot_water: summary, kitchen: none }
+
+    OutputLevel:
+      type: string
+      enum: [none, summary, series]
+      default: summary
 
     BuildingRequest:
       type: object
@@ -337,12 +358,15 @@ components:
           example: 60
         weather:
           $ref: "#/components/schemas/WeatherBlock"
+        outputs:
+          $ref: "#/components/schemas/Outputs"
         keep_timeseries:
           type: boolean
           default: false
           description: >
             Return each building's hourly values in `thermal_load_profile.timeseries`.
-            Off by default: the response carries summary figures only. Roughly 300 KB
+            Off by default: the response carries summary figures only. No effect when
+            `outputs` is set. Roughly 300 KB
             of extra JSON per building for a
             year of hourly values, so a batch of several hundred buildings returns a
             response in the hundreds of megabytes.
