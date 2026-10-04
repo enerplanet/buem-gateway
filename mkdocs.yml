@@ -94,6 +94,7 @@ nav:
   - Home: index.md
   - Getting started: getting-started.md
   - API reference: api.md
+  - Building types: building-types.md
   - Schema versioning: versioning.md
 
 # Copyright
