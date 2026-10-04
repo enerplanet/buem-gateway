@@ -446,6 +446,36 @@
           }
         }
       }
+    },
+    {
+      "type": "Feature",
+      "id": "building_003",
+      "geometry": { "type": "Point", "coordinates": [6.02, 52.10] },
+      "properties": {
+        "start_time": "2018-01-01T00:00:00Z",
+        "end_time": "2018-12-31T23:00:00Z",
+        "resolution": "60",
+        "resolution_unit": "minutes",
+        "buem": {
+          "building": {
+            "building_type": "MFH",
+            "country": "NL",
+            "region_code": "GM0200",
+            "A_ref": { "value": 900, "unit": "m2" },
+            "residential_units": 12,
+            "num_persons": 2,
+            "cooking_carrier": "gas",
+            "equipment": { "tumble_dryer": false, "dish_washer": true }
+          },
+          "outputs": {
+            "heating": "none",
+            "cooling": "none",
+            "electricity": "summary",
+            "hot_water": "summary",
+            "kitchen": "series"
+          }
+        }
+      }
     }
   ]
 }
