@@ -11,6 +11,33 @@ version is promoted.
 Changes staged in `schemas/v6-draft/`, the in-development next contract.
 `schemas/v5/` is unaffected by any of this; see `schemas/v6-draft/DRAFT.md`.
 
+- `buem.weather.variables` requires all four of `T`, `GHI`, `DHI` and `DNI`,
+  which BuEM's solver needs. v5 required only one. On promotion,
+  buem-gateway's `requireWeather` check must require all four as well.
+- `building.region_code` and `building.setback_profile`, and
+  `building.thermal.F_red_htr`, document inputs buem-model already honours.
+- Fields buem-model accepts and ignores are marked `deprecated` and say so:
+  `building.n_storeys`, `.attic_condition`, `.cellar_condition`,
+  `.neighbour_status`, `thermal.design_T_min`, `.phi_int`, `.q_w_nd`,
+  ventilation `air_changes`, `solver.parallel_thermal` and
+  `.use_chunked_processing`. Requests that send them stay valid.
+- `solver.compute_cooling` is `const: false` and deprecated: cooling is always
+  solved and reported, and buem-model rejects `true`.
+- Every quantity's `unit` enum allows only its SI unit. buem-model reads
+  `value` as SI and converts nothing, so `ft2`, `degF` and the other non-SI
+  units described values buem-model misread.
+- Descriptions now state what buem-model does: only the first window element's
+  `g_gl` is used; `window_U`, `window_g_gl` and `door_U` fall back to 2.8,
+  0.5 and 3.0 when no TABULA archetype resolves for the building; `cooking_carrier`
+  `none` keeps electrically modelled cooking inside electricity.
+- Response: `model_metadata.simulations_run`, `.electricity_source`,
+  `.parallel_thermal` and `.use_chunked_processing` are removed, since
+  buem-model never fills them. `cooling` is described as always present.
+  `timeseries_file` is described as the file buem-model writes only for
+  `save_timeseries_file`, which buem-gateway never requests.
+- The example request no longer sets `solver.compute_cooling`, which
+  buem-model rejects, or an `inputs.electricity_load_profile` path, which
+  resolves only where the file exists in the model's data directory.
 - `thermal_load_profile.summary.hot_water` and `.kitchen`, and the matching
   `load_timeseries` arrays, report domestic hot water and cooking energy.
   `kitchen` is gas energy (`gas_energy_summary`, `kWh_gas`/`kW_gas` units,

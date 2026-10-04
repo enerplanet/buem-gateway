@@ -314,16 +314,7 @@
             }
           },
           "solver": {
-            "use_milp": false,
-            "compute_cooling": true,
-            "parallel_thermal": true,
-            "use_chunked_processing": true
-          },
-          "inputs": {
-            "electricity_load_profile": {
-              "path": "/data/profiles/electricity_52.4353446_5.3453464_2018.csv",
-              "unit": "kWh"
-            }
+            "use_milp": false
           },
           "weather": {
             "provider": "era5-land",
@@ -436,10 +427,7 @@
             }
           },
           "solver": {
-            "use_milp": false,
-            "compute_cooling": true,
-            "parallel_thermal": true,
-            "use_chunked_processing": true
+            "use_milp": false
           },
           "weather": {
             "provider": "era5-land",
