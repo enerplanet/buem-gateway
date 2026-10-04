@@ -60,7 +60,7 @@ The response is a list in the same order as `buildings`, each entry either `{"id
 | `POST /api/v1/buem/building`, `POST /api/v1/buem/validate` | inside `buem` |
 | `POST /api/v1/buem/buildings` | top level, applied to every building |
 
-`envelope` and `weather` are required only when heating or cooling is selected. A request with `heating` and `cooling` both `none` may omit both and takes its year from `start_date`; electricity, hot water and kitchen come from the occupancy model alone. With `outputs` present, `keep_timeseries` has no effect: `series` decides which hourly arrays come back. buem-model releases that predate output selection reject requests carrying `outputs`.
+`envelope` and `weather` are required only when heating or cooling is selected. A request with `heating` and `cooling` both `none` may omit both and takes its year from `start_date`; electricity, hot water and kitchen come from the occupancy model alone. With `outputs` present, `keep_timeseries` has no effect: `series` decides which hourly arrays come back. Output selection needs buem-model 6.7.0 or later; earlier releases reject requests carrying `outputs`.
 
 ### Hourly values in the batch response
 

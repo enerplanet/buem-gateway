@@ -4,7 +4,7 @@ audience: developer
 
 # Building types
 
-How buem-model 6.6.0 (with occupancy 6.1.0+enerplanet.1) models each `building_type`: what to send, how the building is simulated, and what to tell a user about the result. Field rules follow the v6-draft request contract (`schemas/v6-draft/request_schema.json`).
+How buem-model 6.7.0 (with occupancy 6.1.0+enerplanet.1) models each `building_type`: what to send, how the building is simulated, and what to tell a user about the result. Field rules follow the v6-draft request contract (`schemas/v6-draft/request_schema.json`).
 
 The types fall into two groups:
 
