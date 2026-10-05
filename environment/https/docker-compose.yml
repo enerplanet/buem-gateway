@@ -4,7 +4,7 @@ name: buem-gateway-https
 services:
   # The BuEM thermal model service. Provides the core simulation functionality.
   buem-model:
-    image: ghcr.io/enerplanet/buem-model:${BUEM_MODEL_IMAGE_TAG:-6.6.0}
+    image: ghcr.io/enerplanet/buem-model:${BUEM_MODEL_IMAGE_TAG:-6.7.0}
     environment:
       - BUEM_CBC_EXE=/opt/conda/envs/buem_env/bin/cbc
       - BUEM_WEATHER_FALLBACK=false
