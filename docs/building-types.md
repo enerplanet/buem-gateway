@@ -91,11 +91,14 @@ buem-model simulates **one representative dwelling** and multiplies it by `resid
 
 | Group | Appliance ids |
 |---|---|
-| Cooking | `hob`, `oven`, `microwave`, `kettle`, `small_cooking_group` |
+| Cooking | `hob`, `oven`, `microwave`, `kettle`, `small_cooking_group`, `air_fryer`\*, `coffee_machine`\* |
 | Cold | `fridge_freezer`, `refrigerator`, `chest_freezer`, `upright_freezer` |
-| Laundry and cleaning | `washing_machine`, `tumble_dryer`, `washer_dryer`, `dish_washer`, `iron`, `vacuum` |
-| Electronics | `tv_1`, `tv_2`, `tv_3`, `tv_receiver_box`, `personal_computer`, `printer`, `hi_fi`, `cassette_cd_player`, `vcr_dvd` |
-| Other | `lighting`, `clock`, `answer_machine`, `cordless_telephone`, `fax` |
+| Laundry and cleaning | `washing_machine`, `tumble_dryer`, `washer_dryer`, `dish_washer`, `iron`, `vacuum`, `robot_vacuum`\* |
+| Electronics | `tv_1`, `tv_2`, `tv_3`, `tv_receiver_box`, `personal_computer`, `laptop`\*, `printer`, `hi_fi`, `cassette_cd_player`, `vcr_dvd`, `smart_speaker`\*, `streaming_stick`\* |
+| Other | `lighting`, `clock`, `answer_machine`, `cordless_telephone`, `fax`, `wifi_router`\* |
+| Electric vehicle | `ev_charger`\* (7.4 kW home charger) |
+
+Ids marked \* need a buem-model release that pins occupancy 6.2.0 or later; earlier releases reject them.
 
 Usage scales with the number of occupants for laundry, cooking, lighting and computing, but not for cold appliances.
 

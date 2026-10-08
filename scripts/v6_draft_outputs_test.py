@@ -68,6 +68,12 @@ class OutputSelectionTest(unittest.TestCase):
                 self.assertFalse(self._valid(lambda d: self._buem(d, 1)["building"].update({field: value})))
         self.assertFalse(self._valid(lambda d: self._buem(d, 2)["building"].update(residential_units=1.5)))
 
+    def test_equipment_accepts_the_37_appliance_ids(self) -> None:
+        new_ids = ("laptop", "smart_speaker", "wifi_router", "streaming_stick",
+                   "robot_vacuum", "air_fryer", "coffee_machine", "ev_charger")
+        self.assertTrue(self._valid(lambda d: self._buem(d, 2)["building"]["equipment"].update({i: True for i in new_ids})))
+        self.assertFalse(self._valid(lambda d: self._buem(d, 2)["building"]["equipment"].update(jetski=True)))
+
     def test_output_levels_are_closed(self) -> None:
         self.assertFalse(self._valid(lambda d: self._buem(d, 2)["outputs"].update(electricity="hourly")))
         self.assertFalse(self._valid(lambda d: self._buem(d, 2)["outputs"].update(gas="summary")))

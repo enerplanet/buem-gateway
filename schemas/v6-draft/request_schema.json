@@ -316,7 +316,15 @@
             "vacuum":               { "type": "boolean" },
             "vcr_dvd":              { "type": "boolean" },
             "washer_dryer":         { "type": "boolean" },
-            "washing_machine":      { "type": "boolean" }
+            "washing_machine":      { "type": "boolean" },
+            "laptop":               { "type": "boolean" },
+            "smart_speaker":        { "type": "boolean" },
+            "wifi_router":          { "type": "boolean" },
+            "streaming_stick":      { "type": "boolean" },
+            "robot_vacuum":         { "type": "boolean" },
+            "air_fryer":            { "type": "boolean" },
+            "coffee_machine":       { "type": "boolean" },
+            "ev_charger":           { "type": "boolean" }
           }
         },
         "capacity": {

@@ -37,6 +37,10 @@ Changes staged in `schemas/v6-draft/`, the in-development next contract.
   buem-model used after defaults (building_type, country, region_code,
   num_persons, residential_units, archetype, capacity), and
   `summary.energy_intensity` is defined as total_energy_demand / A_ref.
+- `building.equipment` accepts the eight appliance ids added to
+  occupancy's equipment table for 6.2.0, not yet released: `laptop`, `smart_speaker`, `wifi_router`, `streaming_stick`,
+  `robot_vacuum`, `air_fryer`, `coffee_machine` and `ev_charger` (37 ids in
+  all). buem-model releases pinning an earlier occupancy reject them.
 - `buem.weather.variables` requires all four of `T`, `GHI`, `DHI` and `DNI`,
   which BuEM's solver needs. v5 required only one. On promotion,
   buem-gateway's `requireWeather` check must require all four as well.
