@@ -4,7 +4,7 @@ audience: developer
 
 # Building types
 
-How buem-model 6.7.0 (with occupancy 6.1.0+enerplanet.1) models each `building_type`: what to send, how the building is simulated, and what to tell a user about the result. Field rules follow the v6-draft request contract (`schemas/v6-draft/request_schema.json`).
+How buem-model 6.8.0 (with occupancy 6.2.0+enerplanet.1) models each `building_type`: what to send, how the building is simulated, and what to tell a user about the result. Field rules follow the v6-draft request contract (`schemas/v6-draft/request_schema.json`).
 
 The types fall into two groups:
 
@@ -98,9 +98,9 @@ buem-model simulates **one representative dwelling** and multiplies it by `resid
 | Other | `lighting`, `clock`, `answer_machine`, `cordless_telephone`, `fax`, `wifi_router`\* |
 | Electric vehicle | `ev_charger`\* (7.4 kW home charger) |
 
-Ids marked \* need a buem-model release that pins occupancy 6.2.0 or later; earlier releases reject them.
+Ids marked \* need buem-model 6.8.0 or later; earlier releases reject them.
 
-Usage scales with the number of occupants for laundry, cooking, lighting and computing, but not for cold appliances.
+Usage scales with the number of occupants for laundry, cooking, lighting and computing, but not for cold appliances, the always-on `smart_speaker` and `wifi_router`, or `ev_charger`, which charges overnight on a fixed daily probability.
 
 ### Hot water and cooking
 
@@ -147,6 +147,6 @@ Public holidays are not modelled.
 - Dwellings within a building are identical, and peaks scale linearly with the number of dwellings.
 - Two buildings with the same type, household size, archetype and year produce identical profiles.
 - Household-size statistics are specific to the Netherlands; other countries use generic figures.
-- The occupancy and appliance data combine Dutch schedules with UK appliance statistics and are described by the occupancy package as a first pass.
+- The occupancy and appliance data combine Dutch schedules with UK appliance statistics and are described by the occupancy package as a first pass. Ownership and power of the eight ids marked \* are estimates, except `ev_charger` ownership, which follows Dutch 2025 plug-in car figures.
 - Presence is redrawn independently each hour for every household archetype except `working_couple`.
 - `neighbour_status`, `attic_condition`, `cellar_condition` and `n_storeys` have no effect.
