@@ -46,13 +46,14 @@ type buildingsRequest struct {
 }
 
 // buildingListItem is one building's own data: geometry, its building block
-// (envelope, building_type, country, ...) and optionally its solver settings.
-// No weather here; see buildingsRequest.Weather.
+// (envelope, building_type, country, ...) and optionally its solver settings
+// and inputs. No weather here; see buildingsRequest.Weather.
 type buildingListItem struct {
 	ID       string          `json:"id"`
 	Geometry json.RawMessage `json:"geometry"`
 	Building json.RawMessage `json:"building"`
 	Solver   json.RawMessage `json:"solver"`
+	Inputs   json.RawMessage `json:"inputs"`
 }
 
 type buildingResultItem struct {
@@ -103,6 +104,9 @@ func (h *Handler) Buildings(w http.ResponseWriter, r *http.Request) {
 		// Absent or null leaves solver out, so BuEM applies its own defaults.
 		if len(b.Solver) > 0 && string(b.Solver) != "null" {
 			block["solver"] = b.Solver
+		}
+		if len(b.Inputs) > 0 && string(b.Inputs) != "null" {
+			block["inputs"] = b.Inputs
 		}
 		buemBlock, err := json.Marshal(block)
 		if err != nil {

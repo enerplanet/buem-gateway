@@ -553,20 +553,31 @@
       "properties": {
         "electricity_load_profile": {
           "type": "object",
-          "required": ["path"],
-          "description": "Hourly electricity consumption profile for the building, referenced by file path. The file must be a regular file inside BUEM_DATA_DIR in the buem-model container, at most 32 MiB (decompressed size for .gz); buem-model rejects any other path, including a symlink that resolves outside BUEM_DATA_DIR, and refuses file-based profiles when BUEM_DATA_DIR is not set. When provided, the profile is used directly as the internal heat gain input instead of the model-generated occupancy-based profile. Electricity consumption heats the building interior and therefore affects heating and cooling demand. Supported formats: CSV (single column of values), JSON array, or gzipped JSON (.gz).",
+          "description": "Hourly electricity consumption profile for the building, given inline as values or by file path, exactly one of the two. It replaces the occupancy-generated electricity, and the response's electricity profile returns it in kWh per hour, not scaled by residential_units. For residential building_type it is added to the internal heat gains and so affects heating and cooling demand. For service building_type it is accepted and returned but does not affect heating or cooling, since their internal gains already include equipment and lighting.",
+          "oneOf": [
+            { "required": ["values"], "not": { "required": ["path"] } },
+            { "required": ["path"], "not": { "required": ["values"] } }
+          ],
           "properties": {
+            "values": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "type": "number", "minimum": 0 },
+              "description": "One value per hour from 1 January 00:00 UTC of the properties.start_time year, covering that whole year: 8760 values, or 8784 in a leap year."
+            },
             "path": {
               "type": "string",
-              "description": "Path to the profile file inside BUEM_DATA_DIR in the model container, either absolute or relative to BUEM_DATA_DIR (e.g. /data/profiles/5.3453464_52.4353446_electricity_2018.csv with BUEM_DATA_DIR=/data)."
+              "description": "Path to the profile file inside BUEM_DATA_DIR in the model container, either absolute or relative to BUEM_DATA_DIR (e.g. /data/profiles/5.3453464_52.4353446_electricity_2018.csv with BUEM_DATA_DIR=/data). The file must be a regular file inside BUEM_DATA_DIR, at most 32 MiB (decompressed size for .gz); buem-model rejects any other path, including a symlink that resolves outside BUEM_DATA_DIR, and refuses file-based profiles when BUEM_DATA_DIR is not set. Supported formats: CSV (single column of values), JSON array, or gzipped JSON (.gz)."
             },
             "unit": {
               "type": "string",
               "enum": ["kWh", "Wh", "kW"],
               "default": "kWh",
-              "description": "Unit of the values in the file. Defaults to kWh when omitted."
+              "description": "Unit of the profile values. Defaults to kWh when omitted. Wh is accepted with path only."
             }
-          }
+          },
+          "if": { "required": ["values"] },
+          "then": { "properties": { "unit": { "enum": ["kWh", "kW"] } } }
         }
       }
     },
