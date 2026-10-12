@@ -41,6 +41,16 @@ Changes staged in `schemas/v6-draft/`, the in-development next contract.
   occupancy's equipment table for 6.2.0, not yet released: `laptop`, `smart_speaker`, `wifi_router`, `streaming_stick`,
   `robot_vacuum`, `air_fryer`, `coffee_machine` and `ev_charger` (37 ids in
   all). buem-model releases pinning an earlier occupancy reject them.
+- `buem.inputs.electricity_load_profile` accepts the profile inline as
+  `values` (one non-negative value per hour of the `start_time` year, unit
+  `kWh` or `kW`) as an alternative to `path`; exactly one of the two. The
+  response's electricity profile returns it in kWh per hour, unscaled by
+  `residential_units`. For service `building_type` it is returned but does
+  not affect heating or cooling. buem-gateway rejects with 400 a profile
+  with both or neither of `values`/`path`, a negative or non-numeric value,
+  another unit with `values`, or a length other than the hours in the
+  `start_date` year, and `POST /api/v1/buem/buildings` forwards a
+  per-building `inputs` block.
 - `buem.weather.variables` requires all four of `T`, `GHI`, `DHI` and `DNI`,
   which BuEM's solver needs. v5 required only one. On promotion,
   buem-gateway's `requireWeather` check must require all four as well.

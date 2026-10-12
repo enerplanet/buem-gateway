@@ -337,6 +337,14 @@ components:
             Omit it, or send `null`, for BuEM's defaults.
           additionalProperties: true
           example: { use_milp: true }
+        inputs:
+          type: object
+          description: >
+            Optional timeseries overrides for this building, forwarded to BuEM as
+            `buem.inputs` (fields: `$defs/inputs` in `schemas/v6-draft/request_schema.json`).
+            Omit it, or send `null`, to use the model-generated values.
+          additionalProperties: true
+          example: { electricity_load_profile: { values: [0.42, 0.38, 0.35], unit: kWh } }
       required: [id, geometry, building]
 
     BuildingsRequest:

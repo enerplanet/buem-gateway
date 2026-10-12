@@ -694,10 +694,10 @@ func TestBuildings_KeepTimeseriesFieldBindsFromJSON(t *testing.T) {
 	}
 }
 
-// TestBuildings_ForwardsPerBuildingSolver confirms a batch item's solver
-// reaches BuEM as properties.buem.solver, and that an item without one (or
-// with an explicit null) forwards no solver key, so BuEM applies its default.
-func TestBuildings_ForwardsPerBuildingSolver(t *testing.T) {
+// TestBuildings_ForwardsPerBuildingSolverAndInputs confirms a batch item's
+// solver and inputs reach BuEM as properties.buem.solver and .inputs, and that
+// an item without them (or with an explicit null) forwards neither key.
+func TestBuildings_ForwardsPerBuildingSolverAndInputs(t *testing.T) {
 	var mu sync.Mutex
 	forwarded := map[string]map[string]json.RawMessage{}
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -729,9 +729,9 @@ func TestBuildings_ForwardsPerBuildingSolver(t *testing.T) {
 		"model_id": "demo",
 		"weather": {"index":["2018-01-01T00:30:00Z"],"variables":{"T":[1.0]}},
 		"buildings": [
-			{"id": "with-solver", "geometry": {"type":"Point","coordinates":[12.5,48.5]}, "building": ` + envelope + `, "solver": {"use_milp": true}},
+			{"id": "with-solver", "geometry": {"type":"Point","coordinates":[12.5,48.5]}, "building": ` + envelope + `, "solver": {"use_milp": true}, "inputs": {"electricity_load_profile": {"path": "b1.csv"}}},
 			{"id": "without-solver", "geometry": {"type":"Point","coordinates":[12.6,48.6]}, "building": ` + envelope + `},
-			{"id": "null-solver", "geometry": {"type":"Point","coordinates":[12.7,48.7]}, "building": ` + envelope + `, "solver": null}
+			{"id": "null-solver", "geometry": {"type":"Point","coordinates":[12.7,48.7]}, "building": ` + envelope + `, "solver": null, "inputs": null}
 		]
 	}`
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/buem/buildings", strings.NewReader(reqBody))
@@ -743,9 +743,14 @@ func TestBuildings_ForwardsPerBuildingSolver(t *testing.T) {
 	if got := string(forwarded["with-solver"]["solver"]); got != `{"use_milp":true}` {
 		t.Errorf("with-solver: forwarded solver = %q, want %q", got, `{"use_milp":true}`)
 	}
+	if got, want := string(forwarded["with-solver"]["inputs"]), `{"electricity_load_profile":{"path":"b1.csv"}}`; got != want {
+		t.Errorf("with-solver: forwarded inputs = %q, want %q", got, want)
+	}
 	for _, id := range []string{"without-solver", "null-solver"} {
-		if s, present := forwarded[id]["solver"]; present {
-			t.Errorf("%s: expected no solver key forwarded, got %s", id, s)
+		for _, key := range []string{"solver", "inputs"} {
+			if s, present := forwarded[id][key]; present {
+				t.Errorf("%s: expected no %s key forwarded, got %s", id, key, s)
+			}
 		}
 	}
 }

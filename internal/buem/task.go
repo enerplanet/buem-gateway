@@ -115,6 +115,9 @@ func TaskFromBuilding(in BuildingInput, startDate, endDate string, resolution in
 	if err != nil {
 		return Task{}, err
 	}
+	if err := requireElectricityProfile(in.BUEM, year); err != nil {
+		return Task{}, err
+	}
 
 	rawFeature, err := buildFeature(in, startDate, endDate, resolution)
 	if err != nil {
