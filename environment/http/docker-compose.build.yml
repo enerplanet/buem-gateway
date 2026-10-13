@@ -3,6 +3,7 @@ name: buem-gateway-http
 
 services:
   buem-model:
+    restart: unless-stopped
     image: ghcr.io/enerplanet/buem-model:${BUEM_MODEL_IMAGE_TAG:-6.8.0}
     environment:
       - BUEM_CBC_EXE=/opt/conda/envs/buem_env/bin/cbc
@@ -16,6 +17,7 @@ services:
     # No `ports:` mapping. See docker-compose.yml.
 
   buem-gateway:
+    restart: unless-stopped
     build:
       context: ./../..
       dockerfile: environment/gateway.dockerfile

@@ -3,6 +3,7 @@ name: buem-gateway-https
 
 services:
   buem-model:
+    restart: unless-stopped
     image: ghcr.io/enerplanet/buem-model:${BUEM_MODEL_IMAGE_TAG:-6.8.0}
     env_file: ../env/common.env
     environment:
@@ -17,6 +18,7 @@ services:
       retries: 5
 
   buem-gateway:
+    restart: unless-stopped
     image: ghcr.io/enerplanet/buem-gateway:${BUEM_GATEWAY_IMAGE_TAG:-latest}
     env_file: ../env/common.env
     environment:
@@ -33,6 +35,7 @@ services:
       retries: 5
 
   buem-reverse-proxy:
+    restart: unless-stopped
     image: caddy:2.11-alpine
     environment:
       - APP_PORT=${APP_PORT:-8080}
