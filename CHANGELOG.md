@@ -78,6 +78,10 @@ Changes staged in `schemas/v6-draft/`, the in-development next contract.
 - The example request no longer sets `solver.compute_cooling`, which
   buem-model rejects, or an `inputs.electricity_load_profile` path, which
   resolves only where the file exists in the model's data directory.
+- The example request's two thermal buildings end at
+  `2018-01-01T02:00:00Z`, the last hour of their inline weather. buem-model
+  treats `start_time` and `end_time` as inclusive and rejects a period
+  reaching past the weather it was given.
 - `thermal_load_profile.summary.hot_water` and `.kitchen`, and the matching
   `load_timeseries` arrays, report domestic hot water and cooking energy.
   `kitchen` is gas energy (`gas_energy_summary`, `kWh_gas`/`kW_gas` units,

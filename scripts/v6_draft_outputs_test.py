@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Tests for the v6-draft request schema's output selection: weather and
 building.envelope are required only when heating or cooling is selected, and
-the occupancy fields required by building_type.
+the occupancy fields required by building_type. Also checks the example's
+period against its inline weather.
 
 Run directly: python scripts/v6_draft_outputs_test.py
 """
@@ -77,6 +78,15 @@ class OutputSelectionTest(unittest.TestCase):
     def test_output_levels_are_closed(self) -> None:
         self.assertFalse(self._valid(lambda d: self._buem(d, 2)["outputs"].update(electricity="hourly")))
         self.assertFalse(self._valid(lambda d: self._buem(d, 2)["outputs"].update(gas="summary")))
+
+    def test_inline_weather_covers_the_closed_period(self) -> None:
+        for feature in self.example["features"]:
+            weather = feature["properties"]["buem"].get("weather")
+            if weather is None:
+                continue
+            with self.subTest(feature=feature["id"]):
+                self.assertEqual(feature["properties"]["start_time"], weather["index"][0])
+                self.assertEqual(feature["properties"]["end_time"], weather["index"][-1])
 
 
 if __name__ == "__main__":
