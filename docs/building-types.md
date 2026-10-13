@@ -4,7 +4,7 @@ audience: developer
 
 # Building types
 
-How buem-model 6.8.0 (with occupancy 6.2.0+enerplanet.1) models each `building_type`: what to send, how the building is simulated, and what to tell a user about the result. Field rules follow the v6-draft request contract (`schemas/v6-draft/request_schema.json`).
+How buem-model 6.9.0 (with occupancy 6.3.0+enerplanet.1) models each `building_type`: what to send, how the building is simulated, and what to tell a user about the result. Field rules follow the v6-draft request contract (`schemas/v6-draft/request_schema.json`).
 
 The types fall into two groups:
 
@@ -66,23 +66,23 @@ Municipal NL figures: `GM0200` (Apeldoorn) 1.37 for `MFH` and `AB`; `GM0177` (Ra
 
 ### How the building is simulated
 
-buem-model simulates **one representative dwelling** and multiplies it by `residential_units`:
+buem-model generates one household per dwelling and sums them:
 
-1. The household size for one dwelling is resolved (`num_persons`, otherwise the table above).
-2. A fractional size is simulated as two households, the sizes below and above, blended by weight. 1.54 persons is 46% of a 1-person and 54% of a 2-person household.
-3. Occupant presence, appliance use, hot water draws and cooking are generated for that dwelling.
-4. Electricity, internal gains, hot water and cooking are multiplied by `residential_units`.
-5. The thermal model sees the whole building: `A_ref`, the envelope and `h_room` describe the building, and the internal gains are the multiplied dwelling.
+1. The mean household size is resolved (`num_persons`, otherwise the table above).
+2. With one dwelling, a fractional size is simulated as two households, the sizes below and above, blended by weight. 1.54 persons is 46% of a 1-person and 54% of a 2-person household.
+3. With more than one dwelling, min(`residential_units`, 20) distinct households are generated, each with its own seed, their sizes the two whole numbers around the mean so that the building's mean is kept. Their electricity, internal gains, hot water and cooking are summed and scaled to `residential_units`.
+4. The thermal model sees the whole building: `A_ref`, the envelope and `h_room` describe the building, and the internal gains are the summed dwellings.
 
-!!! warning "Every dwelling in a building is identical"
-    A 20-dwelling block is 20 copies of one dwelling: the same household, appliances and hour-by-hour profile. Annual totals are representative, but the building's peak electricity, hot water and cooking demand is the single-dwelling peak times the number of dwellings, with no allowance for dwellings peaking at different times. For `MFH` and `AB` this overstates peaks.
+Dwellings in one building peak at different hours, so a building's peak is lower than the single-dwelling peak times the number of dwellings. Above 20 dwellings the 20 households are scaled up, so the peak is not diversified beyond that of 20 dwellings.
+
+The generation is seeded from the building `id` and the weather year, so two buildings with identical inputs and different ids get different profiles, and the same id gets the same profile on every run.
 
 !!! warning "A_ref must describe the whole building"
     Sending one dwelling's floor area with `residential_units` above 1 packs all dwellings' internal gains into one dwelling's volume. Nothing rejects that combination.
 
 ### Appliances
 
-`building.equipment` switches individual appliances for the representative dwelling, so it applies to every dwelling in the building.
+`building.equipment` switches individual appliances for every dwelling in the building.
 
 - `true` installs the appliance, `false` removes it.
 - An omitted appliance keeps its default ownership probability. The household draws once whether it owns one, with a fixed seed, so the same inputs give the same result.
@@ -144,8 +144,8 @@ Public holidays are not modelled.
 
 ## Limitations to tell users
 
-- Dwellings within a building are identical, and peaks scale linearly with the number of dwellings.
-- Two buildings with the same type, household size, archetype and year produce identical profiles.
+- Above 20 dwellings, the 20 generated households are scaled up, so a larger building's peak is not diversified further.
+- Two buildings with the same `id`, type, household size, archetype and year produce identical profiles. `POST /api/v1/buem/building` uses the id `building` when the request has none.
 - Household-size statistics are specific to the Netherlands; other countries use generic figures.
 - The occupancy and appliance data combine Dutch schedules with UK appliance statistics and are described by the occupancy package as a first pass. Ownership and power of the eight ids marked \* are estimates, except `ev_charger` ownership, which follows Dutch 2025 plug-in car figures.
 - Presence is redrawn independently each hour for every household archetype except `working_couple`.
