@@ -3,13 +3,13 @@ name: buem-gateway-https
 
 services:
   buem-model:
-    restart: unless-stopped
     image: ghcr.io/enerplanet/buem-model:${BUEM_MODEL_IMAGE_TAG:-6.8.0}
     env_file: ../env/common.env
     environment:
       - BUEM_CBC_EXE=/opt/conda/envs/buem_env/bin/cbc
       # Disable the weather fallback to ensure only provided weather data is used.
       - BUEM_WEATHER_FALLBACK=false
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:5000/api/health || exit 1"]
       interval: 30s
