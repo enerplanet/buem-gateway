@@ -2,7 +2,7 @@
 """Tests for the v6-draft request schema's output selection: weather and
 building.envelope are required only when heating or cooling is selected, and
 the occupancy fields required by building_type. Also checks the example's
-period against its inline weather.
+period against its inline weather and the response's timeseries unit.
 
 Run directly: python scripts/v6_draft_outputs_test.py
 """
@@ -87,6 +87,16 @@ class OutputSelectionTest(unittest.TestCase):
             with self.subTest(feature=feature["id"]):
                 self.assertEqual(feature["properties"]["start_time"], weather["index"][0])
                 self.assertEqual(feature["properties"]["end_time"], weather["index"][-1])
+
+
+class TimeseriesUnitTest(unittest.TestCase):
+    def test_unit_is_pinned_to_kw(self) -> None:
+        unit = _load("response_schema.json")["$defs"]["load_timeseries"]["properties"]["unit"]
+        validator = jsonschema.Draft202012Validator(unit)
+        self.assertTrue(validator.is_valid("kW"))
+        for other in ("W", "MW"):
+            with self.subTest(unit=other):
+                self.assertFalse(validator.is_valid(other))
 
 
 if __name__ == "__main__":
