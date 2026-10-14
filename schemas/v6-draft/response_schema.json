@@ -328,7 +328,11 @@
         },
         "model_version": {
           "type": "string",
-          "description": "BUEM model version used"
+          "description": "buem-model release that computed this feature, e.g. 6.10.0. model_commit tells apart images built outside a release."
+        },
+        "model_commit": {
+          "type": "string",
+          "description": "buem-model commit that computed this feature, or unknown when the image does not record it."
         },
         "solver_used": {
           "type": "string",
