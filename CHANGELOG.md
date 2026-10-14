@@ -84,6 +84,10 @@ Changes staged in `schemas/v6-draft/`, the in-development next contract.
   reaching past the weather it was given.
 - Response: `load_timeseries.unit` is `const: "kW"`, which buem-model
   already always returns. `W` and `MW` are no longer valid.
+- Response: `model_metadata.model_version` is the buem-model release that
+  computed the feature, and the new `model_metadata.model_commit` its
+  commit. buem-model 6.9.0 and earlier send a fixed `model_version` string
+  and no `model_commit`.
 - `thermal_load_profile.summary.hot_water` and `.kitchen`, and the matching
   `load_timeseries` arrays, report domestic hot water and cooking energy.
   `kitchen` is gas energy (`gas_energy_summary`, `kWh_gas`/`kW_gas` units,
