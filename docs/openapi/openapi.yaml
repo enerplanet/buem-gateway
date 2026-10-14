@@ -58,8 +58,9 @@ paths:
       operationId: checkHealth
       summary: Liveness check
       description: >
-        Returns 200 while the connector is running. Does not check BuEM's
-        availability.
+        Returns 200 while the connector is running, whether or not BuEM
+        answers. buem_version and buem_commit are present only when BuEM
+        answers within 2 seconds and reports them.
       responses:
         "200":
           description: Server is up
@@ -196,7 +197,19 @@ components:
             (schemas/<contract_version>/). Independent of buem-gateway's own
             software version.
           example: v5
-      required: [status, contract_version]
+        gateway_version:
+          type: string
+          description: buem-gateway's software release.
+          example: v7.4.0
+        buem_version:
+          type: string
+          description: The buem-model release behind this gateway.
+          example: 6.10.0
+        buem_commit:
+          type: string
+          description: The buem-model commit behind this gateway.
+          example: 3f2a9c1
+      required: [status, contract_version, gateway_version]
 
     ValidateResponse:
       type: object
