@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log"
 	"net/http"
 
 	"github.com/enerplanet/buem-gateway/internal/buem"
+	"github.com/enerplanet/buem-gateway/internal/version"
 )
 
 // Handler holds the dependencies shared by all HTTP handlers.
@@ -216,7 +218,31 @@ func writeJSON(w http.ResponseWriter, v interface{}) {
 
 // Health handles GET /buem/health. contract_version is the BUEM-EnerPlanET
 // API contract this instance enforces (schemas/<contract_version>/), separate
-// from buem-gateway's own software version.
+// from buem-gateway's own software version. buem_version and buem_commit are
+// omitted when buem-model does not answer or does not report them; the
+// status stays ok, since this is buem-gateway's own liveness.
 func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, map[string]string{"status": "ok", "contract_version": buem.APIVersion})
+	body := map[string]string{
+		"status":           "ok",
+		"contract_version": buem.APIVersion,
+		"gateway_version":  version.Version,
+	}
+	if h.connector != nil {
+		addModelVersion(body, h.connector)
+	}
+	writeJSON(w, body)
+}
+
+func addModelVersion(body map[string]string, connector *buem.Connector) {
+	v, err := connector.ModelVersion()
+	if err != nil {
+		log.Printf("buem-gateway: health: %v", err)
+		return
+	}
+	if v.Version != "" {
+		body["buem_version"] = v.Version
+	}
+	if v.Commit != "" {
+		body["buem_commit"] = v.Commit
+	}
 }
