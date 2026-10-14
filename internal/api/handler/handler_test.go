@@ -12,6 +12,7 @@ import (
 
 	"github.com/enerplanet/buem-gateway/internal/buem"
 	"github.com/enerplanet/buem-gateway/internal/config"
+	"github.com/enerplanet/buem-gateway/internal/version"
 )
 
 // fakeUpstream returns a stub BuEM /api/process server, just enough to
@@ -111,6 +112,67 @@ func TestHealth(t *testing.T) {
 	}
 	if body["contract_version"] != buem.APIVersion {
 		t.Errorf("contract_version = %v, want %q", body["contract_version"], buem.APIVersion)
+	}
+}
+
+// healthUpstream answers buem-model's GET /api/health with body.
+func healthUpstream(t *testing.T, body string) *httptest.Server {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/health" {
+			t.Errorf("upstream path = %q, want /api/health", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(body))
+	}))
+	t.Cleanup(srv.Close)
+	return srv
+}
+
+func healthBody(t *testing.T, h *Handler) map[string]interface{} {
+	t.Helper()
+	w := httptest.NewRecorder()
+	h.Health(w, httptest.NewRequest(http.MethodGet, "/buem/health", nil))
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusOK)
+	}
+	return decodeBody(t, w)
+}
+
+func TestHealth_reportsGatewayAndModelVersions(t *testing.T) {
+	up := healthUpstream(t, `{"status":"ok","version":"6.10.0","commit":"abc1234"}`)
+	body := healthBody(t, newTestHandler(t, up))
+
+	if body["gateway_version"] != version.Version {
+		t.Errorf("gateway_version = %v, want %q", body["gateway_version"], version.Version)
+	}
+	if body["buem_version"] != "6.10.0" || body["buem_commit"] != "abc1234" {
+		t.Errorf("buem_version, buem_commit = %v, %v, want 6.10.0, abc1234", body["buem_version"], body["buem_commit"])
+	}
+}
+
+func TestHealth_omitsModelVersionsBuemDoesNotReport(t *testing.T) {
+	up := healthUpstream(t, `{"status":"ok"}`)
+	body := healthBody(t, newTestHandler(t, up))
+
+	for _, k := range []string{"buem_version", "buem_commit"} {
+		if _, ok := body[k]; ok {
+			t.Errorf("%s = %v, want absent", k, body[k])
+		}
+	}
+}
+
+func TestHealth_staysOkWhenBuemIsDown(t *testing.T) {
+	up := healthUpstream(t, `{}`)
+	h := newTestHandler(t, up)
+	up.Close()
+	body := healthBody(t, h)
+
+	if body["status"] != "ok" {
+		t.Errorf("status = %v, want ok", body["status"])
+	}
+	if _, ok := body["buem_version"]; ok {
+		t.Errorf("buem_version = %v, want absent", body["buem_version"])
 	}
 }
 
