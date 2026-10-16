@@ -278,10 +278,14 @@ components:
         start_date:
           type: string
           format: date-time
-          description: Simulation window start.
+          description: Start of the reported period, inclusive.
         end_date:
           type: string
           format: date-time
+          description: >
+            End of the reported period, inclusive, in the year of start_date.
+            A full year ends at 31 December 23:00; buem-model 6.10.0 and later
+            reject 1 January 00:00 of the next year.
         resolution:
           type: integer
           description: Output resolution in minutes.
@@ -371,9 +375,11 @@ components:
         start_date:
           type: string
           format: date-time
+          description: Same rule as `BuildingRequest.start_date`.
         end_date:
           type: string
           format: date-time
+          description: Same rule as `BuildingRequest.end_date`.
         resolution:
           type: integer
           example: 60
