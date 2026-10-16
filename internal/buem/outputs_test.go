@@ -126,3 +126,27 @@ func TestConnectorRunBatch_UntypedFieldsSurviveWithoutOutputs(t *testing.T) {
 		}
 	}
 }
+
+// TestConnectorRunBatch_SurfacesBuemFeatureError covers a feature BuEM
+// rejects: BuEM answers 200 with buem.error, and the building's Error carries
+// BuEM's message on both the outputs and the no-outputs path.
+func TestConnectorRunBatch_SurfacesBuemFeatureError(t *testing.T) {
+	const msg = "Attribute validation failed: components.Walls.elements[12].area must be > 0"
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"type":"FeatureCollection","features":[{"properties":{"buem":{
+			"error":{"type":"processing_error","message":"` + msg + `","feature_id":"b1"}}}}]}`))
+	}))
+	defer upstream.Close()
+	host, portStr, _ := strings.Cut(strings.TrimPrefix(upstream.URL, "http://"), ":")
+	port, _ := strconv.Atoi(portStr)
+	conn := NewConnector(&config.Config{MaxConcurrentSims: 1, BuEM: config.UpstreamService{Host: host, Port: port}})
+
+	for name, in := range map[string]BuildingInput{"no outputs": testBuildingInput("b1"), "outputs": occupancyOnlyInput("b1")} {
+		t.Run(name, func(t *testing.T) {
+			results := conn.RunBatch([]BuildingInput{in}, "2018-01-01T00:00:00Z", "2018-12-31T23:00:00Z", "", 60, false)
+			if len(results) != 1 || !strings.Contains(results[0].Error, msg) || results[0].BUEM != nil {
+				t.Fatalf("results = %+v, want one error carrying %q", results, msg)
+			}
+		})
+	}
+}

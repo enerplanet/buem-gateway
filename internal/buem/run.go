@@ -81,10 +81,21 @@ func callUpstream(client *httpclient.Client, cfg *config.Config, task Task, incl
 // stripSeries is true, and required to carry a heating series when
 // requireSeries is true. Every other field passes through, including ones
 // buem-gateway has no type for. It also returns the model's processing time.
+// A block carrying BuEM's error is returned as an error with BuEM's message.
 func finishBlock(block json.RawMessage, stripSeries, requireSeries bool) ([]byte, float64, error) {
 	var fields map[string]json.RawMessage
 	if err := json.Unmarshal(block, &fields); err != nil {
 		return nil, 0, fmt.Errorf("BuEM response buem block is not an object: %w", err)
+	}
+	// BuEM answers 200 for a feature it rejects and puts the reason here.
+	if raw, ok := fields["error"]; ok {
+		var e struct {
+			Message string `json:"message"`
+		}
+		if err := json.Unmarshal(raw, &e); err != nil || e.Message == "" {
+			return nil, 0, fmt.Errorf("BuEM rejected the building: %s", raw)
+		}
+		return nil, 0, fmt.Errorf("BuEM rejected the building: %s", e.Message)
 	}
 	var meta struct {
 		ProcessingTime Quantity `json:"processing_time"`
