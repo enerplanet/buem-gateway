@@ -88,6 +88,11 @@ Changes staged in `schemas/v6-draft/`, the in-development next contract.
   computed the feature, and the new `model_metadata.model_commit` its
   commit. buem-model 6.9.0 and earlier send a fixed `model_version` string
   and no `model_commit`.
+- `buem.storeys` and `buem.construction_year` are documented as fields
+  reserved for building-configurator. buem-model ignores both and echoes
+  them back.
+- The `building.residential_units` description states the summed-household
+  model buem-model uses since 6.9.0.
 - `thermal_load_profile.summary.hot_water` and `.kitchen`, and the matching
   `load_timeseries` arrays, report domestic hot water and cooking energy.
   `kitchen` is gas energy (`gas_energy_summary`, `kWh_gas`/`kW_gas` units,
