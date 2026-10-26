@@ -72,7 +72,16 @@
         "outputs":  { "$ref": "#/$defs/outputs" },
         "solver":   { "$ref": "#/$defs/solver" },
         "inputs":   { "$ref": "#/$defs/inputs" },
-        "weather":  { "$ref": "#/$defs/weather" }
+        "weather":  { "$ref": "#/$defs/weather" },
+        "storeys": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Reserved for building-configurator: the building's storey count as the user set it. Ignored by buem-model and echoed back unchanged."
+        },
+        "construction_year": {
+          "type": "integer",
+          "description": "Reserved for building-configurator: the construction year as the user set it, not the TABULA class code in building.construction_period. Ignored by buem-model and echoed back unchanged."
+        }
       },
       "if": {
         "required": ["outputs"],
@@ -271,7 +280,7 @@
           "type": "integer",
           "minimum": 1,
           "default": 1,
-          "description": "Number of dwellings in the building. buem-model simulates one representative dwelling and multiplies its internal gains, electricity, hot water and cooking by this number, so every dwelling is identical and peaks scale linearly. Required for MFH and AB. Must be 1 for service building_type, whose occupancy comes from capacity."
+          "description": "Number of dwellings in the building. buem-model generates min(residential_units, 20) distinct households, sums their internal gains, electricity, hot water and cooking, and scales the sum to residential_units, so dwellings peak at different hours. Required for MFH and AB. Must be 1 for service building_type, whose occupancy comes from capacity."
         },
         "num_persons": {
           "type": "integer",

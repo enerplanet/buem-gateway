@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://buem.energy/schemas/contract/v6-draft/response",
   "title": "BUEM GeoJSON Response Schema (API contract v6-draft)",
-  "description": "Response schema for the BUEM building energy model. Echoes the request structure and adds thermal_load_profile and model_metadata to each feature's buem node. All output quantities carry explicit unit fields. Timeseries arrays declare their unit once at the array level. Draft, not yet promoted — see v6-draft-contract-backlog for open items, including this file's own hot_water/kitchen additions below.",
+  "description": "Response schema for the BUEM building energy model. Echoes the request structure and adds thermal_load_profile and model_metadata to each feature's buem node. All output quantities carry explicit unit fields. Timeseries arrays declare their unit once at the array level. Draft, not yet promoted.",
   "type": "object",
   "required": ["type", "features"],
   "properties": {
