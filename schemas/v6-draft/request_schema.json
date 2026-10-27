@@ -81,6 +81,10 @@
         "construction_year": {
           "type": "integer",
           "description": "Reserved for building-configurator: the construction year as the user set it, not the TABULA class code in building.construction_period. Ignored by buem-model and echoed back unchanged."
+        },
+        "configurator": {
+          "type": "object",
+          "description": "Reserved for building-configurator, which owns its content and shape. Ignored by buem-model and echoed back unchanged. building holds the block BuEM runs; nothing here changes the run."
         }
       },
       "if": {
