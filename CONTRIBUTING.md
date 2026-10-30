@@ -89,7 +89,7 @@ git push -u origin <your-branch-name>
 
 ### 6. Open a pull request
 
-Create a pull request against `main`. Include:
+Create a pull request against `dev`, the integration branch. `main` receives only release merges from `dev`. Include:
 
 - What changed and why
 - Related issue(s) (e.g. `Closes #123`)
