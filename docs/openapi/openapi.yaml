@@ -32,9 +32,9 @@ info:
 
 servers:
   - url: http://localhost:8081
-    description: Local development, the service published directly (environment/http)
+    description: Local development, the service published directly
   - url: https://localhost:8443
-    description: Local development behind the bundled TLS proxy (environment/https)
+    description: Local development behind the bundled TLS proxy (compose `https` profile)
   - url: https://{host}
     description: Deployed behind the platform's reverse proxy
     variables:

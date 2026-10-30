@@ -21,7 +21,7 @@ The diagram shows one batch request passing through the components:
 sequenceDiagram
     autonumber
     participant Caller as Caller<br/>e.g. EnerPlanET backend
-    participant Proxy as buem-reverse-proxy<br/>Caddy, TLS only, optional
+    participant Proxy as proxy<br/>Caddy, TLS only, optional
     participant App as buem-gateway<br/>Go connector
     participant Model as buem-model<br/>BuEM Flask
 
