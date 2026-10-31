@@ -91,6 +91,12 @@ Changes staged in `schemas/v6-draft/`, the in-development next contract.
 - `buem.storeys` and `buem.construction_year` are documented as fields
   reserved for building-configurator. buem-model ignores both and echoes
   them back.
+- `buem.configurator` is reserved as an object owned by
+  building-configurator, with no fixed shape. buem-model ignores it and
+  echoes it back.
+- `buem.storeys` and `buem.construction_year` are deprecated. Only
+  buildings saved by building-configurator 0.14.0 and earlier carry them;
+  later releases write both under `buem.configurator`.
 - The `building.residential_units` description states the summed-household
   model buem-model uses since 6.9.0.
 - `thermal_load_profile.summary.hot_water` and `.kitchen`, and the matching
