@@ -1,9 +1,11 @@
 # Overlay Docker Compose configuration for testing the BuEM model's weather module against a local archive.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.weathertest.yml up -d
 services:
-  buem-model:
+  model:
     environment:
       - BUEM_WEATHER_FALLBACK=true
       - BUEM_DEFAULT_WEATHER_PROVIDER=merra-2
       - WEATHER_DATA_DIR=/weather-data
     volumes:
-      - ../../../weather/data/merra2/austria/output:/weather-data/merra2/output:ro
+      - ../../weather/data/merra2/austria/output:/weather-data/merra2/output:ro

@@ -27,7 +27,7 @@ The schema-contract version and buem-gateway's release version are numbered inde
 sequenceDiagram
     autonumber
     participant Caller as Caller<br/>e.g. EnerPlanET backend
-    participant Proxy as buem-reverse-proxy<br/>Caddy, TLS only, optional
+    participant Proxy as proxy<br/>Caddy, TLS only, optional
     participant App as buem-gateway<br/>Go connector
     participant Model as buem-model<br/>BuEM Flask
 
@@ -65,19 +65,18 @@ Full reference: [`docs/api.md`](docs/api.md).
 
 ## Quick start
 
-Pick a transport. `environment/http` runs the service directly, `environment/https` puts Caddy in front of it to terminate TLS. Both use pre-built images and need no `.env`, no Go toolchain and no local Caddy install.
+`environment/docker-compose.yml` runs the service directly, or with the `https` profile behind Caddy terminating TLS. Both use pre-built images and need no `.env`, no Go toolchain and no local Caddy install.
 
 ```bash
-cd environment/http
-docker compose up -d
+cd environment
+docker compose up -d --pull always --no-build
 curl -s http://localhost:8081/buem/health
 ```
 
-The port is published on loopback only, so the service is reachable from your machine and nowhere else. For TLS instead:
+The port is published on loopback only, so the service is reachable from your machine and nowhere else. For TLS as well:
 
 ```bash
-cd environment/https
-docker compose up -d
+docker compose --profile https up -d --pull always --no-build
 curl -sk https://localhost:8443/buem/health
 ```
 
@@ -87,8 +86,8 @@ curl -sk https://localhost:8443/buem/health
 
 | Step | Command | Description |
 | --- | --- | --- |
-| 1 | `cd environment/http` | No `.env` needed; every value has a default |
-| 2 | `docker compose -f docker-compose.build.yml up -d --build` | Build the connector from this source tree, then start `buem-model` and `buem-gateway` |
+| 1 | `cd environment` | No `.env` needed; every value has a default |
+| 2 | `docker compose up -d --build` | Build the connector from this source tree, then start `buem-model` and `buem-gateway` |
 | 3 | `curl -s http://localhost:8081/buem/health` | Confirm the stack is up |
 
 Full setup and deployment details: [`docs/getting-started.md`](docs/getting-started.md).

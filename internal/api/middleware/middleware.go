@@ -12,9 +12,9 @@ import (
 // middleware (github.com/thd-spatial-ai/ignis, internal/api/middleware).
 //
 // This is the only CORS implementation in the stack. The optional TLS proxy
-// (environment/https/caddy/Caddyfile) forwards every request, preflight
-// included, and sets no CORS headers of its own, and the HTTP environment runs
-// with no proxy at all. Without this middleware a real request succeeds
+// (environment/caddy/Caddyfile, compose `https` profile) forwards every
+// request, preflight included, and sets no CORS headers of its own, and
+// without that profile there is no proxy at all. Without this middleware a real request succeeds
 // server-side and is then rejected by the browser as a failed fetch.
 //
 // Allowed origins come from the ALLOWED_ORIGINS environment variable as a

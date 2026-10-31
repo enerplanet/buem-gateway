@@ -14,7 +14,7 @@ None. buem-gateway checks no credential, and neither does anything shipped in fr
     Deploy buem-gateway only on a network whose access is already controlled, with callers authenticated by the EnerPlanET platform first. Anyone who can open a connection can run a simulation.
 
 !!! note "Base URL"
-    Local development: `http://localhost:8081` running `environment/http`, or `https://localhost:8443` running `environment/https`. Otherwise, whatever host the service is published on. See [Getting started](getting-started.md).
+    Local development: `http://localhost:8081`, or `https://localhost:8443` under the compose `https` profile. Otherwise, whatever host the service is published on. See [Getting started](getting-started.md).
 
 ## Endpoints
 
@@ -100,9 +100,9 @@ Unless `outputs` selects neither heating nor cooling, `buem.weather` must be pre
 
 [Open the API reference](openapi/index.html), which can call a locally running buem-gateway directly.
 
-1. Start the stack, from `environment/http`: `docker compose up -d`. This pulls pre-built images from GHCR, so there is no `.env` and no build step. To test a local code change instead, see [Getting started](getting-started.md).
+1. Start the stack, from `environment/`: `docker compose up -d --pull always --no-build`. This pulls pre-built images from GHCR, so there is no `.env` and no build step. To test a local code change instead, see [Getting started](getting-started.md).
 2. Serve `docs/openapi/` on `http://127.0.0.1:8000` (`python -m http.server 8000` from that directory works), since `ALLOWED_ORIGINS` allows that origin already. Opening the file directly (`file://`) works for reading the reference, but **Try it out** needs an allowed origin.
 3. Pick the `http://localhost:8081` server in the **Servers** dropdown, which matches the stack you just started.
 4. Expand an endpoint, click **Try it out**, fill in the parameters, then **Execute**. No credential is needed; nothing in the stack checks one.
 
-For the TLS environment, start `environment/https`, choose the `https://localhost:8443` server, and first open `https://localhost:8443` in a browser tab and accept the untrusted-certificate warning. The bundled certificate authority is not in the browser's trust store, so the warning is expected.
+For TLS, start the stack with `docker compose --profile https up -d --pull always --no-build`, choose the `https://localhost:8443` server, and first open `https://localhost:8443` in a browser tab and accept the untrusted-certificate warning. The bundled certificate authority is not in the browser's trust store, so the warning is expected.
