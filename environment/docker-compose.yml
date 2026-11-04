@@ -1,0 +1,96 @@
+# buem-gateway and buem-model, served over plain HTTP or, with the `https`
+# profile, behind Caddy terminating TLS. One file covers every way of running it:
+#
+#   docker compose up -d --pull always --no-build       # run the published release
+#   docker compose up -d --build                        # build the gateway from this checkout
+#   docker compose --profile https up -d ...            # either, behind Caddy
+#
+# BUEM_GATEWAY_IMAGE_TAG and BUEM_MODEL_IMAGE_TAG pick the releases;
+# COMPOSE_PROFILES=https in .env makes https the default. .env is optional:
+# every ${...} below has a default.
+
+# The unit `down --remove-orphans` acts on, so it is scoped to this repository.
+name: buem-gateway
+
+services:
+  # Published by enerplanet/buem; never built here.
+  model:
+    image: ghcr.io/enerplanet/buem-model:${BUEM_MODEL_IMAGE_TAG:-6.10.0}
+    environment:
+      - BUEM_CBC_EXE=/opt/conda/envs/buem_env/bin/cbc
+      # Every request carries its own resolved weather; this also skips
+      # buem-model's module-load default fetch. See docs/getting-started.md.
+      - BUEM_WEATHER_FALLBACK=false
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:5000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 5
+
+  # The Go connector. See ../internal/buem.
+  api:
+    restart: unless-stopped
+    image: ghcr.io/enerplanet/buem-gateway:${BUEM_GATEWAY_IMAGE_TAG:-latest}
+    build:
+      # The dockerfile stays at environment/ because
+      # .github/workflows/docker-publish.yml builds from that path.
+      context: ..
+      dockerfile: environment/gateway.dockerfile
+    env_file: env/common.env
+    environment:
+      - APP_PORT=${APP_PORT:-8080}
+      - BUEM_SERVICE_HOST=model
+      - BUEM_SERVICE_PORT=5000
+    depends_on:
+      model:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:$$APP_PORT/buem/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    # 8081 rather than 8080, which the EnerPlanET platform's Keycloak holds,
+    # and ignis takes 8088. Set HOST_BIND=0.0.0.0 only where a firewall or
+    # upstream proxy controls who reaches the port.
+    ports:
+      - "${HOST_BIND:-127.0.0.1}:${HOST_PORT:-8081}:${APP_PORT:-8080}"
+    networks:
+      default:
+      tentacron-net:
+        # Callers in other repositories address `buem-gateway`. The service
+        # name `api` is shared by other repositories on this network and
+        # resolves to any of them, so it is never an address.
+        # buem-gateway-http is kept until every caller has moved.
+        aliases: [buem-gateway, buem-gateway-http]
+
+  proxy:
+    profiles: [https]
+    restart: unless-stopped
+    image: caddy:2.11-alpine
+    environment:
+      - APP_PORT=${APP_PORT:-8080}
+      - BUEM_SITE_ADDRESS=${BUEM_SITE_ADDRESS:-localhost}
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      # 8443 so it does not collide with ignis's proxy on 443.
+      - "${HOST_HTTPS_PORT:-8443}:443"
+    volumes:
+      - ./caddy:/etc/caddy:ro
+      # Set CADDY_DATA_DIR to the host directory `caddy trust` created to get
+      # a trusted certificate. Unset, Caddy keeps its CA in a Docker volume
+      # that is in no trust store, and clients see a certificate warning.
+      - ${CADDY_DATA_DIR:-caddy-data}:/data/caddy
+
+volumes:
+  caddy-data:
+
+# Shared with the other heat-stack repos: key and name stay identical and nothing is added, since another
+# key fails `up` on a label mismatch and driver or ipam options make Compose recreate it for every stack.
+# The "exists but was not created" warning on `up` is expected; its `external: true` advice breaks a clean checkout.
+networks:
+  tentacron-net:
+    name: tentacron-net
