@@ -2,7 +2,12 @@ name: MkDocs
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
+    paths:
+      - "docs/**"
+      - "mkdocs.yml"
+  pull_request:
+    branches: [main, dev]
     paths:
       - "docs/**"
       - "mkdocs.yml"
@@ -13,8 +18,9 @@ permissions:
   pages: write
   id-token: write
 
+# main shares "pages" with nothing else, so a dev or PR run never cancels a deploy.
 concurrency:
-  group: "pages"
+  group: ${{ github.ref == 'refs/heads/main' && 'pages' || format('docs-{0}', github.ref) }}
   cancel-in-progress: true
 
 jobs:
@@ -51,7 +57,9 @@ jobs:
         with:
           path: site
 
+  # Pages publishes main only; dev and pull requests stop after the build.
   deploy:
+    if: github.ref == 'refs/heads/main'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
